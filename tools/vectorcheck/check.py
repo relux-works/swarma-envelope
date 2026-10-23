@@ -304,7 +304,7 @@ def split_tag(raw, malformed):
     return tag, payload
 
 
-def signer_admission(raw):
+def signer_admission(raw, f):
     require(len(raw) <= 24576, "signer_preimage_too_large")
     tag, payload = split_tag(raw, "signer_tag_malformed")
     require(tag == b"swarma-msg/2", "signer_domain_refused")
@@ -314,6 +314,24 @@ def signer_admission(raw):
     except Refusal:
         raise Refusal("signer_payload_invalid") from None
     require(canonical == payload, "signer_payload_invalid")
+    enabled, multi_agent = f.get("identity_check", False), f.get("multi_agent", False)
+    require(type(enabled) is bool and type(multi_agent) is bool, "signer_identity_unavailable")
+    if enabled or multi_agent:
+        caller_key = f.get("caller_key_id")
+        try:
+            alg, public = key_bytes(caller_key)
+            require(alg == "ed25519", "envelope_malformed")
+            point(public)
+        except Refusal:
+            raise Refusal("signer_identity_unavailable") from None
+        # These exact paths are each read once after duplicate-free CCJ admission.
+        require(type(decoded) is dict, "signer_identity_malformed")
+        key = decoded.get("key")
+        body = decoded.get("body")
+        require(type(body) is dict, "signer_identity_malformed")
+        author = body.get("author")
+        require(type(key) is str and type(author) is str, "signer_identity_malformed")
+        require(key == caller_key and author == caller_key, "signer_identity_mismatch")
     return {"tag": "swarma-msg/2", "preimage_sha256": digest(raw)}
 
 
@@ -569,7 +587,7 @@ def verdict(vector):
     f, inp, mode = vector["fixture"], vector["input"], vector["mode"]
     try:
         if mode == "signer":
-            return {"code": "accept", "plan": signer_admission(unb64(inp["preimage"]))}
+            return {"code": "accept", "plan": signer_admission(unb64(inp["preimage"]), f)}
         if mode == "domain":
             return {"code": "accept", "plan": check_domain(inp, f)}
         if mode == "grant":

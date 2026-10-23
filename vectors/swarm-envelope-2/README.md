@@ -64,6 +64,7 @@ signatures in the fixtures, not a boolean signature-valid input.
 | J01–J15, PB1–PB2 | Attestation regressions: absent/null records and tuples, boolean/float/string/nonpositive registrations, missing required fields and malformed validity; empty/overlong/surrogate principal text; maximum safe integer and 255-byte text positive controls. |
 | B0001–B0462 | Caller evidence and principal-tuple shape sweep in author, delegated issuer and grant leaf subject: missing/null and every wrong JSON type per required field, plus integral/fractional floats, nonpositive and unsafe registration numbers. |
 | M01–M12, M19–M27, PM01–PM12 | Protected provenance matrix: root Ed25519/P-256, operator P-256 and agent Ed25519 in issuer, intermediate subject and leaf-subject positions. Valid provenance accepts; removed provenance refuses unavailable; non-current operator devices and contradictory algorithm/class claims refuse invalid. |
+| I01–I21, PI1–PI5 | Caller-identity narrowing for message signing: exact key/author paths and byte comparison; foreign/disagreeing identities, missing/wrong types, aliases, duplicates, caller/policy unavailability and mandatory multi-agent enforcement. Role/action semantics remain receiver checks. Existing S21/S22 and PS2/PS3 bounds are unchanged. |
 | O01–O18, PO1–PO4 | Exact consumer/binding/argument/epoch/key, single-use act, widening confirmation/provider facts, replay availability and record bound. |
 
 These are bounded witnesses, not exhaustive property proofs or an implementation

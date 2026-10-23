@@ -41,3 +41,10 @@ These are adapter result values, not a new attestation serialization. Fixture
 protected authority pin. PM/M matrix cases exercise provenance in all chain
 positions, including both root algorithms and return to a pinned root. Root
 provenance wins over a device pin; agent checks are never bypassed by algorithm.
+
+Signer-mode fixtures may enable `identity_check`; `multi_agent=true` always
+enforces it. `caller_key_id` is the service-resolved attested active-generation
+key id supplied as protected test context, not a new native request member.
+The check reads only exact signed-record `key` and `body.author`, after canonical
+admission, and compares both to that id. I/PI cases pin identity refusal causes
+and demonstrate that role/action interpretation still belongs to the receiver.

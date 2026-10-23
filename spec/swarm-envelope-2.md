@@ -216,7 +216,7 @@ The signer-provider interface is:
 SignMessage(full_preimage_bytes) -> {key_id, raw_signature_64_bytes} | refusal
 ```
 
-The provider's configured station key is Ed25519. It MUST check, in order:
+The provider's key resolved for each caller is Ed25519. It MUST check, in order:
 
 1. Full preimage length <=24,576 bytes, before allocation/signing.
 2. A first LF exists; bytes before it satisfy the tag alphabet/length in §2.4.
@@ -225,17 +225,47 @@ The provider's configured station key is Ed25519. It MUST check, in order:
    remainder byte for byte, with depth <=12 (root container = 1), strings
    <=8,192 bytes and arrays <=64 entries, plus every CCJ-1 rejection rule.
 
+A provider MAY additionally enforce caller identity. This check is REQUIRED
+for a provider that holds keys for several agents; it cannot be disabled by a
+caller option. After steps 1–4 it resolves the attested Ed25519 key id for the
+calling OS identity and its active generation, using the signing service's
+existing identity/attestation mechanism and §2.6's key-id derivation. This is
+protected service context, never a key selector or asserted identity supplied
+inside the signing request. Unavailable or invalid identity resolution refuses.
+
+The check extracts exactly two identity paths from the canonical signed record:
+
+| Path | Required value |
+| --- | --- |
+| `key` | Top-level signed-record key id, a string |
+| `body.author` | Message author key id, a string inside the body object |
+
+Each path is extracted exactly once, with those exact member names, no aliases,
+no first/last-member choice and no fallback to other fields. CCJ-1 already
+rejects duplicate decoded members, including escaped aliases, before this
+check. A missing path, non-object path container or wrongly typed member
+refuses. Both strings MUST equal the caller's resolved attested key id, byte for
+byte, before signing; agreement between two foreign ids is insufficient.
+The check applies only in the exact message domain; grant and operator-act tags
+already refuse at step 3. Nothing else in the body is interpreted.
+
+This check narrows what bytes the provider signs. It does not replace any
+receiver schema, signature-profile, attestation, grant, revocation or authority
+check. A single-agent provider without this optional narrowing retains the
+base codec-only admission contract (PS1–PS5); a multi-agent provider must apply
+both contracts. PI1–PI5 and I01–I21 exercise the additional check.
+
 It MUST sign the original complete bytes, without changing whitespace, adding a
-newline, reconstructing an envelope, parsing its schema or deciding action,
-role, type, audience, grants or operator authority. Codec parsing is required;
-envelope parsing is not. The signature is ordinary Ed25519, not a signature on
+newline, reconstructing an envelope or deciding action, role, type, audience,
+grants or operator authority. Codec parsing and the conditional identity paths
+above are the only record inspection. The signature is ordinary Ed25519, not a signature on
 the content id or a second hash. The key id MUST be derived from the bound public
 key by §2.3 and returned with the raw signature. Refusal releases no signature.
 Existing caller/kernel identity checks remain the signing service's boundary;
 the rules here add no caller-controlled key selector or native method grammar.
 
-Because this signer is deliberately schema-blind, it may sign a canonical
-record claiming `approver` or another body type under the fixed message tag.
+The provider may still sign a canonical record claiming `approver` or another
+body type under the fixed message tag, even after identity narrowing succeeds.
 That does not authorize the claim: receivers MUST enforce §2.4 and reconstruct
 the tag for their caller-selected type. Operator/grant verifiers cannot reuse
 that signature. PS5 and E13/D43/D44 distinguish these two responsibilities.
@@ -700,7 +730,10 @@ persistence plan on refusal and a candidate plan on accept, never committed I/O.
 Message signer admission (§2.5) has its own ordered refusals: size
 `signer_preimage_too_large`; tag grammar/delimiter `signer_tag_malformed`;
 exact message membership `signer_domain_refused`; CCJ-1 canonicality/depth
-`signer_payload_invalid`. It performs no effect authorization. In domain-only
+`signer_payload_invalid`; when identity narrowing applies, missing/invalid
+service-resolved caller key or identity policy `signer_identity_unavailable`,
+then missing/wrongly typed identity paths `signer_identity_malformed`, then
+unequal identity values `signer_identity_mismatch`. It performs no effect authorization. In domain-only
 conformance probes a malformed tag is `domain_tag_malformed`, an unregistered
 configured tag `domain_unknown`, and unequal received/configured bytes
 `domain_mismatch`; a correctly retagged foreign signature then fails

@@ -1,0 +1,18 @@
+{
+  "id": "I17",
+  "claim": "A canonical array remains codec-valid but cannot supply identity paths.",
+  "positive_control": "PI1",
+  "mode": "signer",
+  "input": {
+    "preimage": "c3dhcm1hLW1zZy8yCltd"
+  },
+  "fixture": {
+    "caller_key_id": "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+    "identity_check": true,
+    "multi_agent": true
+  },
+  "expected": {
+    "code": "signer_identity_malformed",
+    "plan": {}
+  }
+}

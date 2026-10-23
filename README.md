@@ -4,7 +4,7 @@ A secure agent coordination and communication protocol: signed messages between 
 
 ## Status
 
-**Draft design with offline conformance tooling.** The platform slice specifies `swarm-envelope/2`, general `grant/1` and `operator-act/1`. Its 1370 vectors (1321 negative, 49 positive) have a Go generator and independent Python checker. No production verifier, consumer integration or activation is implemented. The Go module currently contains tools only; the public library is a later slice. Broker v0 retains static R1 admission; Keymaker persistent revoke remains gated on verifier integration.
+**Draft design with offline conformance tooling.** The platform slice specifies `swarm-envelope/2`, general `grant/1` and `operator-act/1`. Its 1396 vectors (1342 negative, 54 positive) have a Go generator and independent Python checker. No production verifier, consumer integration or activation is implemented. The Go module currently contains tools only; the public library is a later slice. Broker v0 retains static R1 admission; Keymaker persistent revoke remains gated on verifier integration.
 
 ## Layout
 

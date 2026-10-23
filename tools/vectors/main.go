@@ -580,6 +580,7 @@ func main() {
 	reworkVectors()
 	typeSweep()
 	attestationVectors()
+	signerIdentityVectors()
 	seeds, pubs := M{}, M{}
 	for i, k := range keys {
 		name := fmt.Sprintf("test-%d", i)
@@ -1278,4 +1279,78 @@ func provenanceMatrix() {
 			}
 		}
 	}
+}
+
+// Identity narrowing reads only signing-record key and body.author. Caller key
+// and multi-agent policy are protected service context, never preimage selectors.
+func signerIdentityVectors() {
+	message := base("envelope", 0)
+	pre := sigPre(body(message), "author", keys[0].ID, "message/1")
+	baseIdentity := func() Vector {
+		v := signerVector(pre)
+		v.Fixture = M{"identity_check": true, "multi_agent": true, "caller_key_id": keys[0].ID}
+		return v
+	}
+	change := func(v *Vector, edit func(M)) {
+		raw := unb64(v.Input["preimage"].(string))
+		p := decode(b64(bytes.SplitN(raw, []byte{'\n'}, 2)[1]))
+		edit(p)
+		v.Input["preimage"] = b64(tagged("swarma-msg/2", canonical(p)))
+	}
+	rows := []struct {
+		id, claim, code string
+		edit            func(*Vector)
+	}{
+		{"I01", "Another agent's author cannot be signed with the caller's own key.", "signer_identity_mismatch", func(v *Vector) { change(v, func(p M) { p["body"].(M)["author"] = keys[1].ID }) }},
+		{"I02", "Another agent's signing-record key cannot select a service key.", "signer_identity_mismatch", func(v *Vector) { change(v, func(p M) { p["key"] = keys[1].ID }) }},
+		{"I03", "Matching author and key of another agent still disagree with the OS caller.", "signer_identity_mismatch", func(v *Vector) { change(v, func(p M) { p["key"] = keys[1].ID; p["body"].(M)["author"] = keys[1].ID }) }},
+		{"I04", "Different foreign author and signing key do not agree as caller identity.", "signer_identity_mismatch", func(v *Vector) { change(v, func(p M) { p["key"] = keys[1].ID; p["body"].(M)["author"] = keys[2].ID }) }},
+		{"I05", "Missing exact top-level key path refuses without fallback.", "signer_identity_malformed", func(v *Vector) { change(v, func(p M) { delete(p, "key") }) }},
+		{"I06", "Missing exact body.author path refuses without fallback.", "signer_identity_malformed", func(v *Vector) { change(v, func(p M) { delete(p["body"].(M), "author") }) }},
+		{"I07", "Array body.author is a wrong type, not an identity alias.", "signer_identity_malformed", func(v *Vector) { change(v, func(p M) { p["body"].(M)["author"] = []any{keys[0].ID} }) }},
+		{"I08", "Object key is a wrong type, not an identity alias.", "signer_identity_malformed", func(v *Vector) { change(v, func(p M) { p["key"] = M{"key": keys[0].ID} }) }},
+		{"I09", "Missing body makes the required author path unavailable in the record.", "signer_identity_malformed", func(v *Vector) { change(v, func(p M) { delete(p, "body") }) }},
+		{"I10", "Array body cannot supply the exact author path.", "signer_identity_malformed", func(v *Vector) { change(v, func(p M) { p["body"] = []any{M{"author": keys[0].ID}} }) }},
+		{"I11", "Missing caller key resolution refuses before signing.", "signer_identity_unavailable", func(v *Vector) { delete(v.Fixture, "caller_key_id") }},
+		{"I12", "Wrong-type caller key evidence cannot disable identity narrowing.", "signer_identity_unavailable", func(v *Vector) { v.Fixture["caller_key_id"] = []any{keys[0].ID} }},
+		{"I13", "Multi-agent signing enforces identity even when the optional flag is false.", "signer_identity_mismatch", func(v *Vector) {
+			v.Fixture["identity_check"] = false
+			change(v, func(p M) { p["body"].(M)["author"] = keys[1].ID })
+		}},
+		{"I14", "Duplicate body.author refuses at canonicality before identity choice.", "signer_payload_invalid", func(v *Vector) {
+			raw := unb64(v.Input["preimage"].(string))
+			needle := []byte(`"author":`)
+			v.Input["preimage"] = b64(bytes.Replace(raw, needle, []byte(`"author":"`+keys[1].ID+`","author":`), 1))
+		}},
+		{"I15", "Duplicate signing-record key refuses at canonicality before identity choice.", "signer_payload_invalid", func(v *Vector) {
+			raw := unb64(v.Input["preimage"].(string))
+			v.Input["preimage"] = b64(bytes.Replace(raw, []byte(`"key":`), []byte(`"key":"`+keys[1].ID+`","key":`), 1))
+		}},
+		{"I16", "Identity key comparison does not fold case.", "signer_identity_mismatch", func(v *Vector) { change(v, func(p M) { p["key"] = strings.ToUpper(keys[0].ID) }) }},
+		{"I17", "A canonical array remains codec-valid but cannot supply identity paths.", "signer_identity_malformed", func(v *Vector) { v.Input["preimage"] = b64(tagged("swarma-msg/2", []byte(`[]`))) }},
+		{"I18", "A malformed optional-check policy cannot silently disable identity.", "signer_identity_unavailable", func(v *Vector) { v.Fixture["identity_check"] = []any{} }},
+		{"I19", "Integer truthiness is not a boolean multi-agent policy.", "signer_identity_unavailable", func(v *Vector) { v.Fixture["multi_agent"] = 1 }},
+		{"I20", "A signing_key alias cannot replace the exact key member.", "signer_identity_malformed", func(v *Vector) { change(v, func(p M) { delete(p, "key"); p["signing_key"] = keys[0].ID }) }},
+		{"I21", "An author_key alias cannot replace exact body.author.", "signer_identity_malformed", func(v *Vector) {
+			change(v, func(p M) { delete(p["body"].(M), "author"); p["body"].(M)["author_key"] = keys[0].ID })
+		}},
+	}
+	for _, r := range rows {
+		v := baseIdentity()
+		r.edit(&v)
+		add(r.id, r.claim, "PI1", r.code, v)
+	}
+	add("PI1", "Exact signing key and body.author match the attested OS caller and active generation.", "", "accept", baseIdentity())
+	v := baseIdentity()
+	change(&v, func(p M) { p["role"] = "approver" })
+	add("PI2", "Identity narrowing does not interpret role; receiver profile checks remain mandatory.", "", "accept", v)
+	v = baseIdentity()
+	v.Fixture["identity_check"] = false
+	add("PI3", "Multi-agent providers always apply the identity check even with the optional flag false.", "", "accept", v)
+	v = baseIdentity()
+	v.Fixture["multi_agent"] = false
+	add("PI4", "A single-agent provider may opt into the same identity narrowing.", "", "accept", v)
+	v = baseIdentity()
+	change(&v, func(p M) { p["body"].(M)["action"] = []any{} })
+	add("PI5", "Identity narrowing interprets no action schema or other body members.", "", "accept", v)
 }
