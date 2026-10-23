@@ -123,6 +123,7 @@ func context() M {
 		evidence[k.ID] = M{"binding": binding, "class": "agent", "key": k.ID, "public_bytes": b64(k.Ed.Public().(ed25519.PublicKey)), "purpose": "message-signing", "not_before": "2025-12-01T00:00:00Z", "not_after": "2026-02-01T00:00:00Z", "attestation": "valid", "revocation": "not_revoked", "active": true}
 	}
 	f["agent_expected"], f["agent_evidence"] = expected, evidence
+	f["operator_pins"] = []any{keys[6].ID}
 	return f
 }
 
@@ -578,6 +579,7 @@ func main() {
 	files := map[string][]byte{}
 	reworkVectors()
 	typeSweep()
+	attestationVectors()
 	seeds, pubs := M{}, M{}
 	for i, k := range keys {
 		name := fmt.Sprintf("test-%d", i)
@@ -861,7 +863,7 @@ func pruneAgentEvidence(v *Vector) {
 		}
 		for _, field := range fields {
 			key, ok := b[field].(string)
-			if ok && strings.HasPrefix(key, "ed25519:") && !(field == "issuer" && key == v.Fixture["root"]) {
+			if ok && !(grant && key == v.Fixture["root"]) {
 				needed[key] = true
 			}
 		}
@@ -873,7 +875,7 @@ func pruneAgentEvidence(v *Vector) {
 	} else if raw, ok := v.Input["envelope"].(string); ok {
 		collect(raw, false)
 	}
-	expected := v.Fixture["agent_expected"].(M)
+	expected, _ := v.Fixture["agent_expected"].(M)
 	for key := range records {
 		if !needed[key] {
 			delete(records, key)
@@ -1065,6 +1067,215 @@ func typeSweep() {
 		walk(record, nil, false)
 		if src.Mode == "grant" {
 			walk(src.Fixture["request"], nil, true)
+		}
+	}
+}
+
+// Caller evidence is not CCJ wire data. These fixtures retain JSON floats so
+// integer/boolean/float equality cannot masquerade as a typed principal tuple.
+func attestationVectors() {
+	for i, mode := range []string{"envelope", "grant"} {
+		idx, pair := 0, "PE1"
+		if mode == "grant" {
+			idx, pair = 2, "PG1"
+		}
+		v := copyVector(base(mode, 0))
+		v.Fixture["agent_expected"].(M)[keys[idx].ID] = nil
+		delete(agentEvidence(&v, idx), "binding")
+		add(fmt.Sprintf("J%02d", i+1), "Absent protected and attested principal bindings cannot compare equal as null.", pair, "key_binding_unavailable", v)
+	}
+	neg("J03", "Attested boolean true is not the protected integer registration number 1.", "PE1", "key_binding_invalid", "envelope", func(v *Vector) { *v = copyVector(*v); agentEvidence(v, 0)["binding"].(M)["registration_number"] = true })
+	neg("J04", "Null evidence is unavailable, never a dictionary dereference.", "PE1", "key_binding_unavailable", "envelope", func(v *Vector) { v.Fixture["agent_evidence"].(M)[keys[0].ID] = nil })
+	neg("J05", "Protected boolean true is not an integer registration binding.", "PE1", "key_binding_invalid", "envelope", func(v *Vector) {
+		*v = copyVector(*v)
+		v.Fixture["agent_expected"].(M)[keys[0].ID].(M)["registration_number"] = true
+	})
+	for i, number := range []any{json.RawMessage("1.0"), -1, "1", true} {
+		v := copyVector(base("envelope", 0))
+		v.Fixture["agent_expected"].(M)[keys[0].ID].(M)["registration_number"] = number
+		agentEvidence(&v, 0)["binding"].(M)["registration_number"] = number
+		add(fmt.Sprintf("J%02d", 6+i), "Matching invalid registration values do not become a valid typed principal by equality.", "PE1", "key_binding_invalid", v)
+	}
+	neg("J10", "Two equally incomplete tuples are unavailable, not an authenticated binding.", "PE1", "key_binding_unavailable", "envelope", func(v *Vector) { delete(agentEvidence(v, 0)["binding"].(M), "owner") })
+	neg("J11", "Malformed attestation validity is an invalid binding, not an envelope parsing failure.", "PE1", "key_binding_invalid", "envelope", func(v *Vector) { agentEvidence(v, 0)["not_after"] = "not-a-time" })
+	neg("J12", "Missing required attestation purpose is unavailable evidence.", "PE1", "key_binding_unavailable", "envelope", func(v *Vector) { delete(agentEvidence(v, 0), "purpose") })
+	v := copyVector(base("envelope", 0))
+	v.Fixture["agent_expected"].(M)[keys[0].ID].(M)["registration_number"] = int64(9007199254740991)
+	agentEvidence(&v, 0)["binding"].(M)["registration_number"] = int64(9007199254740991)
+	add("PB1", "The maximum positive safe JSON integer remains a valid registration binding.", "", "accept", v)
+	for i, value := range []any{"", strings.Repeat("x", 256), json.RawMessage(`"\ud800"`)} {
+		v := copyVector(base("envelope", 0))
+		v.Fixture["agent_expected"].(M)[keys[0].ID].(M)["owner"] = value
+		agentEvidence(&v, 0)["binding"].(M)["owner"] = value
+		add(fmt.Sprintf("J%02d", 13+i), "Matching empty, overlong or invalid UTF-8 principal text cannot authorize a binding.", "PE1", "key_binding_invalid", v)
+	}
+	v = copyVector(base("envelope", 0))
+	for _, name := range []string{"owner", "path", "generation", "epoch"} {
+		v.Fixture["agent_expected"].(M)[keys[0].ID].(M)[name] = strings.Repeat("x", 255)
+		agentEvidence(&v, 0)["binding"].(M)[name] = strings.Repeat("x", 255)
+	}
+	add("PB2", "Valid principal text at the inclusive 255-byte interface bound compares without normalization.", "", "accept", v)
+	evidenceSweep()
+	provenanceMatrix()
+}
+
+func deletePath(root M, path []any) {
+	for _, p := range path[:len(path)-1] {
+		root = root[p.(string)].(M)
+	}
+	delete(root, path[len(path)-1].(string))
+}
+func atPath(root M, path []any) any {
+	var value any = root
+	for _, p := range path {
+		value = value.(M)[p.(string)]
+	}
+	return value
+}
+
+// Claims: each required caller evidence/binding field rejects missing, null and
+// every other JSON type before comparison, in author, delegated issuer and leaf
+// subject intake. Positive controls retain all current, well-typed evidence.
+func evidenceSweep() {
+	n := 0
+	for _, item := range []struct {
+		mode, pair, use string
+		idx             int
+	}{{"envelope", "PE1", "author", 0}, {"grant", "PG1", "issuer", 1}, {"grant", "PG1", "leaf-subject", 2}} {
+		src := copyVector(base(item.mode, 0))
+		key := keys[item.idx].ID
+		paths := [][]any{{"agent_evidence"}, {"agent_expected"}, {"agent_evidence", key}, {"agent_expected", key}}
+		record := src.Fixture["agent_evidence"].(M)[key].(M)
+		fields := make([]string, 0, len(record))
+		for k := range record {
+			fields = append(fields, k)
+		}
+		sort.Strings(fields)
+		for _, name := range fields {
+			paths = append(paths, []any{"agent_evidence", key, name})
+		}
+		for _, name := range []string{"owner", "path", "generation", "registration_number", "epoch"} {
+			paths = append(paths, []any{"agent_evidence", key, "binding", name}, []any{"agent_expected", key, name})
+		}
+		for _, path := range paths {
+			original := atPath(src.Fixture, path)
+			variants := []struct {
+				name    string
+				value   any
+				missing bool
+			}{{name: "missing", missing: true}}
+			for _, value := range []any{nil, true, 1, "x", []any{}, M{}} {
+				if jsonKind(value) != jsonKind(original) {
+					variants = append(variants, struct {
+						name    string
+						value   any
+						missing bool
+					}{jsonKind(value), value, false})
+				}
+			}
+			if path[len(path)-1] == "registration_number" {
+				for _, value := range []string{"1.0", "1.5", "-1", "0", "9007199254740992"} {
+					variants = append(variants, struct {
+						name    string
+						value   any
+						missing bool
+					}{"invalid-number-" + value, json.RawMessage(value), false})
+				}
+			}
+			for _, a := range variants {
+				v := copyVector(src)
+				if a.missing {
+					deletePath(v.Fixture, path)
+				} else {
+					setPath(v.Fixture, path, a.value)
+				}
+				code := "key_binding_invalid"
+				if a.missing || a.value == nil {
+					code = "key_binding_unavailable"
+				}
+				n++
+				add(fmt.Sprintf("B%04d", n), fmt.Sprintf("Caller %s evidence %v with %s yields an ordered binding refusal without a plan.", item.use, path, a.name), item.pair, code, v)
+			}
+		}
+	}
+}
+
+// Generate a complete leaf-first narrowing chain over explicit key vertices.
+func vertexChain(vertices []int) []any {
+	var out []any
+	parent := any(nil)
+	for i := 0; i < len(vertices)-1; i++ {
+		b := common("grant/1")
+		b["nonce"] = b64(bytes.Repeat([]byte{byte(30 + i)}, 16))
+		b["issuer"], b["subject"] = keys[vertices[i]].ID, keys[vertices[i+1]].ID
+		b["actions"], b["targets"] = []any{"credential.lease"}, []any{target("team/*")}
+		b["not_before"], b["expires"] = b["iat"], b["exp"]
+		b["depth"], b["parent"], b["caveats"] = 3-i, parent, nil
+		e := envelope(b, keys[vertices[i]], "author")
+		parent = e["id"]
+		out = append([]any{wire(e)}, out...)
+	}
+	return out
+}
+
+// Claims: pin/attestation provenance governs every chain position. Removing the
+// required provenance fails closed; algorithm alone never supplies a class.
+func provenanceMatrix() {
+	n := 0
+	for _, c := range []struct {
+		name      string
+		idx, root int
+	}{{"pinned-authority-ed25519", 0, 0}, {"pinned-authority-p256", 6, 6}, {"pinned-operator-p256", 6, 0}, {"attested-agent-ed25519", 3, 0}} {
+		for _, position := range []string{"issuer", "subject", "leaf-subject"} {
+			vertices := []int{c.root, c.idx, 2}
+			if position == "subject" {
+				vertices = []int{c.root, 1, c.idx, 2}
+			}
+			if position == "leaf-subject" {
+				vertices = []int{c.root, 1, c.idx}
+			}
+			v := base("grant", 0)
+			v.Input["chain"] = vertexChain(vertices)
+			v.Fixture["root"] = keys[c.root].ID
+			v.Fixture["request"].(M)["key"] = keys[vertices[len(vertices)-1]].ID
+			if c.root == 6 {
+				v.Fixture["signer_facts"].(M)["current"] = false
+			}
+			n++
+			pair := fmt.Sprintf("PM%02d", n)
+			add(pair, c.name+" in "+position+" position retains protected provenance under a valid narrowing chain.", "", "accept", v)
+			valid := copyVector(cases[len(cases)-1])
+			v = copyVector(valid)
+			switch c.name {
+			case "pinned-authority-ed25519", "pinned-authority-p256":
+				v.Fixture["root"] = keys[5].ID
+				v.Fixture["operator_pins"] = []any{}
+			case "pinned-operator-p256":
+				v.Fixture["operator_pins"] = []any{}
+			case "attested-agent-ed25519":
+				delete(v.Fixture["agent_evidence"].(M), keys[c.idx].ID)
+			}
+			add(fmt.Sprintf("M%02d", n), "Removing protected provenance for "+c.name+" in "+position+" refuses even with valid signatures.", pair, "key_binding_unavailable", v)
+			if c.name == "pinned-operator-p256" {
+				v = copyVector(valid)
+				v.Fixture["signer_facts"].(M)["current"] = false
+				add(fmt.Sprintf("M%02d", n+12), "A non-current pinned operator device in "+position+" cannot exercise delegated authority.", pair, "key_binding_invalid", v)
+			}
+			if c.name == "pinned-operator-p256" {
+				v = copyVector(valid)
+				v.Fixture["operator_pins"] = []any{}
+				t := context()
+				r := t["agent_evidence"].(M)[keys[3].ID].(M)
+				r["key"] = keys[6].ID
+				v.Fixture["agent_evidence"].(M)[keys[6].ID] = r
+				v.Fixture["agent_expected"].(M)[keys[6].ID] = t["agent_expected"].(M)[keys[3].ID]
+				add(fmt.Sprintf("M%02d", n+18), "P-256 in "+position+" cannot become an agent by a contradictory attestation projection.", pair, "key_binding_invalid", v)
+			}
+			if c.name == "attested-agent-ed25519" {
+				v = copyVector(valid)
+				v.Fixture["operator_pins"] = []any{keys[3].ID}
+				add(fmt.Sprintf("M%02d", n+12), "Ed25519 in "+position+" cannot become an operator device by a contradictory pin.", pair, "key_binding_invalid", v)
+			}
 		}
 	}
 }

@@ -286,21 +286,54 @@ current caller-supplied generation evidence, and the generation MUST be active.
 Neither reusable UID nor registration number alone substitutes for generation.
 The validity interval is start-inclusive/end-exclusive under §3.3's min/max time.
 
-Missing evidence, unavailable attestation/revocation or missing expected binding
-MUST return `key_binding_unavailable`. Invalid attestation, mismatched key/id,
-class, purpose, binding, inactive generation or validity MUST return
-`key_binding_invalid`; a revoked key returns `revoked`. Only valid,
-`not_revoked` evidence may proceed. These results are required even when the
-signature equation itself passes. The current signed snapshot and rollback
+The caller's evidence result and protected principal binding MUST be complete,
+typed values before comparison. Both principal tuples require owner, path,
+generation, registration_number and epoch. The four text values are nonempty
+valid UTF-8 strings of at most 255 bytes, compared without normalization.
+Registration number MUST be a JSON integer in [1,9007199254740991]; boolean,
+floating-point (including 1.0), string, zero and negative values are invalid,
+even when both tuples contain the same invalid value. Active-generation is a
+boolean; key bytes/id, class, purpose, validity and status fields have the types
+shown by the interface. Validity strings MUST parse as the exact timestamps in
+§2.1. A tuple's absence never compares equal to an omitted attested tuple.
+
+Missing/null evidence maps, records, principal tuples or required fields MUST
+return `key_binding_unavailable`. Present values of the wrong type, invalid
+registration bounds, invalid timestamp syntax or mismatched principal tuples
+MUST return `key_binding_invalid`. Validate required-field availability, then
+the complete typed principal tuples and evidence field types, before status or
+identity comparisons. Additional caller metadata is not part of the principal
+tuple and cannot replace a required field. This is a typed projection contract,
+not a serialization of Keymaker's service-owned attestation.
+
+Unavailable attestation/revocation MUST return `key_binding_unavailable`;
+invalid attestation, mismatched key/id, class, purpose, inactive generation or
+validity returns `key_binding_invalid`; a revoked key returns `revoked`. Only
+valid, `not_revoked` evidence may proceed. These results are required even when
+the signature equation itself passes. The current signed snapshot and rollback
 requirements in §3.3 still apply to authorization.
 
-Message verification applies this interface to its author. Grant verification
-applies it to every agent issuer and subject, including the leaf, before the
-key is used as requester identity. A directly pinned owner root is verified by
-its protected authority pin rather than relabelled as an agent; operator device
-pins retain their separate policy. A valid message-purpose attestation proves
-agent key identity, not `credential.lease`, `agent.spawn`, grant issuance or
-message delivery authority. The grant chain supplies those permissions.
+Message verification applies the agent interface to its author. Grant intake
+resolves each issuer and subject, including the leaf, by protected provenance:
+first the directly pinned owner root, then an explicitly pinned operator device,
+otherwise the caller's attested-agent evidence and protected principal tuple.
+Root provenance permits Ed25519 or P-256; operator-device provenance requires
+P-256 and current owner authority; agent provenance requires Ed25519 and the
+complete interface above. No class is admitted merely from its algorithm or
+position in a chain. An absent device pin does not turn any P-256 key into an
+accepted authority; missing required provenance refuses unavailable.
+
+The directly pinned root keeps its authority-pin classification when it appears
+as issuer, intermediate subject or leaf subject, including a narrowing chain
+that returns to that root. Root-pin classification takes precedence if the same
+key also has a device pin. Non-root agent issuers and subjects still require
+agent evidence; K19/K20 remain mandatory witnesses. Device pins are protected
+owner policy, with key currency and revocation still required. They are not
+Keymaker attestations or automatic grant authority. Every chain edge, root pin,
+action, target, lifetime and revocation check remains mandatory for all classes.
+A valid message-purpose attestation proves agent key identity, not
+`credential.lease`, `agent.spawn`, grant issuance or message delivery authority.
+The grant chain supplies those permissions.
 A message key held by Keymaker still cannot sign the grant tag through K3;
 authority to delegate and availability of a qualified signer are separate gates.
 
@@ -608,6 +641,7 @@ Revocations.Check(owner, ids, keys, sample) -> not_revoked | revoked | unavailab
 IdJournal.Lookup(id) -> absent | exact_bytes | unavailable
 Replay.Lookup(consumer,action_id) -> unused | used | unavailable
 SignerFacts.Lookup(owner,key) -> pinned + current + presence_current + presence_policy | unavailable
+KeyProvenance.Lookup(owner,key) -> pinned_owner_root | pinned_operator_device | agent | unavailable
 AgentKeyEvidence.Lookup(key_id) -> validated attestation result + current binding | unavailable
 Commit(plan) -> atomic reserve + durable watermark + id binding | conflict | unavailable
 ```

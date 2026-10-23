@@ -32,3 +32,12 @@ container is typed. Typed caller provider/store snapshots are external evidence,
 not wire records, and this family does not qualify their adapters. PR2 makes
 explicit that accepting an envelope with an unexpected argument member does
 not authorize dispatch.
+
+The B family extends shape checking to the caller's agent-evidence and protected
+principal projections: missing, null, other JSON types and invalid registration
+numbers in message-author, delegated-issuer and grant-leaf-subject intake.
+These are adapter result values, not a new attestation serialization. Fixture
+`operator_pins` lists protected owner device pins; `root` is the separate
+protected authority pin. PM/M matrix cases exercise provenance in all chain
+positions, including both root algorithms and return to a pinned root. Root
+provenance wins over a device pin; agent checks are never bypassed by algorithm.

@@ -28,6 +28,9 @@
       "ed25519:a1Ysm40lgtZTrkSKBPD20n4gJWSYJkwIw2fJYgi8834"
     ],
     "now": "2026-01-01T00:01:00Z",
+    "operator_pins": [
+      "p256:AtvuKbwrlJKTmC1cFKDUv9lAx4xolphryoTXkRZN0Ayl"
+    ],
     "replay_available": true,
     "request": {
       "action": "credential.lease",

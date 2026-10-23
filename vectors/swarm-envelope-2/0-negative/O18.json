@@ -26,6 +26,9 @@
     "id_journal_available": true,
     "known_keys": null,
     "now": "2026-01-01T00:01:00Z",
+    "operator_pins": [
+      "p256:AtvuKbwrlJKTmC1cFKDUv9lAx4xolphryoTXkRZN0Ayl"
+    ],
     "replay_available": true,
     "request": {
       "action": "credential.lease",

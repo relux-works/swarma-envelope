@@ -61,6 +61,9 @@ signatures in the fixtures, not a boolean signature-valid input.
 | S01–S26, PS1–PS5 | Message signer accepts exactly swarma-msg/2, refuses grant/act/registrar/broker and unknown future-service tags, checks canonicality, exact size/depth boundaries and no envelope semantics. S07 uses a generic unregistered sentinel, not an invented signing-service witness tag. |
 | R01–R12, PR1–PR4 | Review regressions for enum type safety, signed operator-only grant targets, unsupported broker names, key currency, presence currency and the envelope/handler qualification boundary. PR4 is a valid station grant alongside credential controls. |
 | T0001–T0618 | Every other JSON type at each closed wire/request field, nested object and array entry across message, multi-signature message, populated-caveat grant, narrowing act and widening/account act. Exact ordered structural refusal and empty plan; caller provider/store snapshots remain typed external evidence. |
+| J01–J15, PB1–PB2 | Attestation regressions: absent/null records and tuples, boolean/float/string/nonpositive registrations, missing required fields and malformed validity; empty/overlong/surrogate principal text; maximum safe integer and 255-byte text positive controls. |
+| B0001–B0462 | Caller evidence and principal-tuple shape sweep in author, delegated issuer and grant leaf subject: missing/null and every wrong JSON type per required field, plus integral/fractional floats, nonpositive and unsafe registration numbers. |
+| M01–M12, M19–M27, PM01–PM12 | Protected provenance matrix: root Ed25519/P-256, operator P-256 and agent Ed25519 in issuer, intermediate subject and leaf-subject positions. Valid provenance accepts; removed provenance refuses unavailable; non-current operator devices and contradictory algorithm/class claims refuse invalid. |
 | O01–O18, PO1–PO4 | Exact consumer/binding/argument/epoch/key, single-use act, widening confirmation/provider facts, replay availability and record bound. |
 
 These are bounded witnesses, not exhaustive property proofs or an implementation
@@ -71,3 +74,24 @@ retention, caller argument validation, signature-provider qualification and live
 consumer activation remain integration obligations. No surface table was supplied
 for implementation coverage; this table maps the requested format witnesses,
 not a production landing-gate surface or qualification claim.
+
+The provenance matrix is independent of chain position and algorithm inference.
+Each entry below is a correctly signed narrowing chain. Removing the key's
+required provenance returns `key_binding_unavailable`; the three operator rows
+also reject non-current authority as `key_binding_invalid`. Root P-256 controls
+remain valid with non-current *device* facts, since their protected authority pin
+is the applicable provenance. Every actual agent still needs its binding.
+
+| Protected class | Delegated issuer | Intermediate subject | Leaf subject |
+| --- | --- | --- | --- |
+| Authority root Ed25519 | PM01 / M01 | PM02 / M02 | PM03 / M03 |
+| Authority root P-256 | PM04 / M04 | PM05 / M05 | PM06 / M06 |
+| Operator device P-256 | PM07 / M07 / M19 / M25 | PM08 / M08 / M20 / M26 | PM09 / M09 / M21 / M27 |
+| Attested agent Ed25519 | PM10 / M10 / M22 | PM11 / M11 / M23 | PM12 / M12 / M24 |
+
+PM entries accept; M01–M12 have removed provenance and refuse unavailable;
+M19–M21 retain the pin but have non-current device authority and refuse invalid.
+M22–M24 reject an Ed25519 key mislabeled by a device pin; M25–M27 reject a
+P-256 key mislabeled by an agent-evidence projection.
+A key may occur in multiple connected positions: a parent subject is necessarily
+the next issuer. Envelope ids remain unique. No repeated-key ban is introduced.

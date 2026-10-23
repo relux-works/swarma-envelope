@@ -333,28 +333,67 @@ def signing_preimage(body, key, role, expected):
         "version": "swarm-envelope/2", "role": role, "key": key, "body": body})
 
 
+def evidence_object(value, names=()):
+    # Availability precedes type/semantic equality; None never stands for a tuple.
+    require(value is not None, "key_binding_unavailable")
+    require(type(value) is dict, "key_binding_invalid")
+    require(all(n in value and value[n] is not None for n in names), "key_binding_unavailable")
+    return value
+
+
+def principal_tuple(value):
+    names = ("owner", "path", "generation", "registration_number", "epoch")
+    value = evidence_object(value, names)
+    require(all(type(value[n]) is str and not any(0xD800 <= ord(c) <= 0xDFFF for c in value[n])
+                and 1 <= len(value[n].encode("utf-8")) <= 255
+                for n in ("owner", "path", "generation", "epoch")), "key_binding_invalid")
+    number = value["registration_number"]
+    require(type(number) is int and 1 <= number <= 9007199254740991, "key_binding_invalid")
+    return tuple(value[n] for n in names)
+
+
 def agent_binding(key, f):
-    records, bindings = f.get("agent_evidence"), f.get("agent_expected")
-    require(isinstance(records, dict) and isinstance(bindings, dict)
-            and key in records and key in bindings, "key_binding_unavailable")
-    record, binding = records[key], bindings[key]
-    require(record.get("attestation") != "unavailable"
-            and record.get("revocation") != "unavailable", "key_binding_unavailable")
-    require(record.get("attestation") == "valid", "key_binding_invalid")
-    require(record.get("revocation") != "revoked", "revoked")
-    require(record.get("revocation") == "not_revoked", "key_binding_invalid")
+    records = evidence_object(f.get("agent_evidence"))
+    bindings = evidence_object(f.get("agent_expected"))
+    require(key in records and key in bindings, "key_binding_unavailable")
+    names = ("public_bytes", "key", "class", "purpose", "active", "binding",
+             "not_before", "not_after", "attestation", "revocation")
+    record = evidence_object(records[key], names)
+    binding = principal_tuple(bindings[key])
+    attested_binding = principal_tuple(record["binding"])
+    require(all(type(record[n]) is str for n in names if n not in {"active", "binding"})
+            and type(record["active"]) is bool, "key_binding_invalid")
+    require(record["attestation"] != "unavailable"
+            and record["revocation"] != "unavailable", "key_binding_unavailable")
+    require(record["attestation"] == "valid", "key_binding_invalid")
+    require(record["revocation"] != "revoked", "revoked")
+    require(record["revocation"] == "not_revoked", "key_binding_invalid")
     alg, public = key_bytes(key)
     try:
-        attested_bytes = unb64(record.get("public_bytes"), 32)
+        attested_bytes = unb64(record["public_bytes"], 32)
+        start, end = timestamp(record["not_before"]), timestamp(record["not_after"])
     except Refusal:
         raise Refusal("key_binding_invalid") from None
-    require(alg == "ed25519" and record.get("class") == "agent"
-            and record.get("purpose") == "message-signing" and record.get("active") is True
-            and record.get("key") == key and attested_bytes == public
+    require(alg == "ed25519" and record["class"] == "agent"
+            and record["purpose"] == "message-signing" and record["active"]
+            and record["key"] == key and attested_bytes == public
             and "ed25519:" + b64(attested_bytes) == key
-            and record.get("binding") == binding, "key_binding_invalid")
+            and attested_binding == binding, "key_binding_invalid")
     low, high = time_values(f)
-    require(timestamp(record["not_before"]) <= low and high < timestamp(record["not_after"]), "key_binding_invalid")
+    require(start <= low and high < end, "key_binding_invalid")
+
+
+def grant_key_binding(key, f):
+    # Protected provenance wins before algorithm constraints or chain position.
+    if key == f["root"]:
+        return
+    pins = f.get("operator_pins", [])
+    require(type(pins) is list and all(type(p) is str for p in pins), "key_binding_invalid")
+    if key in pins:
+        require(key_bytes(key)[0] == "p256", "key_binding_invalid")
+        operator_key_current(f)
+        return
+    agent_binding(key, f)
 
 
 def envelope(raw, expected, f):
@@ -414,8 +453,7 @@ def envelope(raw, expected, f):
             revocation(f, [], [s["key"] for s in sigs if s["role"] == "approver"])
     elif expected == "grant/1":
         for key in (b["issuer"], b["subject"]):
-            if key.startswith("ed25519:") and not (key == b["issuer"] and key == f["root"]):
-                agent_binding(key, f)
+            grant_key_binding(key, f)
     require(f["id_journal_available"], "id_journal_unavailable")
     require(e["id"] not in f["seen"] or unb64(f["seen"][e["id"]]) == raw, "envelope_conflict")
     return e
