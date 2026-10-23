@@ -1,0 +1,18 @@
+{
+  "id": "X24",
+  "claim": "Exact tags never accept a cross-domain signature: swarma-waggle grant/1 into swarma-attestation revocation/1.",
+  "positive_control": "PD9",
+  "mode": "domain",
+  "input": {
+    "key": "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+    "preimage": "c3dhcm1hLWF0dGVzdGF0aW9uIHJldm9jYXRpb24vMQp7InByb2JlIjoiZG9tYWluIHNlcGFyYXRpb24ifQ",
+    "sig": "olHtdJZQg4zyg8BoOsIz5dIIc8OtsCfaUoBPPbYq4ZCDmCpSiG2wCGzbH0NHp9wjjD1dAqmeIqwCpXbmF5aXAA"
+  },
+  "fixture": {
+    "expected_tag": "swarma-attestation revocation/1"
+  },
+  "expected": {
+    "code": "envelope_signature_invalid",
+    "plan": {}
+  }
+}

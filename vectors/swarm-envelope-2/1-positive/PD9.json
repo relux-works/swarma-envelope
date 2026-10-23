@@ -1,0 +1,21 @@
+{
+  "id": "PD9",
+  "claim": "The new exact attestation-domain tag verifies its own signature only.",
+  "positive_control": "",
+  "mode": "domain",
+  "input": {
+    "key": "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+    "preimage": "c3dhcm1hLWF0dGVzdGF0aW9uIHJldm9jYXRpb24vMQp7InByb2JlIjoiZG9tYWluIHNlcGFyYXRpb24ifQ",
+    "sig": "-AU2W9g0ecybam5bBJLKBHcxFKu2zqyunNA5IKLEkC-cC7yU9robFya_4d1uPbjNwD4v9SR9CVJH4qvFSNtrCQ"
+  },
+  "fixture": {
+    "expected_tag": "swarma-attestation revocation/1"
+  },
+  "expected": {
+    "code": "accept",
+    "plan": {
+      "key": "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+      "tag": "swarma-attestation revocation/1"
+    }
+  }
+}

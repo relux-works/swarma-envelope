@@ -19,9 +19,11 @@ canonicality, 24,576-byte and depth-12 bounds. It does not execute a signer or
 claim a signature was released. The `domain` mode checks exact tag bytes and
 actual raw signatures independently of an envelope/body schema; external tag
 rows qualify domain separation only, not the external service's admission.
-Agent attestation verdicts and expected principal tuples are separate explicit
-caller inputs. This tool tests how they constrain acceptance, not how an
-unpublished Keymaker certificate format is cryptographically verified.
+The oracle parses actual CCJ-1 attestation/1 and revocation/1 envelopes,
+recomputes ids and verifies root signatures. Caller inputs are protected roots,
+current typed active-generation bindings, time/continuity and exact delivery
+context. There is no attestation-valid flag or direct operator-device pin.
+Root/subject key custody and live evidence publication remain external.
 
 The generated T family sweeps wrong JSON types across every closed wire field
 in message, grant, operator-act, signature, target and caveat records and the
@@ -33,14 +35,22 @@ not wire records, and this family does not qualify their adapters. PR2 makes
 explicit that accepting an envelope with an unexpected argument member does
 not authorize dispatch.
 
-The B family extends shape checking to the caller's agent-evidence and protected
-principal projections: missing, null, other JSON types and invalid registration
+The B family preserves shape checks over signed agent records and protected
+current principal projections: missing, null, other JSON types and invalid registration
 numbers in message-author, delegated-issuer and grant-leaf-subject intake.
-These are adapter result values, not a new attestation serialization. Fixture
-`operator_pins` lists protected owner device pins; `root` is the separate
-protected authority pin. PM/M matrix cases exercise provenance in all chain
-positions, including both root algorithms and return to a pinned root. Root
-provenance wins over a device pin; agent checks are never bypassed by algorithm.
+The inherited fixture builders retain private construction blueprints to keep
+all original regression names and failure classes. Before export they construct
+signed attestation bytes (including deliberately malformed/forged negative
+records), signed snapshots and separate current-generation bindings; none of
+those construction status flags is an oracle input. PM/M cases exercise pinned
+owner roots, operator-root-attested devices and service-root-attested agents in
+all chain positions. Root provenance wins before device/agent classification.
+C/PC covers actual delivery/text; A/PA covers signed evidence; Q/PQ covers
+assurance attenuation/comparison and the unconditionally closed widening gate;
+X adds every directed domain pair involving either new tag. Z checks the new
+closed fields and evidence shapes. O05/O18 now return key_binding_unavailable
+for missing device/root evidence, while PA6/PA7 prove no direct device key list
+is required. A29 binds device owner to act/registration owner.
 
 Signer-mode fixtures may enable `identity_check`; `multi_agent=true` always
 enforces it. `caller_key_id` is the service-resolved attested active-generation

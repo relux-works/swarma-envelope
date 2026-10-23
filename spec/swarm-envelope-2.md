@@ -6,7 +6,7 @@ UTF-8 bytes, not characters. Refusal codes in §6 are stable within this draft.
 
 ## 1. Scope, ownership and existing waggle
 
-This slice defines `swarm-envelope/2`, general `grant/1` and `operator-act/1`.
+This slice defines `swarm-envelope/2`, general `grant/1`, `operator-act/1`, `attestation/1` and shared `revocation/1`.
 The platform choice of CCJ-1 plus an explicit domain tag is settled; SSHSIG is
 not the platform-service encoding. The exact v0 schemas remain under review.
 For platform services it supersedes the SSHSIG encoding and verification rules
@@ -46,13 +46,16 @@ An envelope has exactly these four required members:
  signatures: [{role: "author" | "approver" | "delegate", key: key-id, sig: base64url}]}
 ```
 
-There MUST be 1–8 signatures with no duplicate `(role,key)` pair. Other roles
+The signature list is a compatible extension of a single-signature container: a
+single signer uses a one-entry list; consumers MUST NOT select an arbitrary
+entry or drop invalid entries. There MUST be 1–8 signatures with no duplicate `(role,key)` pair. Other roles
 are reserved and MUST refuse. A role never confers authority by itself. Required
 roles and admitted keys come from the caller's protected policy. Grants require
 exactly one `author` signature by `issuer`; operator acts exactly one `approver`
-from the owner's pinned device keys. A message requires `author` by its `author`
-Ed25519 agent key; optional `approver` signatures MUST use pinned P-256
-operator device keys. Extra signatures require caller policy and MUST all verify.
+from a device attested by the pinned operator root. A message requires `author` by its `author`
+Ed25519 agent key; optional `approver` signatures MUST use root-attested P-256
+operator device keys. Extra signatures require caller policy and MUST all verify. Device trust comes
+from the operator root and signed attestation, not a second device-key pin list.
 The accepted algorithm/role/type matrix in §2.4 is exhaustive. Recognizing a
 role name does not mean a v0 profile admits it.
 
@@ -63,7 +66,8 @@ including nested objects. The JSON reader MUST enforce limits while reading:
 has a stricter 8,192-byte limit, measured on the whole received object including
 signatures. Aggregate chain intake is at most 262,144 bytes. Readers MUST bound
 allocated work before parsing. The v0 types are only `grant/1`, `operator-act/1`
-and the minimal signed `message/1` below; another type needs a reviewed version.
+the minimal signed `message/1` below, and the separately profiled
+`attestation/1` / `revocation/1` records in §2.6; another type needs a reviewed version.
 
 The common body members are `type`, `aud`, `nonce`, `iat`, `exp`. `aud` is one
 exact service identifier, 1–255 printable ASCII bytes without whitespace.
@@ -74,7 +78,22 @@ Times MUST be exactly `YYYY-MM-DDTHH:MM:SSZ`, real Gregorian dates, years
 and messages have lifetime at most 120 seconds; grants have no implicit renewal
 or maximum lifetime beyond the chain and protected consumer policy.
 
-`message/1` adds exactly `author`, `action`, `target`, `arguments` (an object).
+`message/1` adds exactly `author`, `action`, `target`, `arguments` (an object),
+`room`, `to`, `body_sha256`. `room` and `to` MUST be strings of 1–255 bytes,
+each byte ASCII 0x21–0x7e. They are opaque exact full carrier identifiers,
+never aliases or display names; the carrier adapter MUST supply its actual
+canonical room id and full recipient id. The alphabet alone does not resolve
+an alias. Protected delivery context supplies the actual room and the recipient
+being verified; both MUST equal the signed strings byte for byte. Forwarding
+into another room or to another recipient MUST refuse independently of `aud`.
+`body_sha256` is REQUIRED on every message: exactly 64 lowercase hex digits,
+SHA-256 of the exact UTF-8 bytes of accompanying human-readable event text.
+It has no `sha256:` prefix. Delivered text MUST be present, even when empty;
+the empty string hash is
+`e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`.
+The verifier MUST recompute it over the actual delivered bytes, without Unicode
+normalization, newline tolerance or reconstructing text from `arguments`.
+Invalid UTF-8 refuses. These are additional integrity bindings, not authority.
 Arguments MUST pass the caller-selected registered action schema at admission.
 Envelope-only vectors use synthetic argument objects for codec/size controls;
 they check envelope mechanics and publish no general message payload grammar,
@@ -169,13 +188,15 @@ closed table; caller configuration cannot register an alias.
 | `swarma-msg/2` | message/1 signed record; this specification | Accepted exactly |
 | `swarma-waggle grant/1` | General grant/1; this specification | Refused |
 | `swarma-waggle operator-act/1` | operator-act/1; this specification | Refused |
+| `swarma-attestation attestation/1` | Root-issued key attestation; §2.6 | Refused |
+| `swarma-attestation revocation/1` | Root-issued shared revocation snapshot; §2.6 | Refused |
 | `swarma-registrar registration/1` | Registrar registration; registrar §2 | Refused |
 | `swarma-registrar enrollment/1` | Registrar enrollment; registrar §2 | Refused |
 | `swarma-credential-broker grant/1` | Broker's separate closed grant; broker §6 | Refused |
 | `swarma-credential-broker revocation/1` | Broker's revocation; broker §6.4 | Refused |
 | Unpublished signing-service witness domain (no literal assigned here) | Signing service owns publication; placeholder is NOT a registered tag | Refused until separately published; never implicitly admitted |
 
-All seven published literals above MUST be pairwise distinct. Prefix uniqueness
+All nine published literals above MUST be pairwise distinct. Prefix uniqueness
 is not required: even if one tag is a prefix of another, at the shorter tag's
 end one preimage has LF while the other has a non-LF tag byte. Exact tag plus
 LF already separates them. In particular `swarma-msg/20` is not accepted merely
@@ -192,10 +213,10 @@ The accepted signature profiles are exhaustive:
 
 | Expected type | Signature role | Key class / algorithm | Required provenance |
 | --- | --- | --- | --- |
-| message/1 | author | Agent / Ed25519 | Caller-validated Keymaker attestation and current generation binding (§2.6); key equals body.author |
-| message/1 | approver, optional or caller-required | Operator device / P-256 low-S | Owner's protected device pin, current revocation and caller signature policy |
+| message/1 | author | Agent / Ed25519 | Verified root-signed attestation/1 and current generation binding (§2.6); key equals body.author |
+| message/1 | approver, optional or caller-required | Operator device / P-256 low-S | Pinned operator root, verified operator-device attestation, current revocation and caller policy |
 | grant/1 | author, exactly one | Grant authority / Ed25519 or P-256 low-S | Pinned owner root or issuer named by parent; agent issuers/subjects additionally satisfy §2.6 |
-| operator-act/1 | approver, exactly one | Operator device / P-256 low-S | Owner's protected device pin and §4 act checks |
+| operator-act/1 | approver, exactly one | Operator device / P-256 low-S | Pinned operator root, verified operator-device attestation and §4 act checks |
 
 An operator **device** key MUST be P-256; an agent key MUST be Ed25519. A pinned
 grant root is a separate authority key and need not be an operator device.
@@ -286,86 +307,113 @@ the native depth-16 ceiling; a base64url string adds no decoded JSON nesting to
 the outer frame. The complete native request still MUST enforce depth <=16.
 Both signer and message verifier MUST enforce the preimage budget and depth.
 
-### 2.6 Caller-supplied key and attestation evidence
+### 2.6 Root-signed attestations and shared revocation
 
-No attestation serialization, certificate chain format, root rotation or
-Keymaker registry API is defined here. The caller resolves and verifies the
-service-owned attestation against its protected Keymaker root and supplies a
-typed result, not a cached self-asserted flag from the envelope. Publication,
-freshness and revocation use that service's mechanism; when it is unavailable
-this slice MUST refuse rather than infer identity from a display name or UID.
-The interface supplies, for every agent key needed by verification:
+`attestation/1` and `revocation/1` use the four-member envelope and §2.2's
+content-id and signed-record construction with their own exact tags in §2.4.
+They do not use the message/grant common schema. Evidence processing is ordered:
+required outer fields and duplicate-free bounded parse; required type/issuer and
+single author signature header; expected type/root, content id and strict root
+signature; complete purpose-specific typed body/current binding, profile and
+time; then signed issuer snapshot. A bad earlier signature is invalid even if a
+later body field is missing. Snapshot processing verifies the same header/id/
+root signature, then its complete typed body, freshness/continuity and all entry
+shapes before matching revocations. Each has exactly one `author`
+signature by its body `issuer`, a directly pinned root. Roots MAY be Ed25519
+or P-256 low-S; devices MUST be P-256 low-S. Each complete evidence envelope
+MUST be <=8,192 bytes, depth <=16, with the shared CCJ-1/string/array limits.
+There is no intermediate certificate chain, implicit root discovery or network
+fetch. A root pin includes its protected purpose; signing-service roots MUST
+have integer key purpose 5. The caller MUST NOT promote a subject to a root.
+Issuers MUST validate the same body/profile/time bounds before signing that
+verifiers enforce; offline fixtures do not qualify the live issuer.
 
-```text
-AgentKeyEvidence(key_id) ->
-  public_key_bytes, derived_key_id, key_class=agent, purpose=message-signing,
-  owner, path, generation, registration_number, epoch, active_generation,
-  not_before, not_after,
-  attestation_status = valid | invalid | unavailable,
-  revocation_status = not_revoked | revoked | unavailable
-```
+An attestation body has exactly these required members:
 
-Ed25519 key id derivation is exactly `ed25519:` plus canonical unpadded
-base64url of the 32 public-key bytes. P-256 device pins use `p256:` plus the
-canonical compressed point bytes; no independent alias/fingerprint is accepted.
-The result's bytes/id MUST equal the signed key id. Purpose MUST be exactly
-`message-signing`, not Git/SSH login/registration or an arbitrary string. The
-attested owner, path, positive safe registration number and epoch MUST equal
-the caller's protected expected principal binding. Its generation MUST equal
-current caller-supplied generation evidence, and the generation MUST be active.
-Neither reusable UID nor registration number alone substitutes for generation.
-The validity interval is start-inclusive/end-exclusive under §3.3's min/max time.
+| Member | Constraint |
+| --- | --- |
+| `type`, `issuer` | Exactly `attestation/1`, pinned issuing root key id. |
+| `subject` | Exactly `{algorithm,key_id,public_bytes}`; algorithm is `Ed25519` or `P-256`; canonical unpadded base64url raw public bytes. `key_id` MUST equal `ed25519:` + encoding of the 32 bytes, or `p256:` + encoding of the 33 compressed SEC1 bytes. Strict §2.3 point checks apply. |
+| `key_class`, `purpose` | Agent: exactly `agent`, `swarma-msg`. Operator device: both exactly `operator-device`. |
+| `roles`, `actions` | Sorted unique closed lists. Agent: `["author"]`, `["message.sign"]`. Operator device: `["act","approver"]`, `["act.sign","grant.sign","message.approve"]`. These limit the identity/signing profile; they grant no concrete action/target authority. |
+| `iat`, `exp` | Exact timestamps; start-inclusive/end-exclusive under min/max time. Positive interval. Agent window MUST be <=86,400 seconds, checked by both issuer and verifier. Device expiry is required, bounded further by protected policy. |
+| `binding` | Purpose-specific closed object below. |
 
-The caller's evidence result and protected principal binding MUST be complete,
-typed values before comparison. Both principal tuples require owner, path,
-generation, registration_number and epoch. The four text values are nonempty
-valid UTF-8 strings of at most 255 bytes, compared without normalization.
-Registration number MUST be a JSON integer in [1,9007199254740991]; boolean,
-floating-point (including 1.0), string, zero and negative values are invalid,
-even when both tuples contain the same invalid value. Active-generation is a
-boolean; key bytes/id, class, purpose, validity and status fields have the types
-shown by the interface. Validity strings MUST parse as the exact timestamps in
-§2.1. A tuple's absence never compares equal to an omitted attested tuple.
+Agent binding has exactly `{uid,generation,registration_number,master_epoch,
+owner,path}`. UID is a JSON integer in [0,4294967294]; registration_number a
+JSON integer in [1,9007199254740991]. The other four fields are nonempty valid
+UTF-8 strings of at most 255 bytes, compared without normalization. All fields
+MUST equal protected current active-generation evidence supplied by the caller;
+that evidence adds exactly the boolean `active`, which MUST be true. Both
+objects MUST be independently type-checked before comparison: `true`, `1.0`,
+strings or equal invalid numbers never authenticate registration 1. Reusable
+UID alone never identifies an active generation. `master_epoch` is the signing
+service master epoch; it replaces the earlier semantic `epoch` projection name.
+A valid agent author attestation establishes A1 origin, not session approval.
+For agent keys, the signing service's binding revoke remains authoritative;
+shared records distribute that withdrawal to receivers and do not undo it.
 
-Missing/null evidence maps, records, principal tuples or required fields MUST
-return `key_binding_unavailable`. Present values of the wrong type, invalid
-registration bounds, invalid timestamp syntax or mismatched principal tuples
-MUST return `key_binding_invalid`. Validate required-field availability, then
-the complete typed principal tuples and evidence field types, before status or
-identity comparisons. Additional caller metadata is not part of the principal
-tuple and cannot replace a required field. This is a typed projection contract,
-not a serialization of Keymaker's service-owned attestation.
+Operator-device binding is exactly `{owner}`: the exact protected owner,
+nonempty UTF-8 <=255 bytes. The operator root attests the device; direct device
+pins are not an alternative. Device algorithm MUST be P-256, even when its
+root uses Ed25519. Current owner authority remains a separate mandatory fact.
+For an act, the attested owner MUST also equal the act owner and protected registration owner;
+independent successful comparisons to two different owners are insufficient.
+Ed25519 FIDO devices and Matrix-master/OMEMO attestations are deferred.
 
-Unavailable attestation/revocation MUST return `key_binding_unavailable`;
-invalid attestation, mismatched key/id, class, purpose, inactive generation or
-validity returns `key_binding_invalid`; a revoked key returns `revoked`. Only
-valid, `not_revoked` evidence may proceed. These results are required even when
-the signature equation itself passes. The current signed snapshot and rollback
-requirements in §3.3 still apply to authorization.
+The caller supplies actual signed attestation bytes keyed by subject key id,
+the protected signing-service root/purpose and operator root, protected active
+bindings, trusted time, and signed snapshots. A caller-supplied `valid` flag is
+not attestation evidence. Missing/null maps, records, required fields or current
+bindings return `key_binding_unavailable`; wrong types, invalid shape, crypto,
+root, purpose, permissions, key derivation, mismatched/inactive binding or
+validity return `key_binding_invalid`. A parsed record with a missing required
+field returns unavailable; non-CCJ/invalidly encoded bytes return invalid.
+Only complete cryptographically verified records proceed. Absence MUST NOT
+compare equal to absence. Every refusal returns an empty plan.
 
-Message verification applies the agent interface to its author. Grant intake
-resolves each issuer and subject, including the leaf, by protected provenance:
-first the directly pinned owner root, then an explicitly pinned operator device,
-otherwise the caller's attested-agent evidence and protected principal tuple.
-Root provenance permits Ed25519 or P-256; operator-device provenance requires
-P-256 and current owner authority; agent provenance requires Ed25519 and the
-complete interface above. No class is admitted merely from its algorithm or
-position in a chain. An absent device pin does not turn any P-256 key into an
-accepted authority; missing required provenance refuses unavailable.
+Shared `revocation/1` is a complete signed snapshot for exactly one issuing
+root. Its body is exactly `{type,issuer,issued_at,complete,entries}`:
 
-The directly pinned root keeps its authority-pin classification when it appears
-as issuer, intermediate subject or leaf subject, including a narrowing chain
-that returns to that root. Root-pin classification takes precedence if the same
-key also has a device pin. Non-root agent issuers and subjects still require
-agent evidence; K19/K20 remain mandatory witnesses. Device pins are protected
-owner policy, with key currency and revocation still required. They are not
-Keymaker attestations or automatic grant authority. Every chain edge, root pin,
-action, target, lifetime and revocation check remains mandatory for all classes.
-A valid message-purpose attestation proves agent key identity, not
-`credential.lease`, `agent.spawn`, grant issuance or message delivery authority.
-The grant chain supplies those permissions.
-A message key held by Keymaker still cannot sign the grant tag through K3;
-authority to delegate and availability of a qualified signer are separate gates.
+- `type` is `revocation/1`; `issuer` equals the pinned root and signature key.
+- `issued_at` is an exact timestamp; `complete` is a boolean and MUST be true.
+- `entries` is an array of at most 64 closed `{kind,id,from}` objects. `kind`
+  is `key` or `record`; `id` is respectively a canonical subject key id or
+  content id (attestation, grant or act in this root authority domain). `from`
+  is an exact timestamp. An empty list is valid only in a verified complete snapshot.
+
+The issuing root alone may revoke its subjects/records. Key and attestation-id
+revocations are cumulative: either matching entry refuses from its stated time,
+when `from <= max(now,W)`. Future entries have no effect before that boundary.
+All entries MUST be structurally validated before evaluating any match. The
+caller supplies rollback continuity and a positive integer maximum age <=60 s;
+issued_at MUST be <=min(now,W), age measured at max(now,W). Unavailable/stale,
+future-issued, incomplete or rolled-back snapshots return unavailable; invalid
+snapshot encoding/signature/issuer returns invalid. No unsigned or default
+empty set is accepted. The derived outcome remains exactly `not_revoked`,
+`revoked`, `unavailable`; invalid evidence is a definite refusal, never a fourth
+successful outcome. §6 maps these facts to intake-specific refusal codes.
+
+Historical verification (whether a signature was valid at its claimed time)
+is outside v0. Authorization checks current snapshots at verification/effect
+admission. A self-declared old `iat` MUST NOT bypass a currently effective
+revocation. Consumers MUST serialize snapshot currency with their effect gate.
+
+Provenance is independent of chain position: the directly pinned owner grant
+root wins first, even when it is an intermediate or leaf subject or also a
+device. Otherwise an operator-device attestation under the pinned operator
+root supplies device provenance; otherwise an agent attestation under the
+purpose-5 service root and current generation supplies agent provenance.
+Algorithm or position alone never supplies provenance. Missing required
+attestation refuses unavailable; a contradictory profile refuses invalid.
+Every non-root issuer and subject, including the leaf, is checked (K19/K20).
+Attestation proves identity and its purpose-scoped signing profile, never grant
+rights; all chain/action/target/revocation checks remain mandatory. The grant
+signature role `author` denotes its chain-authorized issuer slot, not
+an A2/A3 claim or permission to use a message signer for that domain. A separate
+grant-domain signing provider remains required. A message signer
+still MUST refuse grant/act/attestation/revocation domains; no new Keymaker
+signing method is created here.
 
 ## 3. General grant/1
 
@@ -381,6 +429,7 @@ In addition to common members a grant has exactly:
 | `not_before`, `expires` | Valid timestamps, `not_before < expires`; MUST equal `iat`, `exp` respectively. |
 | `depth` | Integer 0–3: number of further delegations permitted. |
 | `parent` | Parent envelope id, or null only at root. |
+| `min_assurance` | Exactly `{level:"A1"|"A2"|"A3",presence:boolean}`; required, no default on the wire. |
 | `caveats` | null, or exactly `{lang:"caveats/v1",not_before:time,expires:time}`. |
 
 Grant targets and message targets admit only `credential` and `station`.
@@ -417,7 +466,7 @@ only by an equal or ancestor parent prefix. Every child target MUST be
 contained by one parent target; splitting coverage across tuples is forbidden.
 
 `caveats/v1` supports only a time interval inside the grant lifetime. Counters,
-human-presence conditions, rule languages, roles, nondelegable flags and Biscuit
+other presence caveats, rule languages, roles, nondelegable flags and Biscuit
 are deferred and MUST refuse. Effective start is max(not_before,caveat start),
 end is min(expires,caveat end); null uses the grant window.
 
@@ -436,7 +485,9 @@ records. Every envelope, including the leaf, MUST pass §2 and the checks below.
 For every child/parent pair: child.parent MUST equal parent.id; child.issuer
 MUST equal parent.subject; actions MUST be a subset; every target MUST be
 contained; raw AND effective lifetimes MUST be subsets; audience MUST equal;
-child.depth MUST be strictly less than parent.depth. A depth-zero parent cannot
+child.depth MUST be strictly less than parent.depth. Its `min_assurance.level`
+MUST stay equal or increase under A1 < A2 < A3; a true parent presence flag
+MUST remain true. A child lowering either requirement is not narrowing. A depth-zero parent cannot
 have a child. The last record MUST have parent null and issuer equal to a
 protected pinned owner root. A self-signed key without that pin is not a root.
 
@@ -446,6 +497,19 @@ request action MUST be registered and allowed by the leaf and its target MUST
 be contained by a leaf target. Both the dispatcher/caller chains remain
 separate when a consumer requires their intersection; never concatenate them
 or let a service signature erase the original caller's authority.
+
+After concrete request coverage, G9 MUST compare established request assurance
+against the leaf minimum in its own step. The caller supplies a protected
+`{level,presence}` result, independently established for this exact request;
+request text, grant fields and unsigned assertions cannot establish it. Missing
+or wrongly typed evidence refuses `grant_assurance_unavailable`; lower level
+or absent required presence refuses `grant_assurance_insufficient`. A higher
+established level meets a lower minimum; a higher child minimum tightens rights.
+A1 agent origin alone meets no A2/A3 minimum. A3 minima are representable dormant
+constraints, but no v0 provider establishes A3: an asserted A3 result MUST return
+`grant_assurance_unavailable`. The interface accepts no provider
+qualification boolean to bypass §4's activation gate. Synthetic A2/presence
+controls test comparison only, not live provider qualification.
 
 ### 3.3 Time, revocation and rollback
 
@@ -469,7 +533,7 @@ persistence failure refuses, never falls back to wall time. Uncertainty and
 cross-process continuity remain the provider's requirements, not inferred from W.
 
 Revocation has exactly `not_revoked`, `revoked`, `unavailable`. Only the first
-permits progress. The caller supplies authenticated current snapshots for the
+permits progress. The caller supplies cryptographically verified §2.6 signed current snapshots for the
 owner domain, their completeness, freshness and rollback witness; no network or
 owner registry exists in this slice. A protected maximum age is REQUIRED and
 MUST be at most 60 seconds; older or unavailable evidence is `unavailable`.
@@ -491,14 +555,14 @@ no grant is admitted to that implementation by this document.
 | Canonicalization, id | CCJ-1, domain + LF + body, sha256 id | Same byte algorithm; new domain `swarma-waggle grant/1` produces new ids. |
 | Container/signature | `{body,id,sig}`; issuer Ed25519 over id preimage | Adds version, signatures array and signed record binding role/key/version/body (§2.2); re-sign, never relabel. Adds P-256 low-S for authority keys; agent keys remain Ed25519. |
 | Common fields | type in body; no aud/nonce/iat/exp | Adds all four; iat/exp equal grant interval. Adapter MUST supply explicit bounded values. |
-| Subject | key or generation-bound `agent:` leaf | Keys only; agent keys need caller-verified Keymaker evidence (§2.6). No silent UID/generation conversion. Generation binding in broker records still needs a separately versioned consumer adapter. |
+| Subject | key or generation-bound `agent:` leaf | Keys only; agent keys need root-signed attestation/1 and current generation (§2.6). No silent UID/generation conversion. Generation binding in broker records still needs a separately versioned consumer adapter. |
 | Actions | `credential.lease`, `agent.spawn` | Adds `message.deliver`; broker adapter MUST refuse it. |
 | Targets | Separate exact accounts/harnesses/profiles lists | Typed correlated tuples; prefix ids allowed here, refused by broker. Enumerate exact Cartesian tuples only when source rights actually permit that product. |
 | Harness/profile spelling | Broker includes the harness name `claude_code` | Single-segment grammar here excludes underscore. This is a representation narrowing, not an exact-string adapter. Never silently normalize to `claude-code`: a future versioned consumer adapter needs an explicit approved one-to-one name map, collision/unknown-name refusal and reissued signed grants; until then refuse the unsupported source name. |
 | Interval | not_before, expires_at | not_before, expires; exact UTC seconds, equal common iat/exp. No lossy rounding. |
 | Depth/parent | Remaining depth, leaf-first, at most four | Same chain structure; depth explicitly 0–3. Every leaf edge remains checked. |
-| Conditions | Time only, no role/wildcard/presence | Time-only caveats/v1; project into effective interval or refuse. No weakening. |
-| Root/revocation | Configured broker root; local grant/key revocations | Pinned owner root + caller snapshot; retain old revocation authority and old-id/new-id mapping. |
+| Conditions | Time only, no role/wildcard/presence | Time-only caveats/v1 plus required min_assurance level/presence. Adapter MUST preserve equal/tighter minima; unrepresentable presence/assurance refuses, never silently drops them. |
+| Root/revocation | Configured broker root; local grant/key revocations | Pinned roots, root-issued attestation/1 and signed shared revocation/1 (new exact domains); operator devices attested by the operator root. Retain old revocation authority and old-id/new-id mapping, including effective-from times. No historical bypass. |
 | Bindings | Generation leaf plus separate caller chain/intersection | Adapter MUST preserve both dependencies and generation checks; key grant alone cannot replace them. |
 | Renewal/release | Repeat chains, ledger, account/profile, freeze and restore gates | All remain consumer gates; a generic accept is insufficient for material release. |
 
@@ -528,17 +592,17 @@ In addition to common members, exactly:
 | `arguments_digest` | `sha256:` + lowercase hex SHA-256(CCJ-1(canonical operation arguments)); no domain or trailing LF. |
 | `confirmed` | Boolean signed assertion that exact-content confirmation occurred. |
 
-Only pinned P-256 operator device keys may sign this type (§2.4).
+Only P-256 device keys attested by the pinned operator root may sign this type (§§2.4, 2.6).
 Only protected consumer operation policy classifies widening versus narrowing;
 the sender MUST NOT select that class. v0 profiles here are Keymaker `revoke`
 (narrowing) and illustrative `grant.issue` on an account (widening, no broker
 activation). Other operations require a published consumer profile and arguments
-schema before admission. Unknown operations MUST refuse. A pinned device key
+schema before admission. Unknown operations MUST refuse. An attested device key
 MUST be authorized for this owner, current and not revoked. Neither login to an
 operator account nor an arbitrary key in a chain makes an act valid.
 
 Key currency and presence-enrollment currency are separate caller facts.
-`SignerFacts.current` means the pinned key remains currently authorized for the
+`SignerFacts.current` means the attested key remains currently authorized for the
 owner; false MUST refuse `key_binding_invalid` for every act, including narrowing
 (and any message approval). Missing key currency MUST refuse
 `key_binding_unavailable`. Revocation remains a separate mandatory check.
@@ -547,13 +611,23 @@ is current. Its absence/false requires `act_presence_required` for widening;
 narrowing may proceed with a current key without this evidence and claims no A3.
 
 Widening MUST require `confirmed=true` AND current trusted signer-provider
-enrollment evidence that the pinned key requires user presence for each use and
+enrollment evidence that the attested key requires user presence for each use and
 renders/binds the exact operation, target, owner, epoch, audience, action id,
 arguments and time bounds before signing. A self-asserted boolean alone is
 insufficient. This slice specifies that provider obligation; it does not invent
 an attestation, phone app, biometric transport or platform mechanism. If the
 provider cannot establish it, widening MUST refuse. Narrowing MAY set confirmed
-false, but still requires the pinned key signature and current authority.
+false, but still requires the attested key signature and current authority.
+**v0 activation ruling:** no signer provider is qualified for A3. Every
+otherwise valid widening act MUST refuse `act_a3_inactive`, after existing
+confirmation, presence and replay checks, with no persistence/effect plan.
+Neither `confirmed=true` nor supplied presence/current facts can open this gate.
+Narrowing remains usable and claims no A3. Future qualification is a separately
+reviewed version/activation change: the provider interface must bind the exact
+content and current owner/device, enforce presence per use, render the exact
+operation/target/arguments/audience/time, and supply auditable enrollment,
+revocation and replay evidence. S0 defines this obligation only.
+
 An unsigned terminal fallback yields no operator-act/1. A consumer may define a
 separate authenticated unsigned narrowing path; Keymaker persistent revoke has
 none. Widening MUST NOT use an unsigned fallback or an agent session.
@@ -579,10 +653,10 @@ retains its own registrant/retirement checks. This profile consumes no widening.
 | aud | Exact protected consuming Keymaker installation identifier |
 | nonce | New 16-byte value signed with all other fields; not a replacement for action_id |
 | iat / exp | Not future, not expired, at most 120 seconds under §3.3 |
-| signing key / revocation | Protected operator device pin for that owner, current snapshot |
+| signing key / revocation | Pinned operator root, verified P-256 operator-device attestation for that owner, current signed issuer snapshot and current owner authority |
 | confirmed | May be false: persistent revoke is narrowing |
 
-The caller supplies trusted time, protected owner/key pin and binding epoch,
+The caller supplies trusted time, protected operator root, device attestation, owner and binding epoch,
 revocation evidence, id bytes journal and durable used-action journal. Missing
 verifier/evidence, unavailable revocation/time/watermark/key policy/journal or failed state
 commit maps to `operator_record_unavailable` (including `key_binding_unavailable` if required
@@ -632,23 +706,31 @@ admission and MUST NOT re-run the effect or bypass conflicting-argument checks.
 
 ## 5. Human assurance and transport
 
-A2 here means a person's pinned key signs the exact canonical envelope content,
-and the receiver verifies its current grant for the concrete action and target.
-It proves key-authenticated, authorized content, not that a person saw or wrote
-it. A3 adds the operator act and exact-content confirmation requirement on a
-qualified presence-enforcing signer provider. A narrowing signature without
-that confirmation does not by itself claim A3. Software signatures or a claimed
-confirmed flag alone do not prove presence. Carrier E2EE (A1) is out of scope;
-this document promises neither confidentiality nor device/app enrollment.
+A1 means authenticated origin: an `author` signature from a currently attested
+agent key establishes A1 provenance. Its content remains peer data; this MUST
+NOT approve a session, create authority or permit a critical action. Carrier
+E2EE is another possible A1 mechanism and remains outside this slice.
+A2 means a person's authenticated key signs exact content and the consumer
+verifies its current authorization for the concrete action and target. It does
+not prove a person saw or wrote the content. Agent authors do not become A2
+merely because their signatures or grant chains verify.
+A3 additionally requires a qualified exact-content, presence-enforcing provider
+and the operator act path. No provider is qualified in v0; §4's widening gate
+is closed. Narrowing persistent revoke remains supported without claiming A3.
+Software signatures or a claimed confirmation/presence flag do not prove A3.
+This document provides no confidentiality or device/app enrollment protocol.
 
-A Matrix carrier MUST carry the completed envelope bytes unchanged, perhaps as
-a reversible byte encoding, and MUST NOT sign reconstructed JSON or use event
-sender/display name as the authority. Consumers enforce §2's envelope limit
-independently of Matrix limits. The transport owner must publish an event byte
-budget and, if needed, an authenticated content-addressed pointer form with
-bounded retrieval, exact hash verification, audience and retention rules.
-Until that interface exists, oversized carrier events MUST refuse, not truncate
-or fetch an untrusted URL. This slice defines no Matrix event extension.
+A Matrix adapter MUST carry the completed envelope under the exact event-content
+key `works.relux.swarm.envelope`, as unchanged bytes or a reversible byte encoding.
+It MUST bind `room` to the actual room id, `to` to the full verified recipient,
+and hash the actual human-readable event text bytes. It MUST NOT reconstruct
+JSON, substitute display names or derive authority from the event sender.
+Consumers enforce §2's envelope limit independently of Matrix limits. The
+transport owner must publish the event byte budget and, if needed, an
+authenticated content-addressed pointer form with bounded retrieval, exact hash
+verification, audience and retention rules. Until then oversized events refuse;
+no truncation or untrusted-URL fetch. The content key is fixed here; event budget
+and pointer grammar remain transport-owned.
 
 ## 6. Future verifier contract and refusal order
 
@@ -667,12 +749,17 @@ Required abstract contracts (API names in the next slice may differ):
 ```text
 TimePolicy.Sample / StartSample -> sample | unavailable
 Watermark.Load -> value + continuity | unavailable
-Revocations.Check(owner, ids, keys, sample) -> not_revoked | revoked | unavailable
+Revocations.Verify(signed_snapshot,pinned_issuer,ids,keys,sample,continuity)
+  -> not_revoked | revoked | unavailable (invalid bytes/signature refuse)
 IdJournal.Lookup(id) -> absent | exact_bytes | unavailable
 Replay.Lookup(consumer,action_id) -> unused | used | unavailable
-SignerFacts.Lookup(owner,key) -> pinned + current + presence_current + presence_policy | unavailable
-KeyProvenance.Lookup(owner,key) -> pinned_owner_root | pinned_operator_device | agent | unavailable
-AgentKeyEvidence.Lookup(key_id) -> validated attestation result + current binding | unavailable
+SignerFacts.Lookup(owner,key) -> current + presence_current + presence_policy | unavailable
+Attestations.Lookup(key_id) -> exact signed attestation/1 bytes | unavailable
+CurrentGeneration.Lookup(key_id) -> typed active binding | unavailable
+RootPolicy.Lookup(purpose,owner) -> protected root pin | unavailable
+SignedSnapshots.Lookup(issuer) -> exact signed revocation/1 + continuity + max_age | unavailable
+EstablishedAssurance.Lookup(exact_request) -> level + presence | unavailable
+DeliveryContext.Lookup -> actual room + full recipient + exact text bytes | unavailable
 Commit(plan) -> atomic reserve + durable watermark + id binding | conflict | unavailable
 ```
 
@@ -683,7 +770,8 @@ an effect permit until Commit succeeds and current time/revocation/binding
 checks are repeated at the consumer's serialized effect boundary.
 
 The first failing row wins. Within a row evaluate envelopes leaf first and
-fields in the order stated. Structure precedes semantic crypto; signature
+fields in the order stated. Envelope structure precedes semantic crypto; nested
+evidence follows the exact subpipeline in §2.6. Signature
 entries are checked in array order. Codes are distinct per listed substep:
 
 | Step | Check | Refusal |
@@ -693,32 +781,37 @@ entries are checked in array order. Codes are distinct per listed substep:
 | E3 | Fixed version, then expected type | `envelope_version_unsupported` / `envelope_type_mismatch` |
 | E4 | Reserved/missing required role, duplicate pair, or grant/act role cardinality | `envelope_role_invalid` |
 | E5 | Recomputed id | `envelope_id_mismatch` |
-| E6 | Available key policy, key pin/issuer/author match, then allowed profile, message preimage size/depth, then strict crypto | `signer_unavailable` / `signer_unknown` / `signature_profile_invalid` / `signature_preimage_too_large` / `signature_preimage_invalid` / `signature_high_s` / `envelope_signature_invalid` |
+| E6 | Available agent-admission policy, issuer/author match, then allowed profile, message preimage size/depth, then strict crypto | `signer_unavailable` / `signer_unknown` / `signature_profile_invalid` / `signature_preimage_too_large` / `signature_preimage_invalid` / `signature_high_s` / `envelope_signature_invalid` |
 | E7 | Exact protected audience | `audience_mismatch` |
+| E7a | Required delivery room/recipient context, exact room, exact recipient | `message_context_unavailable` / `message_room_mismatch` / `message_recipient_mismatch` |
+| E7b | Delivered text present, valid UTF-8 bytes, exact digest | `message_text_unavailable` / `message_text_invalid` / `message_text_mismatch` |
 | T1 | Trusted/fresh provider authority, watermark availability | `time_unavailable` / `watermark_unavailable` |
 | T2 | Each expiry at max, then start at min | `expired` / `not_yet_valid` |
-| K1 | Required agent key evidence availability, attestation, revocation, id/class/purpose/binding and validity (§2.6) | `key_binding_unavailable` / `key_binding_invalid` / `revoked` |
+| K1 | Required outer evidence/header and root, strict root signature, purpose-specific typed fields/current binding, profile/derivation, validity and signed issuer revocation (§2.6) | `key_binding_unavailable` / `key_binding_invalid` / `revoked` |
 | E8 | Id journal availability, then same id other bytes | `id_journal_unavailable` / `envelope_conflict` |
 | G1 | Chain length 1–4, unique ids, closed request/schema | `grant_chain_malformed` |
 | G2 | E1–E8 for every link (before remaining G rows) | envelope/time code above |
 | G3 | Every parent ref and issuer/subject edge, then root pin/null parent | `grant_chain_broken` / `grant_root_unknown` |
-| G4 | Depth, actions, targets, raw/effective lifetime, audience attenuation | `grant_not_narrowing` |
+| G4 | Depth, actions, targets, raw/effective lifetime, audience and minimum-assurance attenuation | `grant_not_narrowing` |
 | G5 | Registered actions and applicable target kinds on every link | `action_unregistered` / `grant_target_invalid` |
 | G6 | Every link raw and caveat window (T2 already checks raw) | `expired` / `not_yet_valid` |
-| G7 | Fresh complete revocation for every id/issuer/subject | `revocation_unavailable` / `revoked` |
+| G7 | Fresh complete revocation for every id/issuer/subject | `revocation_unavailable` / `revocation_invalid` / `revoked` |
 | G8 | Concrete target before membership; requesting key/action/target coverage | `request_target_invalid` / `grant_not_authorized` |
+| G9 | Established request assurance/presence available and satisfies leaf minimum | `grant_assurance_unavailable` / `grant_assurance_insufficient` |
 | O1 | Operation profile, exact target/owner/epoch/argument digest | `act_operation_unknown` / `act_binding_mismatch` |
-| O2 | Current pinned-key authority, then signer revocation evidence | `key_binding_unavailable` / `key_binding_invalid` / `revocation_unavailable` / `revoked` |
+| O2 | Current owner authority, root-signed device attestation and act/device owner equality, then operator-root snapshot for signer/attestation/act revocation | `key_binding_unavailable` / `key_binding_invalid` / `revocation_unavailable` / `revocation_invalid` / `revoked` |
 | O3 | Widening confirmed flag then qualified presence facts | `act_confirmation_required` / `act_presence_required` |
 | O4 | Available durable replay journal, unused action id | `replay_unavailable` / `act_replay` |
+| O5 | Widening activation; unconditionally closed in v0 | `act_a3_inactive` |
 | C1 | Adapter Commit conflict/unavailability | `act_replay` / `state_unavailable` |
 
-For grant intake G1 precedes G2; G2 performs E/T/K1 checks per link, then G3–G8.
+For grant intake G1 precedes G2; G2 performs E/T/K1 checks per link, then G3–G9.
 K1 runs after T2 and before E8. Message approvers additionally require current
-protected operator pins and fresh revocation evidence; unavailable current key
+operator-root-attested devices and fresh signed issuer revocation evidence; unavailable current key
 facts return `key_binding_unavailable`, false key currency returns
-`key_binding_invalid`, and revocation uses G7 codes.
-For operator intake E/T checks precede O1–O4. E2 validates type-specific schema
+`key_binding_invalid`; their issuer snapshot uses K1 codes. Operator snapshots
+use the G7 revocation codes at O2.
+For operator intake E/T checks precede O1–O5. E2 validates type-specific schema
 using the expected type, but type string equality is deferred to E3. G4 audience
 attenuation is additionally enforced even though G2's configured audience
 normally catches a differing link first. Raw start/expiry schema, including
@@ -745,8 +838,8 @@ or admission gates.
 
 | Consumer | Contract from this slice | Activation boundary |
 | --- | --- | --- |
-| Keymaker message signer (first signing consumer) | Exact tag, canonical preimage, size/depth and raw Ed25519 output in §§2.2, 2.4–2.5; caller key evidence in §2.6 | Native intake and attestation publication belong to Keymaker; not implemented here |
-| Keymaker operator_record verifier | Pinned P-256 act and exact persistent-revoke mapping in §4.2 | Future verifier and durable caller integration still required |
+| Keymaker message signer (first signing consumer) | Exact tag, canonical preimage, size/depth and raw Ed25519 output in §§2.2, 2.4–2.5; root-signed attestation and current binding in §2.6 | Native intake and issuer publication belong to Keymaker; not implemented here |
+| Keymaker operator_record verifier | Operator-root-attested P-256 act and exact persistent-revoke mapping in §4.2 | Future verifier and durable caller integration still required |
 | Credential broker, later | General grant adapter and repeated binding/lease/renewal gates in §3.4 | Broker v0 R1 unchanged |
 | Carrier | Unchanged envelope bytes and bounded event/pointer requirement in §5 | Transport owner publishes wire budget and pointer form |
 
@@ -755,7 +848,7 @@ registration, generation, target-retirement and outer mutation journal checks
 remain mandatory. `register` gains no signature requirement. No new surface-A
 signing domain is implied; Keymaker's SSH signing capability cannot automatically
 sign this slice. Its proposed message signer consumes §2.5 rather than
-reinterpreting surface A. A qualified P-256 operator device signer supplies the act.
+reinterpreting surface A. A current root-attested P-256 device supplies a narrowing act; widening remains inactive in v0.
 
 Broker: the later adapter checks `agent.spawn` and `credential.lease` in the
 requester's chain at bind, with the dispatcher chain separately validated. Lease

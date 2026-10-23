@@ -1,0 +1,14 @@
+{
+  "id": "X31",
+  "claim": "The message byte signer refuses the attestation/revocation domain.",
+  "positive_control": "PS1",
+  "mode": "signer",
+  "input": {
+    "preimage": "c3dhcm1hLWF0dGVzdGF0aW9uIGF0dGVzdGF0aW9uLzEKeyJwcm9iZSI6ImRvbWFpbiBzZXBhcmF0aW9uIn0"
+  },
+  "fixture": {},
+  "expected": {
+    "code": "signer_domain_refused",
+    "plan": {}
+  }
+}

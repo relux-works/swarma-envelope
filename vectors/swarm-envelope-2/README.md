@@ -25,10 +25,14 @@ Every refusal has an empty plan. Acceptance returns ids and candidate watermark,
 and an action id for an act; it is not a committed effect or storage receipt.
 Signer-only acceptance returns the exact tag and preimage digest, not a
 signature/effect receipt. Domain-only acceptance returns the configured tag
-and verified key, not a consumer admission decision. Agent key evidence and
-protected expected bindings are independent fixture inputs; the checker tests
-status, bytes/id, purpose, active generation, binding and validity without
-inventing Keymaker attestation bytes.
+and verified key, not a consumer admission decision. Actual attestation and revocation envelopes are base64url bytes in fixture
+maps; the checker independently verifies their root signatures, type/profile,
+subject derivation, validity and current binding. `active_generations` is a
+separate protected caller projection. `operator_attestations` contains signed
+device records under `operator_root`, never device pins. Delivery context contains
+actual room/to and base64url exact UTF-8 event text. Assurance is protected
+request-bound evidence, not a member of the untrusted request. The offline
+provider facts establish comparison behavior only, not live qualification.
 
 The tools use the registrar's pinned CCJ-1 implementation only in the Go
 generator. That public package fits directly; no local format fork is needed.
@@ -54,10 +58,10 @@ signatures in the fixtures, not a boolean signature-valid input.
 
 | Cases | Contract witnesses |
 | --- | --- |
-| E01–E45, PE1–PE7 | Parsing, canonicalization, ids, roles, domains, strict crypto, audience, provider/watermark availability, conflicting bytes, extra invalid signature, exact received-byte bounds, type/key-class profiles and actual signed preimage budget. E13 now rejects an agent approver at the profile gate; D43 separately proves cryptographic role binding. E27/E32/E35 exercise P-256 in the operator profile. PE2 is an Ed25519 agent control; PO1/PO2 cover P-256 operator keys. PE5 uses an Ed25519 author plus a separately pinned P-256 approver. E39 uses the operator lifetime bound and pairs with PO1. |
+| E01–E45, PE1–PE7 | Parsing, canonicalization, ids, roles, domains, strict crypto, audience, provider/watermark availability, conflicting bytes, extra invalid signature, exact received-byte bounds, type/key-class profiles and actual signed preimage budget. E13 now rejects an agent approver at the profile gate; D43 separately proves cryptographic role binding. E27/E32/E35 exercise P-256 in the operator profile. PE2 is an Ed25519 agent control; PO1/PO2 cover P-256 operator keys. PE5 uses an Ed25519 author plus a operator-root-attested P-256 approver. E39 uses the operator lifetime bound and pairs with PO1. |
 | G01–G37, PG1–PG8 | All delegation dimensions, root/leaf edges, 4/5 link boundary, time/caveats/watermark, revocation freshness/unavailability, registered actions, correlated targets and concrete request. |
 | K01–K20 | Required attestation availability/validity, strict bytes/id derivation, purpose/class, active generation/owner/path/registration/epoch binding and three-outcome revocation, including grant issuers and subjects. |
-| D01–D47, PD1–PD7 | Every directed pair among all seven published tags, role/type mutation inside one message domain, exact case/space/CR rules. External rows prove tag/signature separation only; external body schemas are not simulated. |
+| D01–D47, PD1–PD7 | Every directed pair among the original seven tags; X adds the two new tags, role/type mutation inside one message domain, exact case/space/CR rules. External rows prove tag/signature separation only; external body schemas are not simulated. |
 | S01–S26, PS1–PS5 | Message signer accepts exactly swarma-msg/2, refuses grant/act/registrar/broker and unknown future-service tags, checks canonicality, exact size/depth boundaries and no envelope semantics. S07 uses a generic unregistered sentinel, not an invented signing-service witness tag. |
 | R01–R12, PR1–PR4 | Review regressions for enum type safety, signed operator-only grant targets, unsupported broker names, key currency, presence currency and the envelope/handler qualification boundary. PR4 is a valid station grant alongside credential controls. |
 | T0001–T0618 | Every other JSON type at each closed wire/request field, nested object and array entry across message, multi-signature message, populated-caveat grant, narrowing act and widening/account act. Exact ordered structural refusal and empty plan; caller provider/store snapshots remain typed external evidence. |
@@ -65,10 +69,10 @@ signatures in the fixtures, not a boolean signature-valid input.
 | B0001–B0462 | Caller evidence and principal-tuple shape sweep in author, delegated issuer and grant leaf subject: missing/null and every wrong JSON type per required field, plus integral/fractional floats, nonpositive and unsafe registration numbers. |
 | M01–M12, M19–M27, PM01–PM12 | Protected provenance matrix: root Ed25519/P-256, operator P-256 and agent Ed25519 in issuer, intermediate subject and leaf-subject positions. Valid provenance accepts; removed provenance refuses unavailable; non-current operator devices and contradictory algorithm/class claims refuse invalid. |
 | I01–I21, PI1–PI5 | Caller-identity narrowing for message signing: exact key/author paths and byte comparison; foreign/disagreeing identities, missing/wrong types, aliases, duplicates, caller/policy unavailability and mandatory multi-agent enforcement. Role/action semantics remain receiver checks. Existing S21/S22 and PS2/PS3 bounds are unchanged. |
-| O01–O18, PO1–PO4 | Exact consumer/binding/argument/epoch/key, single-use act, widening confirmation/provider facts, replay availability and record bound. |
+| O01–O18, PO1/PO2/PO4; PO3 now refuses | Exact consumer/binding/argument/epoch/key, single-use act, widening confirmation/provider facts, replay availability and record bound. |
 
 These are bounded witnesses, not exhaustive property proofs or an implementation
-of live effects. Provider confidence, revocation authenticity/completeness,
+of live effects. Provider confidence, signed-snapshot completeness,
 protected pin custody, store availability and prior journal entries are explicit
 external fixture facts. Persistent reservation, concurrency/crash recovery,
 retention, caller argument validation, signature-provider qualification and live
@@ -91,8 +95,27 @@ is the applicable provenance. Every actual agent still needs its binding.
 | Attested agent Ed25519 | PM10 / M10 / M22 | PM11 / M11 / M23 | PM12 / M12 / M24 |
 
 PM entries accept; M01–M12 have removed provenance and refuse unavailable;
-M19–M21 retain the pin but have non-current device authority and refuse invalid.
-M22–M24 reject an Ed25519 key mislabeled by a device pin; M25–M27 reject a
-P-256 key mislabeled by an agent-evidence projection.
+M19–M21 retain the device attestation but have non-current device authority and refuse invalid.
+M22–M24 reject an Ed25519 key mislabeled by a device attestation; M25–M27 reject a
+P-256 key mislabeled by an agent attestation.
 A key may occur in multiple connected positions: a parent subject is necessarily
 the next issuer. Envelope ids remain unique. No repeated-key ban is introduced.
+
+| New cases | Ruling witnesses |
+| --- | --- |
+| C01–C14, PC1–PC4 | Required actual room/full recipient; exact text presence, UTF-8, lowercase digest and byte identity including empty text, newline and Unicode-normalization counterexamples. |
+| A01–A29, PA1–PA7 | Actual signed issuer/profile/validity/binding evidence; 86400-second boundary, Ed25519 device refusal, revocation by attestation id or key, old-iat bypass refusal, unavailable/forged/foreign snapshots and future effective-from control, both root algorithms, attested devices without a direct key list, and the device/act owner join. |
+| Z001–Z147 | Typed missing/null and wrong JSON types for every new attestation member, subject/binding field, room/to/digest and minimum-assurance member; unsupported A3 request assurance refuses unavailable. |
+| Q01–Q06, PQ1–PQ3 | Minimum assurance level/presence equal-or-tighter delegation and request comparison in both directions. Widening refuses even with asserted confirmation/presence; narrowing remains the positive control. |
+| X01–X32, PD8–PD9 | All 30 new directed cross-domain signature pairs, two own-domain controls, and message-signer refusal of both new domains. Combined with D there are all 72 directed pairs among nine tags. |
+
+PO3 keeps its original case id but now lives under `0-negative`: no A3 provider
+is qualified in v0. Old widening failure cases still exercise their earlier
+specific refusals; their positive control is valid narrowing PO1. This does not
+claim a widening success or a test-only activation path.
+
+O05/O18 keep their original names and negative guarantees. Their evidence is now
+missing device attestation / operator-root policy, so both return
+`key_binding_unavailable`, replacing the old direct-key-list codes. PA6/PA7
+accept root-attested devices with no direct device key list. A29 refuses a
+valid device attested for another owner even when act and registration agree.

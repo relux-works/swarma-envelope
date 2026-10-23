@@ -1,0 +1,18 @@
+{
+  "id": "X05",
+  "claim": "Exact tags never accept a cross-domain signature: swarma-attestation attestation/1 into swarma-waggle operator-act/1.",
+  "positive_control": "PD3",
+  "mode": "domain",
+  "input": {
+    "key": "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+    "preimage": "c3dhcm1hLXdhZ2dsZSBvcGVyYXRvci1hY3QvMQp7InByb2JlIjoiZG9tYWluIHNlcGFyYXRpb24ifQ",
+    "sig": "poCl_odScWHxBQXTOpxd0xvOz2qAPFF6V3BtwybReQsybiVseTDBbqcSKaYDYSZe-svPYMA8KSuhw9mUmXN5AA"
+  },
+  "fixture": {
+    "expected_tag": "swarma-waggle operator-act/1"
+  },
+  "expected": {
+    "code": "envelope_signature_invalid",
+    "plan": {}
+  }
+}

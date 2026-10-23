@@ -1,0 +1,18 @@
+{
+  "id": "X26",
+  "claim": "Exact tags never accept a cross-domain signature: swarma-registrar registration/1 into swarma-attestation revocation/1.",
+  "positive_control": "PD9",
+  "mode": "domain",
+  "input": {
+    "key": "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+    "preimage": "c3dhcm1hLWF0dGVzdGF0aW9uIHJldm9jYXRpb24vMQp7InByb2JlIjoiZG9tYWluIHNlcGFyYXRpb24ifQ",
+    "sig": "UXh9_ctc06jWlmd90IkAui529LIipJaFJsJnOysFjX0qNigOMQ1vr6GdZ24vGzFfPMMdKMr-MterVrLL7ER8DQ"
+  },
+  "fixture": {
+    "expected_tag": "swarma-attestation revocation/1"
+  },
+  "expected": {
+    "code": "envelope_signature_invalid",
+    "plan": {}
+  }
+}

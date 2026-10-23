@@ -4,17 +4,17 @@ A secure agent coordination and communication protocol: signed messages between 
 
 ## Status
 
-**Draft design with offline conformance tooling.** The platform slice specifies `swarm-envelope/2`, general `grant/1` and `operator-act/1`. Its 1396 vectors (1342 negative, 54 positive) have a Go generator and independent Python checker. No production verifier, consumer integration or activation is implemented. The Go module currently contains tools only; the public library is a later slice. Broker v0 retains static R1 admission; Keymaker persistent revoke remains gated on verifier integration.
+**Draft design with offline conformance tooling.** The platform slice specifies `swarm-envelope/2`, general `grant/1`, `operator-act/1`, root-signed `attestation/1` and shared `revocation/1`. Its 1640 vectors (1571 negative, 69 positive) have a Go generator and independent Python checker. No production verifier, consumer integration or activation is implemented. The Go module currently contains tools only; the public library is a later slice. Broker v0 retains static R1 admission; Keymaker persistent revoke remains gated on verifier integration. Attested agent messages provide A1 provenance; widening is inactive because v0 has no qualified A3 provider.
 
 ## Layout
 
 | Path | Contents |
 | --- | --- |
-| [`spec/swarm-envelope-2.md`](spec/swarm-envelope-2.md) | Proposed normative platform records, refusal order, pure verifier boundary, exact tag registry/signer/key-evidence contracts, Keymaker mapping and later broker adapter; supersedes SSHSIG only for platform services |
+| [`spec/swarm-envelope-2.md`](spec/swarm-envelope-2.md) | Proposed normative platform records, refusal order, pure verifier boundary, exact tag registry, signed attestations/revocation, message delivery binding and assurance contracts, Keymaker mapping and later broker adapter; supersedes SSHSIG only for platform services |
 | [`UNRESOLVED_QUESTIONS.md`](UNRESOLVED_QUESTIONS.md) | Adopted defaults and remaining publication/activation decisions |
 | [`vectors/swarm-envelope-2/`](vectors/swarm-envelope-2/) | Negative-first paired format and authorization witnesses |
 | [`vectors/keys/`](vectors/keys/) | Public test-only seeds and key provenance |
-| [`tools/vectors/`](tools/vectors/) | Deterministic Go fixture generator with byte-for-byte inventory check |
+| [`tools/vectors/`](tools/vectors/) | Deterministic Go fixture generator, signed-evidence builders and byte-for-byte inventory check |
 | [`tools/vectorcheck/`](tools/vectorcheck/) | Independent Python codec, strict crypto and ordered authorization checker |
 | [`spec/waggle.md`](spec/waggle.md) | the specification (draft v5.2): two layers; principals and roster, envelope and multi-signature, verification pipeline, signature policy, signer providers and key assurance, message classes, injection defense, conversation model, providers and their capabilities, delivery through the session host; coordination vocabulary and quorum decisions, scope leases, the protocol lab; phases; Amendment A1 for board processes (board acts, confirmations of process versions, signed external events, service principals, the hand-off result, user verification in board policy, the companion app, delegation) |
 | [`spec/track.md`](spec/track.md) | the delivery track: why, the design on one screen, the fast path to internet coordination, milestones CM0–CM4, decisions |

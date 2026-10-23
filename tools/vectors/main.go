@@ -70,6 +70,10 @@ func domain(t string) string {
 		return "swarma-waggle grant/1"
 	case "operator-act/1":
 		return "swarma-waggle operator-act/1"
+	case "attestation/1":
+		return "swarma-attestation attestation/1"
+	case "revocation/1":
+		return "swarma-attestation revocation/1"
 	default:
 		panic("unregistered type")
 	}
@@ -120,10 +124,12 @@ func context() M {
 	for i, k := range keys[:6] {
 		binding := M{"owner": "owner-a", "path": fmt.Sprintf("message/agent-%d", i), "generation": fmt.Sprintf("generation-%d", i), "registration_number": i + 1, "epoch": "epoch-1"}
 		expected[k.ID] = binding
-		evidence[k.ID] = M{"binding": binding, "class": "agent", "key": k.ID, "public_bytes": b64(k.Ed.Public().(ed25519.PublicKey)), "purpose": "message-signing", "not_before": "2025-12-01T00:00:00Z", "not_after": "2026-02-01T00:00:00Z", "attestation": "valid", "revocation": "not_revoked", "active": true}
+		evidence[k.ID] = M{"binding": binding, "class": "agent", "key": k.ID, "public_bytes": b64(k.Ed.Public().(ed25519.PublicKey)), "purpose": "swarma-msg", "not_before": "2026-01-01T00:00:00Z", "not_after": "2026-01-02T00:00:00Z", "attestation": "valid", "revocation": "not_revoked", "active": true}
 	}
 	f["agent_expected"], f["agent_evidence"] = expected, evidence
 	f["operator_pins"] = []any{keys[6].ID}
+	f["delivery"] = M{"room": "!room:test.invalid", "to": "@recipient:test.invalid", "text": b64([]byte("hello"))}
+	f["assurance"] = M{"level": "A1", "presence": false}
 	return f
 }
 
@@ -148,6 +154,8 @@ func base(mode string, idx int) Vector {
 			b[k] = val
 		}
 	} else {
+		b["room"], b["to"] = "!room:test.invalid", "@recipient:test.invalid"
+		b["body_sha256"] = strings.TrimPrefix(digest([]byte("hello")), "sha256:")
 		b["author"] = keys[idx].ID
 		b["action"] = "message.deliver"
 		b["target"] = M{"kind": "station", "id": "team/member"}
@@ -168,6 +176,7 @@ func chain(n int) []any {
 		b["depth"] = max(3-i, 0)
 		b["parent"] = parent
 		b["caveats"] = nil
+		b["min_assurance"] = M{"level": "A1", "presence": false}
 		if i == 0 {
 			b["iat"] = "2025-12-31T00:00:00Z"
 			b["exp"] = "2026-01-02T00:00:00Z"
@@ -207,6 +216,9 @@ func add(id, claim, pair, code string, v Vector) {
 	pruneAgentEvidence(&v)
 	v.ID = id
 	v.Claim = claim
+	if pair == "PO3" {
+		pair = "PO1"
+	}
 	v.Positive = pair
 	v.Expected = M{"code": code, "plan": M{}}
 	if code == "accept" && v.Mode == "signer" {
@@ -416,7 +428,7 @@ func main() {
 	neg("O02", "Changed arguments refuse despite a valid signature.", "PO1", "act_binding_mismatch", "operator", func(v *Vector) { v.Fixture["binding"].(M)["arguments"].(M)["mode"] = "ephemeral" })
 	neg("O03", "Consumed action id refuses without a second plan.", "PO1", "act_replay", "operator", func(v *Vector) { v.Fixture["used_actions"] = []any{body(*v)["action_id"]} })
 	neg("O04", "Wrong epoch refuses.", "PO1", "act_binding_mismatch", "operator", func(v *Vector) { v.Fixture["binding"].(M)["epoch"] = "epoch-2" })
-	neg("O05", "Unknown operator device refuses.", "PO1", "signer_unknown", "operator", func(v *Vector) { v.Fixture["known_keys"] = []any{keys[1].ID} })
+	neg("O05", "Unknown operator device refuses.", "PO1", "key_binding_unavailable", "operator", func(v *Vector) { v.Fixture["operator_pins"] = []any{} })
 	neg("O06", "Stale act refuses.", "PO1", "expired", "operator", func(v *Vector) { v.Fixture["now"] = "2026-01-01T00:02:00Z" })
 	neg("O07", "Future act refuses.", "PO1", "not_yet_valid", "operator", func(v *Vector) { v.Fixture["now"] = "2025-12-31T23:59:59Z" })
 	neg("O08", "Widening without signed confirmation refuses.", "PO3", "act_confirmation_required", "operator", func(v *Vector) { widen(v, false) })
@@ -520,7 +532,7 @@ func main() {
 			e["id"] = digest(append([]byte("swarma-msg/2\n"), canonical(e["body"])...))
 		})
 	})
-	neg("O18", "Unavailable operator key policy refuses as unavailable evidence.", "PO1", "signer_unavailable", "operator", func(v *Vector) { v.Fixture["known_keys"] = nil })
+	neg("O18", "Unavailable operator key policy refuses as unavailable evidence.", "PO1", "key_binding_unavailable", "operator", func(v *Vector) { v.Fixture["context_edits"] = M{"operator_root": nil} })
 
 	addendumVectors()
 
@@ -554,7 +566,7 @@ func main() {
 	add("PO2", "A confirmed P-256 narrowing act remains narrowing.", "", "accept", v)
 	v = base("operator", 0)
 	widen(&v, true)
-	add("PO3", "Widening needs both exact-content assertion and qualified provider.", "", "accept", v)
+	add("PO3", "Even asserted confirmation and presence cannot activate widening in v0.", "PO1", "act_a3_inactive", v)
 	v = base("envelope", 0)
 	extraSignature(&v, false)
 	add("PE5", "Two distinct valid roles sign the same body.", "", "accept", v)
@@ -581,6 +593,10 @@ func main() {
 	typeSweep()
 	attestationVectors()
 	signerIdentityVectors()
+	rulingVectors()
+	for i := range cases {
+		materializeEvidence(&cases[i])
+	}
 	seeds, pubs := M{}, M{}
 	for i, k := range keys {
 		name := fmt.Sprintf("test-%d", i)
@@ -1017,6 +1033,10 @@ func typeSweep() {
 		walk = func(node any, path []any, request bool) {
 			if len(path) > 0 {
 				field, _ := path[len(path)-1].(string)
+				// New fields have their own Z sweep; preserve all inherited T names.
+				if field == "room" || field == "to" || field == "body_sha256" || field == "min_assurance" {
+					return
+				}
 				for _, wrong := range []any{nil, false, 1, "x", []any{}, M{}} {
 					if jsonKind(wrong) == jsonKind(node) || (wrong == nil && (field == "parent" || field == "caveats")) {
 						continue
@@ -1212,6 +1232,7 @@ func vertexChain(vertices []int) []any {
 		b["actions"], b["targets"] = []any{"credential.lease"}, []any{target("team/*")}
 		b["not_before"], b["expires"] = b["iat"], b["exp"]
 		b["depth"], b["parent"], b["caveats"] = 3-i, parent, nil
+		b["min_assurance"] = M{"level": "A1", "presence": false}
 		e := envelope(b, keys[vertices[i]], "author")
 		parent = e["id"]
 		out = append([]any{wire(e)}, out...)

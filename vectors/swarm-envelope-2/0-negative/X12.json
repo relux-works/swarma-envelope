@@ -1,0 +1,18 @@
+{
+  "id": "X12",
+  "claim": "Exact tags never accept a cross-domain signature: swarma-attestation revocation/1 into swarma-credential-broker grant/1.",
+  "positive_control": "PD6",
+  "mode": "domain",
+  "input": {
+    "key": "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+    "preimage": "c3dhcm1hLWNyZWRlbnRpYWwtYnJva2VyIGdyYW50LzEKeyJwcm9iZSI6ImRvbWFpbiBzZXBhcmF0aW9uIn0",
+    "sig": "-AU2W9g0ecybam5bBJLKBHcxFKu2zqyunNA5IKLEkC-cC7yU9robFya_4d1uPbjNwD4v9SR9CVJH4qvFSNtrCQ"
+  },
+  "fixture": {
+    "expected_tag": "swarma-credential-broker grant/1"
+  },
+  "expected": {
+    "code": "envelope_signature_invalid",
+    "plan": {}
+  }
+}

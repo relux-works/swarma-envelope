@@ -1,0 +1,18 @@
+{
+  "id": "X19",
+  "claim": "Exact tags never accept a cross-domain signature: swarma-registrar enrollment/1 into swarma-attestation attestation/1.",
+  "positive_control": "PD8",
+  "mode": "domain",
+  "input": {
+    "key": "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+    "preimage": "c3dhcm1hLWF0dGVzdGF0aW9uIGF0dGVzdGF0aW9uLzEKeyJwcm9iZSI6ImRvbWFpbiBzZXBhcmF0aW9uIn0",
+    "sig": "6MNMbmfqAPWRFIRcgUgQwWA2wyc7V-BszuGNx6zxKr52q2dA2K9hw5msf0_we_-vgEiwO0GKVdBkPBXAVQs1DA"
+  },
+  "fixture": {
+    "expected_tag": "swarma-attestation attestation/1"
+  },
+  "expected": {
+    "code": "envelope_signature_invalid",
+    "plan": {}
+  }
+}

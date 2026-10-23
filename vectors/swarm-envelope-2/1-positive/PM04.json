@@ -5,39 +5,28 @@
   "mode": "grant",
   "input": {
     "chain": [
-      "eyJib2R5Ijp7ImFjdGlvbnMiOlsiY3JlZGVudGlhbC5sZWFzZSJdLCJhdWQiOiJzZXJ2aWNlLWEiLCJjYXZlYXRzIjpudWxsLCJkZXB0aCI6MiwiZXhwIjoiMjAyNi0wMS0wMVQwMDowMjowMFoiLCJleHBpcmVzIjoiMjAyNi0wMS0wMVQwMDowMjowMFoiLCJpYXQiOiIyMDI2LTAxLTAxVDAwOjAwOjAwWiIsImlzc3VlciI6InAyNTY6QXR2dUtid3JsSktUbUMxY0ZLRFV2OWxBeDR4b2xwaHJ5b1RYa1JaTjBBeWwiLCJub25jZSI6Ikh4OGZIeDhmSHg4Zkh4OGZIeDhmSHciLCJub3RfYmVmb3JlIjoiMjAyNi0wMS0wMVQwMDowMDowMFoiLCJwYXJlbnQiOiJzaGEyNTY6ZGU1MjY0ZGIzZDA5YjM5YzVhMmRiODMzMzVmM2Q1ZGFmZTkzNzcwN2RkNGQ4MWU5OTFlMGE3YjFhMTQ3MjlkNSIsInN1YmplY3QiOiJlZDI1NTE5OjlETlBuZnQ2Y1ZVSXFhcHpoOU1SbmU2NkZzU29oNDl1NWp3el8yeDBoUE0iLCJ0YXJnZXRzIjpbeyJoYXJuZXNzIjoibW9kZWwtY2xpIiwiaWQiOiJ0ZWFtLyoiLCJraW5kIjoiY3JlZGVudGlhbCIsInByb2ZpbGUiOiJkZXYifV0sInR5cGUiOiJncmFudC8xIn0sImlkIjoic2hhMjU2OjhkMTNkOTZiZWY4Njc3YTc4YzhjNWE4MTJiODY3MDFiMjI0NmQ3NGMyMWZlOWJmMmU0ZmJlNDNlZjFjNGNiYzAiLCJzaWduYXR1cmVzIjpbeyJrZXkiOiJwMjU2OkF0dnVLYndybEpLVG1DMWNGS0RVdjlsQXg0eG9scGhyeW9UWGtSWk4wQXlsIiwicm9sZSI6ImF1dGhvciIsInNpZyI6InI4a1kzSGdrN0RVNkZsRWVjLTh4ZTM1MHhrX1RZLUF5MzZrS3ZaSkt2aGRVcng0d0xlVmtHOVl6eGc5WENFTS14NUZJREpONDRnUGdyaDg3TTJxNzZ3In1dLCJ2ZXJzaW9uIjoic3dhcm0tZW52ZWxvcGUvMiJ9",
-      "eyJib2R5Ijp7ImFjdGlvbnMiOlsiY3JlZGVudGlhbC5sZWFzZSJdLCJhdWQiOiJzZXJ2aWNlLWEiLCJjYXZlYXRzIjpudWxsLCJkZXB0aCI6MywiZXhwIjoiMjAyNi0wMS0wMVQwMDowMjowMFoiLCJleHBpcmVzIjoiMjAyNi0wMS0wMVQwMDowMjowMFoiLCJpYXQiOiIyMDI2LTAxLTAxVDAwOjAwOjAwWiIsImlzc3VlciI6InAyNTY6QXR2dUtid3JsSktUbUMxY0ZLRFV2OWxBeDR4b2xwaHJ5b1RYa1JaTjBBeWwiLCJub25jZSI6IkhoNGVIaDRlSGg0ZUhoNGVIaDRlSGciLCJub3RfYmVmb3JlIjoiMjAyNi0wMS0wMVQwMDowMDowMFoiLCJwYXJlbnQiOm51bGwsInN1YmplY3QiOiJwMjU2OkF0dnVLYndybEpLVG1DMWNGS0RVdjlsQXg0eG9scGhyeW9UWGtSWk4wQXlsIiwidGFyZ2V0cyI6W3siaGFybmVzcyI6Im1vZGVsLWNsaSIsImlkIjoidGVhbS8qIiwia2luZCI6ImNyZWRlbnRpYWwiLCJwcm9maWxlIjoiZGV2In1dLCJ0eXBlIjoiZ3JhbnQvMSJ9LCJpZCI6InNoYTI1NjpkZTUyNjRkYjNkMDliMzljNWEyZGI4MzMzNWYzZDVkYWZlOTM3NzA3ZGQ0ZDgxZTk5MWUwYTdiMWExNDcyOWQ1Iiwic2lnbmF0dXJlcyI6W3sia2V5IjoicDI1NjpBdHZ1S2J3cmxKS1RtQzFjRktEVXY5bEF4NHhvbHBocnlvVFhrUlpOMEF5bCIsInJvbGUiOiJhdXRob3IiLCJzaWciOiJJSlYtWUVDUnAtd240RnpETjlxU2dEVVFQVFA2Mkg3NkpfbG44OUxZeElnNUtOUDd6ZHRGbHlzekxETWxYZEwxVjZ3QjF3YUY1YTFZakNYNHJTOGMzZyJ9XSwidmVyc2lvbiI6InN3YXJtLWVudmVsb3BlLzIifQ"
+      "eyJib2R5Ijp7ImFjdGlvbnMiOlsiY3JlZGVudGlhbC5sZWFzZSJdLCJhdWQiOiJzZXJ2aWNlLWEiLCJjYXZlYXRzIjpudWxsLCJkZXB0aCI6MiwiZXhwIjoiMjAyNi0wMS0wMVQwMDowMjowMFoiLCJleHBpcmVzIjoiMjAyNi0wMS0wMVQwMDowMjowMFoiLCJpYXQiOiIyMDI2LTAxLTAxVDAwOjAwOjAwWiIsImlzc3VlciI6InAyNTY6QXR2dUtid3JsSktUbUMxY0ZLRFV2OWxBeDR4b2xwaHJ5b1RYa1JaTjBBeWwiLCJtaW5fYXNzdXJhbmNlIjp7ImxldmVsIjoiQTEiLCJwcmVzZW5jZSI6ZmFsc2V9LCJub25jZSI6Ikh4OGZIeDhmSHg4Zkh4OGZIeDhmSHciLCJub3RfYmVmb3JlIjoiMjAyNi0wMS0wMVQwMDowMDowMFoiLCJwYXJlbnQiOiJzaGEyNTY6Nzk4YTQ5MmMxZTM3OTBlOGE2OTlmZTdmNDU1YmE1OTZkMDRkOTQzN2RjMDZjMjcyMTRlZDE0ZWVkZGFkMjhhOCIsInN1YmplY3QiOiJlZDI1NTE5OjlETlBuZnQ2Y1ZVSXFhcHpoOU1SbmU2NkZzU29oNDl1NWp3el8yeDBoUE0iLCJ0YXJnZXRzIjpbeyJoYXJuZXNzIjoibW9kZWwtY2xpIiwiaWQiOiJ0ZWFtLyoiLCJraW5kIjoiY3JlZGVudGlhbCIsInByb2ZpbGUiOiJkZXYifV0sInR5cGUiOiJncmFudC8xIn0sImlkIjoic2hhMjU2OmJmMWQ4MGE4ODhiZGIwZTc1ZDQ2N2EyMGIzMWQyNzE1YTJhM2QzYzEzODIxNjUxNzAyMjE5MTNlNDljMTI3ZTIiLCJzaWduYXR1cmVzIjpbeyJrZXkiOiJwMjU2OkF0dnVLYndybEpLVG1DMWNGS0RVdjlsQXg0eG9scGhyeW9UWGtSWk4wQXlsIiwicm9sZSI6ImF1dGhvciIsInNpZyI6IkRGNFhJaHZnNTlLVlI3clFNdVBRRWxsOTF0TDVIZng1aEdwV04wNkh4SEYzSWdKa3Q4UFpjY3JXQ2tueHg5SEJpYmM1WEpiT2FJN2xBUXlwVWh6bk1nIn1dLCJ2ZXJzaW9uIjoic3dhcm0tZW52ZWxvcGUvMiJ9",
+      "eyJib2R5Ijp7ImFjdGlvbnMiOlsiY3JlZGVudGlhbC5sZWFzZSJdLCJhdWQiOiJzZXJ2aWNlLWEiLCJjYXZlYXRzIjpudWxsLCJkZXB0aCI6MywiZXhwIjoiMjAyNi0wMS0wMVQwMDowMjowMFoiLCJleHBpcmVzIjoiMjAyNi0wMS0wMVQwMDowMjowMFoiLCJpYXQiOiIyMDI2LTAxLTAxVDAwOjAwOjAwWiIsImlzc3VlciI6InAyNTY6QXR2dUtid3JsSktUbUMxY0ZLRFV2OWxBeDR4b2xwaHJ5b1RYa1JaTjBBeWwiLCJtaW5fYXNzdXJhbmNlIjp7ImxldmVsIjoiQTEiLCJwcmVzZW5jZSI6ZmFsc2V9LCJub25jZSI6IkhoNGVIaDRlSGg0ZUhoNGVIaDRlSGciLCJub3RfYmVmb3JlIjoiMjAyNi0wMS0wMVQwMDowMDowMFoiLCJwYXJlbnQiOm51bGwsInN1YmplY3QiOiJwMjU2OkF0dnVLYndybEpLVG1DMWNGS0RVdjlsQXg0eG9scGhyeW9UWGtSWk4wQXlsIiwidGFyZ2V0cyI6W3siaGFybmVzcyI6Im1vZGVsLWNsaSIsImlkIjoidGVhbS8qIiwia2luZCI6ImNyZWRlbnRpYWwiLCJwcm9maWxlIjoiZGV2In1dLCJ0eXBlIjoiZ3JhbnQvMSJ9LCJpZCI6InNoYTI1Njo3OThhNDkyYzFlMzc5MGU4YTY5OWZlN2Y0NTViYTU5NmQwNGQ5NDM3ZGMwNmMyNzIxNGVkMTRlZWRkYWQyOGE4Iiwic2lnbmF0dXJlcyI6W3sia2V5IjoicDI1NjpBdHZ1S2J3cmxKS1RtQzFjRktEVXY5bEF4NHhvbHBocnlvVFhrUlpOMEF5bCIsInJvbGUiOiJhdXRob3IiLCJzaWciOiJfeUpQSk1pSHRaeEk3dXMzWDFJWmxrdWxzWVRUdHNtalRsb1U5VWE2cl9aYlR2YzZmSmdkYlJHcVZZUXVmQzlPX3FscVNNOGlfX3lLVm04M1V1Q1JVQSJ9XSwidmVyc2lvbiI6InN3YXJtLWVudmVsb3BlLzIifQ"
     ]
   },
   "fixture": {
-    "agent_evidence": {
+    "active_generations": {
       "ed25519:9DNPnft6cVUIqapzh9MRne66FsSoh49u5jwz_2x0hPM": {
         "active": true,
-        "attestation": "valid",
-        "binding": {
-          "epoch": "epoch-1",
-          "generation": "generation-2",
-          "owner": "owner-a",
-          "path": "message/agent-2",
-          "registration_number": 3
-        },
-        "class": "agent",
-        "key": "ed25519:9DNPnft6cVUIqapzh9MRne66FsSoh49u5jwz_2x0hPM",
-        "not_after": "2026-02-01T00:00:00Z",
-        "not_before": "2025-12-01T00:00:00Z",
-        "public_bytes": "9DNPnft6cVUIqapzh9MRne66FsSoh49u5jwz_2x0hPM",
-        "purpose": "message-signing",
-        "revocation": "not_revoked"
-      }
-    },
-    "agent_expected": {
-      "ed25519:9DNPnft6cVUIqapzh9MRne66FsSoh49u5jwz_2x0hPM": {
-        "epoch": "epoch-1",
         "generation": "generation-2",
+        "master_epoch": "epoch-1",
         "owner": "owner-a",
         "path": "message/agent-2",
-        "registration_number": 3
+        "registration_number": 3,
+        "uid": 1002
       }
+    },
+    "assurance": {
+      "level": "A1",
+      "presence": false
+    },
+    "attestations": {
+      "ed25519:9DNPnft6cVUIqapzh9MRne66FsSoh49u5jwz_2x0hPM": "eyJib2R5Ijp7ImFjdGlvbnMiOlsibWVzc2FnZS5zaWduIl0sImJpbmRpbmciOnsiZ2VuZXJhdGlvbiI6ImdlbmVyYXRpb24tMiIsIm1hc3Rlcl9lcG9jaCI6ImVwb2NoLTEiLCJvd25lciI6Im93bmVyLWEiLCJwYXRoIjoibWVzc2FnZS9hZ2VudC0yIiwicmVnaXN0cmF0aW9uX251bWJlciI6MywidWlkIjoxMDAyfSwiZXhwIjoiMjAyNi0wMS0wMlQwMDowMDowMFoiLCJpYXQiOiIyMDI2LTAxLTAxVDAwOjAwOjAwWiIsImlzc3VlciI6ImVkMjU1MTk6YjJDZFFjbzJYbUVpMDFLNzhUZzBsNy0yNEV1NV93SExIbFN2UUUzbWoxTSIsImtleV9jbGFzcyI6ImFnZW50IiwicHVycG9zZSI6InN3YXJtYS1tc2ciLCJyb2xlcyI6WyJhdXRob3IiXSwic3ViamVjdCI6eyJhbGdvcml0aG0iOiJFZDI1NTE5Iiwia2V5X2lkIjoiZWQyNTUxOTo5RE5QbmZ0NmNWVUlxYXB6aDlNUm5lNjZGc1NvaDQ5dTVqd3pfMngwaFBNIiwicHVibGljX2J5dGVzIjoiOUROUG5mdDZjVlVJcWFwemg5TVJuZTY2RnNTb2g0OXU1and6XzJ4MGhQTSJ9LCJ0eXBlIjoiYXR0ZXN0YXRpb24vMSJ9LCJpZCI6InNoYTI1NjpkZjdlZjAxMjRmNWFmOGE3ZWMzOGMzMjAyNzI1OWQwZGI2YTdkM2JkMzg0NWViZjE1OWUyNTU2YTIzNzhjODQxIiwic2lnbmF0dXJlcyI6W3sia2V5IjoiZWQyNTUxOTpiMkNkUWNvMlhtRWkwMUs3OFRnMGw3LTI0RXU1X3dITEhsU3ZRRTNtajFNIiwicm9sZSI6ImF1dGhvciIsInNpZyI6InQ5c0FVZ3BxOUFTWHVPNFhwR2lvTG1vX3FKVmlDZ3RwMmJBSkdmYUswdDVFN3BIVzFVUi04UEtjb3NBNUQxZ2dEaC1mNVoxMnlkLW1WdElfeW5EdUN3In1dLCJ2ZXJzaW9uIjoic3dhcm0tZW52ZWxvcGUvMiJ9"
     },
     "audience": "service-a",
     "binding": {
@@ -53,6 +42,11 @@
         "kind": "registration"
       }
     },
+    "delivery": {
+      "room": "!room:test.invalid",
+      "text": "aGVsbG8",
+      "to": "@recipient:test.invalid"
+    },
     "id_journal_available": true,
     "known_keys": [
       "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
@@ -61,9 +55,11 @@
       "p256:AtvuKbwrlJKTmC1cFKDUv9lAx4xolphryoTXkRZN0Ayl"
     ],
     "now": "2026-01-01T00:01:00Z",
-    "operator_pins": [
-      "p256:AtvuKbwrlJKTmC1cFKDUv9lAx4xolphryoTXkRZN0Ayl"
-    ],
+    "operator_attestations": {
+      "p256:AtvuKbwrlJKTmC1cFKDUv9lAx4xolphryoTXkRZN0Ayl": "eyJib2R5Ijp7ImFjdGlvbnMiOlsiYWN0LnNpZ24iLCJncmFudC5zaWduIiwibWVzc2FnZS5hcHByb3ZlIl0sImJpbmRpbmciOnsib3duZXIiOiJvd25lci1hIn0sImV4cCI6IjIwMjYtMDEtMDJUMDA6MDA6MDBaIiwiaWF0IjoiMjAyNi0wMS0wMVQwMDowMDowMFoiLCJpc3N1ZXIiOiJlZDI1NTE5OkhCTk9WWm5QN2g5RFdZM1NoR1gwa1E4TnNFd0FVakVaUDExOU5GX1o0eW8iLCJrZXlfY2xhc3MiOiJvcGVyYXRvci1kZXZpY2UiLCJwdXJwb3NlIjoib3BlcmF0b3ItZGV2aWNlIiwicm9sZXMiOlsiYWN0IiwiYXBwcm92ZXIiXSwic3ViamVjdCI6eyJhbGdvcml0aG0iOiJQLTI1NiIsImtleV9pZCI6InAyNTY6QXR2dUtid3JsSktUbUMxY0ZLRFV2OWxBeDR4b2xwaHJ5b1RYa1JaTjBBeWwiLCJwdWJsaWNfYnl0ZXMiOiJBdHZ1S2J3cmxKS1RtQzFjRktEVXY5bEF4NHhvbHBocnlvVFhrUlpOMEF5bCJ9LCJ0eXBlIjoiYXR0ZXN0YXRpb24vMSJ9LCJpZCI6InNoYTI1NjphYzRhNTRmNzA5ZTZjNzVlODQ3NzcyYmIzMDFiMTViNmM1MGVhODIzZWRjYjdkOTI5ZGJjZjhhNmM1NzdlZjUwIiwic2lnbmF0dXJlcyI6W3sia2V5IjoiZWQyNTUxOTpIQk5PVlpuUDdoOURXWTNTaEdYMGtROE5zRXdBVWpFWlAxMTlORl9aNHlvIiwicm9sZSI6ImF1dGhvciIsInNpZyI6InpESHg3Z0xPVmRwdTloNkpYbjNTVDJUQzdGeEstYkdjMEd3VDByalA4ZExsWmEzOERCVkZVRk1oa0I0YXRGeU16NGNlUWVZUS1FdUdWdXUza2tNSUR3In1dLCJ2ZXJzaW9uIjoic3dhcm0tZW52ZWxvcGUvMiJ9"
+    },
+    "operator_owner": "owner-a",
+    "operator_root": "ed25519:HBNOVZnP7h9DWY3ShGX0kQ8NsEwAUjEZP119NF_Z4yo",
     "replay_available": true,
     "request": {
       "action": "credential.lease",
@@ -78,17 +74,32 @@
     "required_roles": [
       "author"
     ],
-    "revocation": {
-      "complete": true,
-      "issued_at": "2026-01-01T00:01:00Z",
-      "max_age": 60,
-      "revoked_ids": [],
-      "revoked_keys": [],
-      "rollback_safe": true,
-      "verdict": "not_revoked"
+    "revocations": {
+      "ed25519:HBNOVZnP7h9DWY3ShGX0kQ8NsEwAUjEZP119NF_Z4yo": {
+        "availability": "available",
+        "max_age": 60,
+        "rollback_safe": true,
+        "snapshot": "eyJib2R5Ijp7ImNvbXBsZXRlIjp0cnVlLCJlbnRyaWVzIjpbXSwiaXNzdWVkX2F0IjoiMjAyNi0wMS0wMVQwMDowMTowMFoiLCJpc3N1ZXIiOiJlZDI1NTE5OkhCTk9WWm5QN2g5RFdZM1NoR1gwa1E4TnNFd0FVakVaUDExOU5GX1o0eW8iLCJ0eXBlIjoicmV2b2NhdGlvbi8xIn0sImlkIjoic2hhMjU2OjBlNTNmMDU1NWJhNzM5N2MzYmRjNDgyMGY0YzBhMGVlNzgxMzBlMWNjNzE0YjZkNGE5MmMyZjEzNTk0Y2Y5NTciLCJzaWduYXR1cmVzIjpbeyJrZXkiOiJlZDI1NTE5OkhCTk9WWm5QN2g5RFdZM1NoR1gwa1E4TnNFd0FVakVaUDExOU5GX1o0eW8iLCJyb2xlIjoiYXV0aG9yIiwic2lnIjoidXQ0VGZBMkNXMWpQdF8tZ0FmeWk3cndnWVAzQlhGVTdCbXdTb1lELTJsWGl1dkNzM0RFVDFzSWpGQTZDTnlUbGpkYUlOQU5FcFc3M0hqaHpkZ0RURHcifV0sInZlcnNpb24iOiJzd2FybS1lbnZlbG9wZS8yIn0"
+      },
+      "ed25519:b2CdQco2XmEi01K78Tg0l7-24Eu5_wHLHlSvQE3mj1M": {
+        "availability": "available",
+        "max_age": 60,
+        "rollback_safe": true,
+        "snapshot": "eyJib2R5Ijp7ImNvbXBsZXRlIjp0cnVlLCJlbnRyaWVzIjpbXSwiaXNzdWVkX2F0IjoiMjAyNi0wMS0wMVQwMDowMTowMFoiLCJpc3N1ZXIiOiJlZDI1NTE5OmIyQ2RRY28yWG1FaTAxSzc4VGcwbDctMjRFdTVfd0hMSGxTdlFFM21qMU0iLCJ0eXBlIjoicmV2b2NhdGlvbi8xIn0sImlkIjoic2hhMjU2OjQxYjhkMmU5Y2MzNjMxMDRlYzQ5ZDAyZDBkY2Q4ZTYzOGVlYmUzN2RhZjBhOTBjMGQ0ZWZlZDc3NjNmNGUwMzEiLCJzaWduYXR1cmVzIjpbeyJrZXkiOiJlZDI1NTE5OmIyQ2RRY28yWG1FaTAxSzc4VGcwbDctMjRFdTVfd0hMSGxTdlFFM21qMU0iLCJyb2xlIjoiYXV0aG9yIiwic2lnIjoiRS1ROUVSd2RmTDZkekRuU0xDMl9lSDdveVEwNktxRjJDZ3BaZzd5cmxTaG5PYVlwTzZsbVUyRGJGTlI3djYxYTA4OTB0cjVuTHBoMjVHMXhUNk5tQUEifV0sInZlcnNpb24iOiJzd2FybS1lbnZlbG9wZS8yIn0"
+      },
+      "p256:AtvuKbwrlJKTmC1cFKDUv9lAx4xolphryoTXkRZN0Ayl": {
+        "availability": "available",
+        "max_age": 60,
+        "rollback_safe": true,
+        "snapshot": "eyJib2R5Ijp7ImNvbXBsZXRlIjp0cnVlLCJlbnRyaWVzIjpbXSwiaXNzdWVkX2F0IjoiMjAyNi0wMS0wMVQwMDowMTowMFoiLCJpc3N1ZXIiOiJwMjU2OkF0dnVLYndybEpLVG1DMWNGS0RVdjlsQXg0eG9scGhyeW9UWGtSWk4wQXlsIiwidHlwZSI6InJldm9jYXRpb24vMSJ9LCJpZCI6InNoYTI1NjpkODQ1Y2ZlODJhNzlmY2ZlNDE2OWVhZTg2ZTRhNzMwZjgyMzZjMjk4MDA1NTlhOTJiYjhlYTljYTcxNmE2ZWVjIiwic2lnbmF0dXJlcyI6W3sia2V5IjoicDI1NjpBdHZ1S2J3cmxKS1RtQzFjRktEVXY5bEF4NHhvbHBocnlvVFhrUlpOMEF5bCIsInJvbGUiOiJhdXRob3IiLCJzaWciOiJHR20wUngwcHpBTVBaRVMwdFAycGRTNV9TZDA1T29MMEZqUHpqZ0hEWU5VaUVvaDBTbFBGeXNWWTgxRWxRdWxuSXpQOHFuRGRDMXRSZ0VsNG1RdExuUSJ9XSwidmVyc2lvbiI6InN3YXJtLWVudmVsb3BlLzIifQ"
+      }
     },
     "root": "p256:AtvuKbwrlJKTmC1cFKDUv9lAx4xolphryoTXkRZN0Ayl",
     "seen": {},
+    "service_root": {
+      "key": "ed25519:b2CdQco2XmEi01K78Tg0l7-24Eu5_wHLHlSvQE3mj1M",
+      "purpose": 5
+    },
     "signer_facts": {
       "current": false,
       "presence": true,
@@ -107,8 +118,8 @@
     "code": "accept",
     "plan": {
       "ids": [
-        "sha256:8d13d96bef8677a78c8c5a812b86701b2246d74c21fe9bf2e4fbe43ef1c4cbc0",
-        "sha256:de5264db3d09b39c5a2db83335f3d5dafe937707dd4d81e991e0a7b1a14729d5"
+        "sha256:bf1d80a888bdb0e75d467a20b31d2715a2a3d3c1382165170221913e49c127e2",
+        "sha256:798a492c1e3790e8a699fe7f455ba596d04d9437dc06c27214ed14eeddad28a8"
       ],
       "watermark": "2026-01-01T00:01:00Z"
     }

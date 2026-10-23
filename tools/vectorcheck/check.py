@@ -229,8 +229,8 @@ def schema(envelope, expected):
     hash_id(envelope["id"])
     b = envelope["body"]
     common = "type aud nonce iat exp "
-    extra = {"message/1": "author action target arguments",
-             "grant/1": "issuer subject actions targets not_before expires depth parent caveats",
+    extra = {"message/1": "author action target arguments room to body_sha256",
+             "grant/1": "issuer subject actions targets not_before expires depth parent caveats min_assurance",
              "operator-act/1": "operation target owner epoch action_id arguments_digest confirmed"}
     exact(b, common + extra[expected])
     require(isinstance(b["type"], str), "envelope_malformed")
@@ -246,6 +246,7 @@ def schema(envelope, expected):
         key_bytes(sig["key"])
         unb64(sig["sig"], 64)
     if expected == "grant/1":
+        assurance_value(b["min_assurance"], "envelope_malformed")
         key_bytes(b["issuer"])
         key_bytes(b["subject"])
         require(type(b["actions"]) is list and 1 <= len(b["actions"]) <= 64
@@ -272,6 +273,8 @@ def schema(envelope, expected):
         hash_id(b["arguments_digest"])
         require(type(b["confirmed"]) is bool, "envelope_malformed")
     else:
+        require(all(type(b[n]) is str and re.fullmatch(r"[!-~]{1,255}", b[n]) for n in ("room", "to")), "envelope_malformed")
+        require(type(b["body_sha256"]) is str and re.fullmatch(r"[0-9a-f]{64}", b["body_sha256"]), "envelope_malformed")
         key_bytes(b["author"])
         require(isinstance(b["action"], str) and target(b["target"])
                 and isinstance(b["arguments"], dict), "envelope_malformed")
@@ -292,7 +295,9 @@ def window(start, end, low, high):
 
 
 OWN_TAGS = {"message/1": "swarma-msg/2", "grant/1": "swarma-waggle grant/1",
-            "operator-act/1": "swarma-waggle operator-act/1"}
+            "operator-act/1": "swarma-waggle operator-act/1",
+            "attestation/1": "swarma-attestation attestation/1",
+            "revocation/1": "swarma-attestation revocation/1"}
 REGISTERED_TAGS = set(OWN_TAGS.values()) | {
     "swarma-registrar registration/1", "swarma-registrar enrollment/1",
     "swarma-credential-broker grant/1", "swarma-credential-broker revocation/1"}
@@ -360,58 +365,176 @@ def evidence_object(value, names=()):
 
 
 def principal_tuple(value):
-    names = ("owner", "path", "generation", "registration_number", "epoch")
+    names = ("owner", "path", "generation", "registration_number", "master_epoch", "uid")
     value = evidence_object(value, names)
+    require(set(value) <= set(names) | {"active"}, "key_binding_invalid")
     require(all(type(value[n]) is str and not any(0xD800 <= ord(c) <= 0xDFFF for c in value[n])
                 and 1 <= len(value[n].encode("utf-8")) <= 255
-                for n in ("owner", "path", "generation", "epoch")), "key_binding_invalid")
-    number = value["registration_number"]
-    require(type(number) is int and 1 <= number <= 9007199254740991, "key_binding_invalid")
+                for n in ("owner", "path", "generation", "master_epoch")), "key_binding_invalid")
+    number, uid = value["registration_number"], value["uid"]
+    require(type(number) is int and 1 <= number <= 9007199254740991
+            and type(uid) is int and 0 <= uid <= 4294967294, "key_binding_invalid")
     return tuple(value[n] for n in names)
 
 
-def agent_binding(key, f):
-    records = evidence_object(f.get("agent_evidence"))
-    bindings = evidence_object(f.get("agent_expected"))
-    require(key in records and key in bindings, "key_binding_unavailable")
-    names = ("public_bytes", "key", "class", "purpose", "active", "binding",
-             "not_before", "not_after", "attestation", "revocation")
-    record = evidence_object(records[key], names)
-    binding = principal_tuple(bindings[key])
-    attested_binding = principal_tuple(record["binding"])
-    require(all(type(record[n]) is str for n in names if n not in {"active", "binding"})
-            and type(record["active"]) is bool, "key_binding_invalid")
-    require(record["attestation"] != "unavailable"
-            and record["revocation"] != "unavailable", "key_binding_unavailable")
-    require(record["attestation"] == "valid", "key_binding_invalid")
-    require(record["revocation"] != "revoked", "revoked")
-    require(record["revocation"] == "not_revoked", "key_binding_invalid")
-    alg, public = key_bytes(key)
+def evidence_exact(value, names):
+    value = evidence_object(value, names.split())
+    require(set(value) == set(names.split()), "key_binding_invalid")
+    return value
+
+
+def signed_evidence(value, expected, root):
+    require(value is not None, "key_binding_unavailable")
+    require(type(value) is str, "key_binding_invalid")
     try:
-        attested_bytes = unb64(record["public_bytes"], 32)
-        start, end = timestamp(record["not_before"]), timestamp(record["not_after"])
+        raw = unb64(value)
+        require(len(raw) <= 8192, "key_binding_invalid")
+        e = parse(raw)
     except Refusal:
         raise Refusal("key_binding_invalid") from None
-    require(alg == "ed25519" and record["class"] == "agent"
-            and record["purpose"] == "message-signing" and record["active"]
-            and record["key"] == key and attested_bytes == public
-            and "ed25519:" + b64(attested_bytes) == key
-            and attested_binding == binding, "key_binding_invalid")
+    evidence_exact(e, "version body id signatures")
+    b = evidence_object(e["body"], ("type", "issuer"))
+    require(type(e["signatures"]) is list and len(e["signatures"]) == 1, "key_binding_invalid")
+    sig = evidence_exact(e["signatures"][0], "role key sig")
+    require(e["version"] == "swarm-envelope/2" and b.get("type") == expected
+            and b.get("issuer") == root and sig["key"] == root and sig["role"] == "author", "key_binding_invalid")
+    try:
+        require(e["id"] == digest((OWN_TAGS[expected]+"\n").encode("ascii")+ccj(b)), "key_binding_invalid")
+        verify_signature(root, unb64(sig["sig"], 64), signing_preimage(b, root, "author", expected))
+    except Refusal:
+        raise Refusal("key_binding_invalid") from None
+    return e
+
+
+def signed_snapshot(f, root, ids, keys):
+    records = evidence_object(f.get("revocations"))
+    record = evidence_object(records.get(root), ("availability", "max_age", "rollback_safe", "snapshot"))
+    require(type(record["availability"]) is str, "key_binding_invalid")
+    require(record["availability"] != "unavailable", "key_binding_unavailable")
+    require(record["availability"] == "available", "key_binding_invalid")
+    require(type(record["max_age"]) is int and 0 < record["max_age"] <= 60
+            and type(record["rollback_safe"]) is bool, "key_binding_invalid")
+    b = signed_evidence(record["snapshot"], "revocation/1", root)["body"]
+    evidence_exact(b, "type issuer issued_at complete entries")
+    require(type(b["complete"]) is bool and type(b["entries"]) is list, "key_binding_invalid")
+    try:
+        issued = timestamp(b["issued_at"])
+    except Refusal:
+        raise Refusal("key_binding_invalid") from None
+    low, high = time_values(f)
+    require(b["complete"] and record["rollback_safe"] and issued <= low
+            and high-issued <= record["max_age"], "key_binding_unavailable")
+    effective_entries = []
+    for entry in b["entries"]:
+        evidence_exact(entry, "kind id from")
+        require(type(entry["kind"]) is str and entry["kind"] in {"key", "record"}, "key_binding_invalid")
+        try:
+            when = timestamp(entry["from"])
+            if entry["kind"] == "key":
+                key_bytes(entry["id"])
+            else:
+                hash_id(entry["id"])
+        except Refusal:
+            raise Refusal("key_binding_invalid") from None
+        effective_entries.append((entry["kind"], entry["id"], when))
+    # Validate the complete snapshot before matching; current time, never old iat.
+    require(not any(when <= high and item in (keys if kind == "key" else ids)
+                    for kind, item, when in effective_entries), "revoked")
+
+
+def verify_attestation(key, f, device=False, check_revocation=True):
+    collection = "operator_attestations" if device else "attestations"
+    records = evidence_object(f.get(collection))
+    require(key in records, "key_binding_unavailable")
+    if device:
+        root = f.get("operator_root")
+        require(root is not None, "key_binding_unavailable")
+    else:
+        root_record = evidence_exact(f.get("service_root"), "key purpose")
+        require(type(root_record["purpose"]) is int and root_record["purpose"] == 5, "key_binding_invalid")
+        root = root_record["key"]
+    e = signed_evidence(records[key], "attestation/1", root)
+    b = evidence_exact(e["body"], "type issuer subject key_class purpose roles actions iat exp binding")
+    subject = evidence_exact(b["subject"], "algorithm key_id public_bytes")
+    require(all(type(subject[n]) is str for n in subject)
+            and all(type(b[n]) is str for n in ("key_class", "purpose", "iat", "exp"))
+            and type(b["roles"]) is list and type(b["actions"]) is list, "key_binding_invalid")
+    try:
+        alg, public = key_bytes(key)
+        encoded = unb64(subject["public_bytes"], 33 if device else 32)
+        start, end = timestamp(b["iat"]), timestamp(b["exp"])
+    except Refusal:
+        raise Refusal("key_binding_invalid") from None
+    try:
+        if alg == "ed25519":
+            point(public)
+        else:
+            require(ec is not None, "PENDING_p256_cryptography_unavailable")
+            ec.EllipticCurvePublicKey.from_encoded_point(ec.SECP256R1(), public)
+    except (Refusal, ValueError):
+        raise Refusal("key_binding_invalid") from None
+    require(subject["key_id"] == key and encoded == public and 0 < end-start
+            and (device or end-start <= 86400), "key_binding_invalid")
+    if device:
+        require(alg == "p256" and subject["algorithm"] == "P-256"
+                and b["key_class"] == "operator-device" and b["purpose"] == "operator-device"
+                and b["roles"] == ["act", "approver"]
+                and b["actions"] == ["act.sign", "grant.sign", "message.approve"], "key_binding_invalid")
+        binding = evidence_exact(b["binding"], "owner")
+        require(type(binding["owner"]) is str and binding["owner"] == f.get("operator_owner"), "key_binding_invalid")
+    else:
+        require(alg == "ed25519" and subject["algorithm"] == "Ed25519"
+                and b["key_class"] == "agent" and b["purpose"] == "swarma-msg"
+                and b["roles"] == ["author"] and b["actions"] == ["message.sign"], "key_binding_invalid")
+        current = evidence_object(f.get("active_generations"))
+        require(key in current, "key_binding_unavailable")
+        current_binding = evidence_object(current[key], ("active",))
+        left, right = principal_tuple(b["binding"]), principal_tuple(current_binding)
+        require(set(b["binding"]) == {"owner", "path", "generation", "registration_number", "master_epoch", "uid"}, "key_binding_invalid")
+        require(type(current_binding["active"]) is bool and current_binding["active"]
+                and left == right, "key_binding_invalid")
     low, high = time_values(f)
     require(start <= low and high < end, "key_binding_invalid")
+    if check_revocation:
+        signed_snapshot(f, root, [e["id"]], [key])
+    return e
+
+
+def agent_binding(key, f):
+    verify_attestation(key, f)
 
 
 def grant_key_binding(key, f):
-    # Protected provenance wins before algorithm constraints or chain position.
+    # Protected authority-root provenance is independent of algorithm/position.
     if key == f["root"]:
         return
-    pins = f.get("operator_pins", [])
-    require(type(pins) is list and all(type(p) is str for p in pins), "key_binding_invalid")
-    if key in pins:
-        require(key_bytes(key)[0] == "p256", "key_binding_invalid")
+    devices = evidence_object(f.get("operator_attestations"))
+    if key in devices:
+        verify_attestation(key, f, device=True)
         operator_key_current(f)
-        return
-    agent_binding(key, f)
+    else:
+        agent_binding(key, f)
+
+
+def delivery_binding(b, f):
+    d = f.get("delivery")
+    require(type(d) is dict and all(type(d.get(n)) is str for n in ("room", "to")), "message_context_unavailable")
+    require(b["room"] == d["room"], "message_room_mismatch")
+    require(b["to"] == d["to"], "message_recipient_mismatch")
+    require(d.get("text") is not None, "message_text_unavailable")
+    try:
+        text = unb64(d["text"])
+        text.decode("utf-8")
+    except (Refusal, UnicodeError):
+        raise Refusal("message_text_invalid") from None
+    require(hashlib.sha256(text).hexdigest() == b["body_sha256"], "message_text_mismatch")
+
+
+def assurance_value(value, code):
+    require(type(value) is dict and set(value) == {"level", "presence"}, code)
+    require(type(value["level"]) is str and value["level"] in {"A1", "A2", "A3"}
+            and type(value["presence"]) is bool, code)
+    return int(value["level"][1]), value["presence"]
 
 
 def envelope(raw, expected, f):
@@ -443,11 +566,9 @@ def envelope(raw, expected, f):
     for s in sigs:
         if expected == "grant/1":
             require(s["key"] == b["issuer"], "signer_unknown")
-        else:
+        elif expected == "message/1" and s["role"] == "author":
             require(f["known_keys"] is not None, "signer_unavailable")
-            require(s["key"] in f["known_keys"], "signer_unknown")
-            if expected == "message/1" and s["role"] == "author":
-                require(s["key"] == b["author"], "signer_unknown")
+            require(s["key"] in f["known_keys"] and s["key"] == b["author"], "signer_unknown")
         alg, _ = key_bytes(s["key"])
         allowed = ((expected == "message/1" and (s["role"], alg) in {("author", "ed25519"), ("approver", "p256")})
                    or (expected == "operator-act/1" and (s["role"], alg) == ("approver", "p256"))
@@ -462,13 +583,18 @@ def envelope(raw, expected, f):
                 raise Refusal("signature_preimage_invalid") from None
         verify_signature(s["key"], unb64(s["sig"], 64), pre)
     require(b["aud"] == f["audience"], "audience_mismatch")
+    if expected == "message/1":
+        delivery_binding(b, f)
     low, high = time_values(f)
     window(b["iat"], b["exp"], low, high)
     if expected == "message/1":
         agent_binding(b["author"], f)
         if any(s["role"] == "approver" for s in sigs):
             operator_key_current(f)
-            revocation(f, [], [s["key"] for s in sigs if s["role"] == "approver"])
+            for sig in sigs:
+                if sig["role"] == "approver":
+                    verify_attestation(sig["key"], f, device=True)
+
     elif expected == "grant/1":
         for key in (b["issuer"], b["subject"]):
             grant_key_binding(key, f)
@@ -497,14 +623,15 @@ def effective(b):
     return (timestamp(c["not_before"]), timestamp(c["expires"])) if c else (timestamp(b["iat"]), timestamp(b["exp"]))
 
 
-def revocation(f, ids, keys):
-    r = f["revocation"]
-    low, high = time_values(f)
-    require(r["verdict"] in {"not_revoked", "revoked"} and r["complete"] and r["rollback_safe"]
-            and 0 < r["max_age"] <= 60 and timestamp(r["issued_at"]) <= low
-            and high-timestamp(r["issued_at"]) <= r["max_age"], "revocation_unavailable")
-    require(r["verdict"] != "revoked" and not set(ids).intersection(r["revoked_ids"])
-            and not set(keys).intersection(r["revoked_keys"]), "revoked")
+def revocation(f, ids, keys, root=None):
+    try:
+        signed_snapshot(f, f["root"] if root is None else root, ids, keys)
+    except Refusal as error:
+        if str(error) == "key_binding_unavailable":
+            raise Refusal("revocation_unavailable") from None
+        if str(error) == "key_binding_invalid":
+            raise Refusal("revocation_invalid") from None
+        raise
 
 
 def grants(raw_chain, f):
@@ -538,7 +665,9 @@ def grants(raw_chain, f):
                 and all(any(contains(p, c) for p in parent["targets"]) for c in child["targets"])
                 and timestamp(child["iat"]) >= timestamp(parent["iat"])
                 and timestamp(child["exp"]) <= timestamp(parent["exp"])
-                and cs >= ps and ce <= pe and child["aud"] == parent["aud"], "grant_not_narrowing")
+                and cs >= ps and ce <= pe and child["aud"] == parent["aud"]
+                and assurance_value(child["min_assurance"], "envelope_malformed")[0] >= assurance_value(parent["min_assurance"], "envelope_malformed")[0]
+                and (not parent["min_assurance"]["presence"] or child["min_assurance"]["presence"]), "grant_not_narrowing")
     vocabulary = {"credential.lease": "credential", "agent.spawn": "station", "message.deliver": "station"}
     for b in bs:
         require(set(b["actions"]) <= vocabulary.keys(), "action_unregistered")
@@ -556,6 +685,10 @@ def grants(raw_chain, f):
     require(req["key"] == leaf["subject"] and req["action"] in leaf["actions"]
             and vocabulary[req["action"]] == req["target"]["kind"]
             and any(contains(t, req["target"]) for t in leaf["targets"]), "grant_not_authorized")
+    minimum, presence = assurance_value(leaf["min_assurance"], "envelope_malformed")
+    established, present = assurance_value(f.get("assurance"), "grant_assurance_unavailable")
+    require(established < 3, "grant_assurance_unavailable")
+    require(established >= minimum and (not presence or present), "grant_assurance_insufficient")
     return es
 
 
@@ -575,12 +708,16 @@ def operator(e, f):
             and b["epoch"] == binding["epoch"]
             and b["arguments_digest"] == digest(ccj(binding["arguments"])), "act_binding_mismatch")
     operator_key_current(f)
-    revocation(f, [e["id"]], [s["key"] for s in e["signatures"]])
+    attestation = verify_attestation(e["signatures"][0]["key"], f, device=True, check_revocation=False)
+    require(attestation["body"]["binding"]["owner"] == b["owner"], "key_binding_invalid")
+    revocation(f, [e["id"], attestation["id"]], [s["key"] for s in e["signatures"]], root=f["operator_root"])
     if widening:
         require(b["confirmed"], "act_confirmation_required")
         require(f["signer_facts"]["presence"] is True and f["signer_facts"].get("presence_current") is True, "act_presence_required")
     require(f["replay_available"], "replay_unavailable")
     require(b["action_id"] not in f["used_actions"], "act_replay")
+    if widening:
+        raise Refusal("act_a3_inactive")
 
 
 def verdict(vector):

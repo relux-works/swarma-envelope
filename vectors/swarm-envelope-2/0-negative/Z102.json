@@ -1,0 +1,118 @@
+{
+  "id": "Z102",
+  "claim": "Signed attestation field [binding master_epoch] with object yields the typed evidence refusal.",
+  "positive_control": "PA1",
+  "mode": "envelope",
+  "input": {
+    "envelope": "eyJib2R5Ijp7ImFjdGlvbiI6Im1lc3NhZ2UuZGVsaXZlciIsImFyZ3VtZW50cyI6eyJ0ZXh0IjoiaGVsbG8ifSwiYXVkIjoic2VydmljZS1hIiwiYXV0aG9yIjoiZWQyNTUxOTp3dWUydDFHSmVMWlRxell1ZGt6UkloeVkxMWxBenlQWERqc1RYZ1hvSXJrIiwiYm9keV9zaGEyNTYiOiIyY2YyNGRiYTVmYjBhMzBlMjZlODNiMmFjNWI5ZTI5ZTFiMTYxZTVjMWZhNzQyNWU3MzA0MzM2MjkzOGI5ODI0IiwiZXhwIjoiMjAyNi0wMS0wMVQwMDowMjowMFoiLCJpYXQiOiIyMDI2LTAxLTAxVDAwOjAwOjAwWiIsIm5vbmNlIjoiQndjSEJ3Y0hCd2NIQndjSEJ3Y0hCdyIsInJvb20iOiIhcm9vbTp0ZXN0LmludmFsaWQiLCJ0YXJnZXQiOnsiaWQiOiJ0ZWFtL21lbWJlciIsImtpbmQiOiJzdGF0aW9uIn0sInRvIjoiQHJlY2lwaWVudDp0ZXN0LmludmFsaWQiLCJ0eXBlIjoibWVzc2FnZS8xIn0sImlkIjoic2hhMjU2OjU0ZWMxYmFmYjdjMjViNjY2MWU5MjY0MWY1ZGViYmI2MGU4ZjBiYzk3YjQ5Yzg1OGFhYjFiNmE5ZWZjNTc0NTYiLCJzaWduYXR1cmVzIjpbeyJrZXkiOiJlZDI1NTE5Ond1ZTJ0MUdKZUxaVHF6WXVka3pSSWh5WTExbEF6eVBYRGpzVFhnWG9JcmsiLCJyb2xlIjoiYXV0aG9yIiwic2lnIjoibWNpc25HYmxvbGxtQzlyMVVoMTBrb2s4bVhSU2FEYUc0YlBONjlzam51XzE2NjhxZ3BYcmJFS1hxLWxPSHFsZV8zTWIzUks3WUxOWmYzVjlLY2dsQUEifV0sInZlcnNpb24iOiJzd2FybS1lbnZlbG9wZS8yIn0"
+  },
+  "fixture": {
+    "active_generations": {
+      "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk": {
+        "active": true,
+        "generation": "generation-0",
+        "master_epoch": "epoch-1",
+        "owner": "owner-a",
+        "path": "message/agent-0",
+        "registration_number": 1,
+        "uid": 1000
+      }
+    },
+    "assurance": {
+      "level": "A1",
+      "presence": false
+    },
+    "attestations": {
+      "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk": "eyJib2R5Ijp7ImFjdGlvbnMiOlsibWVzc2FnZS5zaWduIl0sImJpbmRpbmciOnsiZ2VuZXJhdGlvbiI6ImdlbmVyYXRpb24tMCIsIm1hc3Rlcl9lcG9jaCI6e30sIm93bmVyIjoib3duZXItYSIsInBhdGgiOiJtZXNzYWdlL2FnZW50LTAiLCJyZWdpc3RyYXRpb25fbnVtYmVyIjoxLCJ1aWQiOjEwMDB9LCJleHAiOiIyMDI2LTAxLTAyVDAwOjAwOjAwWiIsImlhdCI6IjIwMjYtMDEtMDFUMDA6MDA6MDBaIiwiaXNzdWVyIjoiZWQyNTUxOTpiMkNkUWNvMlhtRWkwMUs3OFRnMGw3LTI0RXU1X3dITEhsU3ZRRTNtajFNIiwia2V5X2NsYXNzIjoiYWdlbnQiLCJwdXJwb3NlIjoic3dhcm1hLW1zZyIsInJvbGVzIjpbImF1dGhvciJdLCJzdWJqZWN0Ijp7ImFsZ29yaXRobSI6IkVkMjU1MTkiLCJrZXlfaWQiOiJlZDI1NTE5Ond1ZTJ0MUdKZUxaVHF6WXVka3pSSWh5WTExbEF6eVBYRGpzVFhnWG9JcmsiLCJwdWJsaWNfYnl0ZXMiOiJ3dWUydDFHSmVMWlRxell1ZGt6UkloeVkxMWxBenlQWERqc1RYZ1hvSXJrIn0sInR5cGUiOiJhdHRlc3RhdGlvbi8xIn0sImlkIjoic2hhMjU2OjcxODdhZTU4NzM4Yzg5ZDI2ZjQ2NDczODQyYjE0YTBiNzQ3NDJjNDUwZTkyY2IwNmEwMjU4OTIxN2U4OTMxODgiLCJzaWduYXR1cmVzIjpbeyJrZXkiOiJlZDI1NTE5OmIyQ2RRY28yWG1FaTAxSzc4VGcwbDctMjRFdTVfd0hMSGxTdlFFM21qMU0iLCJyb2xlIjoiYXV0aG9yIiwic2lnIjoiZE1vM0lZaTJoRm5rQmkyTFlHMEJCVmZqOXcxeEVxNmUwMm40c284a3BFZlk4NDF6a1RKbjJrQU9BQTJVeWZnR2dKNzRqSkx0a2hUTlp5ZDI2WEhzQ3cifV0sInZlcnNpb24iOiJzd2FybS1lbnZlbG9wZS8yIn0"
+    },
+    "audience": "service-a",
+    "binding": {
+      "arguments": {
+        "mode": "operator",
+        "registration_number": 1
+      },
+      "epoch": "epoch-1",
+      "operation": "revoke",
+      "owner": "owner-a",
+      "target": {
+        "id": 1,
+        "kind": "registration"
+      }
+    },
+    "delivery": {
+      "room": "!room:test.invalid",
+      "text": "aGVsbG8",
+      "to": "@recipient:test.invalid"
+    },
+    "id_journal_available": true,
+    "known_keys": [
+      "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+      "ed25519:a1Ysm40lgtZTrkSKBPD20n4gJWSYJkwIw2fJYgi8834",
+      "ed25519:9DNPnft6cVUIqapzh9MRne66FsSoh49u5jwz_2x0hPM",
+      "p256:AtvuKbwrlJKTmC1cFKDUv9lAx4xolphryoTXkRZN0Ayl"
+    ],
+    "now": "2026-01-01T00:01:00Z",
+    "operator_attestations": {
+      "p256:AtvuKbwrlJKTmC1cFKDUv9lAx4xolphryoTXkRZN0Ayl": "eyJib2R5Ijp7ImFjdGlvbnMiOlsiYWN0LnNpZ24iLCJncmFudC5zaWduIiwibWVzc2FnZS5hcHByb3ZlIl0sImJpbmRpbmciOnsib3duZXIiOiJvd25lci1hIn0sImV4cCI6IjIwMjYtMDEtMDJUMDA6MDA6MDBaIiwiaWF0IjoiMjAyNi0wMS0wMVQwMDowMDowMFoiLCJpc3N1ZXIiOiJlZDI1NTE5OkhCTk9WWm5QN2g5RFdZM1NoR1gwa1E4TnNFd0FVakVaUDExOU5GX1o0eW8iLCJrZXlfY2xhc3MiOiJvcGVyYXRvci1kZXZpY2UiLCJwdXJwb3NlIjoib3BlcmF0b3ItZGV2aWNlIiwicm9sZXMiOlsiYWN0IiwiYXBwcm92ZXIiXSwic3ViamVjdCI6eyJhbGdvcml0aG0iOiJQLTI1NiIsImtleV9pZCI6InAyNTY6QXR2dUtid3JsSktUbUMxY0ZLRFV2OWxBeDR4b2xwaHJ5b1RYa1JaTjBBeWwiLCJwdWJsaWNfYnl0ZXMiOiJBdHZ1S2J3cmxKS1RtQzFjRktEVXY5bEF4NHhvbHBocnlvVFhrUlpOMEF5bCJ9LCJ0eXBlIjoiYXR0ZXN0YXRpb24vMSJ9LCJpZCI6InNoYTI1NjphYzRhNTRmNzA5ZTZjNzVlODQ3NzcyYmIzMDFiMTViNmM1MGVhODIzZWRjYjdkOTI5ZGJjZjhhNmM1NzdlZjUwIiwic2lnbmF0dXJlcyI6W3sia2V5IjoiZWQyNTUxOTpIQk5PVlpuUDdoOURXWTNTaEdYMGtROE5zRXdBVWpFWlAxMTlORl9aNHlvIiwicm9sZSI6ImF1dGhvciIsInNpZyI6InpESHg3Z0xPVmRwdTloNkpYbjNTVDJUQzdGeEstYkdjMEd3VDByalA4ZExsWmEzOERCVkZVRk1oa0I0YXRGeU16NGNlUWVZUS1FdUdWdXUza2tNSUR3In1dLCJ2ZXJzaW9uIjoic3dhcm0tZW52ZWxvcGUvMiJ9"
+    },
+    "operator_owner": "owner-a",
+    "operator_root": "ed25519:HBNOVZnP7h9DWY3ShGX0kQ8NsEwAUjEZP119NF_Z4yo",
+    "replay_available": true,
+    "request": {
+      "action": "credential.lease",
+      "key": "ed25519:9DNPnft6cVUIqapzh9MRne66FsSoh49u5jwz_2x0hPM",
+      "target": {
+        "harness": "model-cli",
+        "id": "team/member",
+        "kind": "credential",
+        "profile": "dev"
+      }
+    },
+    "required_roles": [
+      "author"
+    ],
+    "revocations": {
+      "ed25519:HBNOVZnP7h9DWY3ShGX0kQ8NsEwAUjEZP119NF_Z4yo": {
+        "availability": "available",
+        "max_age": 60,
+        "rollback_safe": true,
+        "snapshot": "eyJib2R5Ijp7ImNvbXBsZXRlIjp0cnVlLCJlbnRyaWVzIjpbXSwiaXNzdWVkX2F0IjoiMjAyNi0wMS0wMVQwMDowMTowMFoiLCJpc3N1ZXIiOiJlZDI1NTE5OkhCTk9WWm5QN2g5RFdZM1NoR1gwa1E4TnNFd0FVakVaUDExOU5GX1o0eW8iLCJ0eXBlIjoicmV2b2NhdGlvbi8xIn0sImlkIjoic2hhMjU2OjBlNTNmMDU1NWJhNzM5N2MzYmRjNDgyMGY0YzBhMGVlNzgxMzBlMWNjNzE0YjZkNGE5MmMyZjEzNTk0Y2Y5NTciLCJzaWduYXR1cmVzIjpbeyJrZXkiOiJlZDI1NTE5OkhCTk9WWm5QN2g5RFdZM1NoR1gwa1E4TnNFd0FVakVaUDExOU5GX1o0eW8iLCJyb2xlIjoiYXV0aG9yIiwic2lnIjoidXQ0VGZBMkNXMWpQdF8tZ0FmeWk3cndnWVAzQlhGVTdCbXdTb1lELTJsWGl1dkNzM0RFVDFzSWpGQTZDTnlUbGpkYUlOQU5FcFc3M0hqaHpkZ0RURHcifV0sInZlcnNpb24iOiJzd2FybS1lbnZlbG9wZS8yIn0"
+      },
+      "ed25519:b2CdQco2XmEi01K78Tg0l7-24Eu5_wHLHlSvQE3mj1M": {
+        "availability": "available",
+        "max_age": 60,
+        "rollback_safe": true,
+        "snapshot": "eyJib2R5Ijp7ImNvbXBsZXRlIjp0cnVlLCJlbnRyaWVzIjpbXSwiaXNzdWVkX2F0IjoiMjAyNi0wMS0wMVQwMDowMTowMFoiLCJpc3N1ZXIiOiJlZDI1NTE5OmIyQ2RRY28yWG1FaTAxSzc4VGcwbDctMjRFdTVfd0hMSGxTdlFFM21qMU0iLCJ0eXBlIjoicmV2b2NhdGlvbi8xIn0sImlkIjoic2hhMjU2OjQxYjhkMmU5Y2MzNjMxMDRlYzQ5ZDAyZDBkY2Q4ZTYzOGVlYmUzN2RhZjBhOTBjMGQ0ZWZlZDc3NjNmNGUwMzEiLCJzaWduYXR1cmVzIjpbeyJrZXkiOiJlZDI1NTE5OmIyQ2RRY28yWG1FaTAxSzc4VGcwbDctMjRFdTVfd0hMSGxTdlFFM21qMU0iLCJyb2xlIjoiYXV0aG9yIiwic2lnIjoiRS1ROUVSd2RmTDZkekRuU0xDMl9lSDdveVEwNktxRjJDZ3BaZzd5cmxTaG5PYVlwTzZsbVUyRGJGTlI3djYxYTA4OTB0cjVuTHBoMjVHMXhUNk5tQUEifV0sInZlcnNpb24iOiJzd2FybS1lbnZlbG9wZS8yIn0"
+      },
+      "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk": {
+        "availability": "available",
+        "max_age": 60,
+        "rollback_safe": true,
+        "snapshot": "eyJib2R5Ijp7ImNvbXBsZXRlIjp0cnVlLCJlbnRyaWVzIjpbXSwiaXNzdWVkX2F0IjoiMjAyNi0wMS0wMVQwMDowMTowMFoiLCJpc3N1ZXIiOiJlZDI1NTE5Ond1ZTJ0MUdKZUxaVHF6WXVka3pSSWh5WTExbEF6eVBYRGpzVFhnWG9JcmsiLCJ0eXBlIjoicmV2b2NhdGlvbi8xIn0sImlkIjoic2hhMjU2OjMyYTUyNGJmZjYwNGE2YmM4ZjgzYTNhNWZjNDk3MTNkODgyNDY5YzVkNjJlMGZmYmE1NDVjYWQ4MDk4NjMwOTciLCJzaWduYXR1cmVzIjpbeyJrZXkiOiJlZDI1NTE5Ond1ZTJ0MUdKZUxaVHF6WXVka3pSSWh5WTExbEF6eVBYRGpzVFhnWG9JcmsiLCJyb2xlIjoiYXV0aG9yIiwic2lnIjoiejR6Z2NVcnRxQUFGN2FjeU5URmY1YmFmVEpnSWVPY04zMVlpN3pQVnpiNWVvems4YktaaUE4VV9veEtpV3FQLTlNZHJ6RFNIc01TaFBVVEh0eEhIQmcifV0sInZlcnNpb24iOiJzd2FybS1lbnZlbG9wZS8yIn0"
+      }
+    },
+    "root": "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+    "seen": {},
+    "service_root": {
+      "key": "ed25519:b2CdQco2XmEi01K78Tg0l7-24Eu5_wHLHlSvQE3mj1M",
+      "purpose": 5
+    },
+    "signer_facts": {
+      "current": true,
+      "presence": true,
+      "presence_current": true
+    },
+    "time": {
+      "authority_until": "2026-01-01T00:06:00Z",
+      "fresh": true,
+      "trusted": true
+    },
+    "used_actions": [],
+    "watermark": "2026-01-01T00:01:00Z",
+    "watermark_available": true
+  },
+  "expected": {
+    "code": "key_binding_invalid",
+    "plan": {}
+  }
+}
