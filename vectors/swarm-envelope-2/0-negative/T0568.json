@@ -1,0 +1,76 @@
+{
+  "id": "T0568",
+  "claim": "Wrong array type at PO3 [body target] (request=false) refuses at its structural gate.",
+  "positive_control": "PO3",
+  "mode": "operator",
+  "input": {
+    "envelope": "eyJib2R5Ijp7ImFjdGlvbl9pZCI6IkNBZ0lDQWdJQ0FnSUNBZ0lDQWdJQ0EiLCJhcmd1bWVudHNfZGlnZXN0Ijoic2hhMjU2OmY4ZmNlYzdiMmQ3ZWYzMWE5YTEyNGNkYzg3Y2RjZDlmMmI0NTFjM2RhMDczNDQ3ZGM2NzcxYmYzZDY5MDJmNmIiLCJhdWQiOiJzZXJ2aWNlLWEiLCJjb25maXJtZWQiOnRydWUsImVwb2NoIjoiZXBvY2gtMSIsImV4cCI6IjIwMjYtMDEtMDFUMDA6MDI6MDBaIiwiaWF0IjoiMjAyNi0wMS0wMVQwMDowMDowMFoiLCJub25jZSI6IkJ3Y0hCd2NIQndjSEJ3Y0hCd2NIQnciLCJvcGVyYXRpb24iOiJncmFudC5pc3N1ZSIsIm93bmVyIjoib3duZXItYSIsInRhcmdldCI6W10sInR5cGUiOiJvcGVyYXRvci1hY3QvMSJ9LCJpZCI6InNoYTI1Njo4ZGQyYTQ4ZjIzMmMwNWVlOTlhNzM2ZDZiNjc4YzE2YTY2NzRlZGQ3OTEzYTMyZDAzM2VmZTJhODUwODc1ZjJhIiwic2lnbmF0dXJlcyI6W3sia2V5IjoicDI1NjpBdHZ1S2J3cmxKS1RtQzFjRktEVXY5bEF4NHhvbHBocnlvVFhrUlpOMEF5bCIsInJvbGUiOiJhcHByb3ZlciIsInNpZyI6IjJsbGhabG5sS1NfWi1XeUFzR2VsTEpFTFZ3dW42S1RzUUJ3QVJrcWdVZmRrZml6ekJFdWgtNzdUaE9kQTRkU0wtbGZpUUNuWWg3ZE1YQUdPd0FidkZ3In1dLCJ2ZXJzaW9uIjoic3dhcm0tZW52ZWxvcGUvMiJ9"
+  },
+  "fixture": {
+    "agent_evidence": {},
+    "agent_expected": {},
+    "audience": "service-a",
+    "binding": {
+      "arguments": {
+        "account": "account-1"
+      },
+      "epoch": "epoch-1",
+      "operation": "grant.issue",
+      "owner": "owner-a",
+      "target": {
+        "id": "account-1",
+        "kind": "account"
+      }
+    },
+    "id_journal_available": true,
+    "known_keys": [
+      "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+      "ed25519:a1Ysm40lgtZTrkSKBPD20n4gJWSYJkwIw2fJYgi8834",
+      "ed25519:9DNPnft6cVUIqapzh9MRne66FsSoh49u5jwz_2x0hPM",
+      "p256:AtvuKbwrlJKTmC1cFKDUv9lAx4xolphryoTXkRZN0Ayl"
+    ],
+    "now": "2026-01-01T00:01:00Z",
+    "replay_available": true,
+    "request": {
+      "action": "credential.lease",
+      "key": "ed25519:9DNPnft6cVUIqapzh9MRne66FsSoh49u5jwz_2x0hPM",
+      "target": {
+        "harness": "model-cli",
+        "id": "team/member",
+        "kind": "credential",
+        "profile": "dev"
+      }
+    },
+    "required_roles": [
+      "approver"
+    ],
+    "revocation": {
+      "complete": true,
+      "issued_at": "2026-01-01T00:01:00Z",
+      "max_age": 60,
+      "revoked_ids": [],
+      "revoked_keys": [],
+      "rollback_safe": true,
+      "verdict": "not_revoked"
+    },
+    "root": "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+    "seen": {},
+    "signer_facts": {
+      "current": true,
+      "presence": true,
+      "presence_current": true
+    },
+    "time": {
+      "authority_until": "2026-01-01T00:06:00Z",
+      "fresh": true,
+      "trusted": true
+    },
+    "used_actions": [],
+    "watermark": "2026-01-01T00:01:00Z",
+    "watermark_available": true
+  },
+  "expected": {
+    "code": "envelope_malformed",
+    "plan": {}
+  }
+}

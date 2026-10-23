@@ -1,0 +1,106 @@
+{
+  "id": "R09",
+  "claim": "An underscore harness needs an explicit versioned broker map, not implicit normalization.",
+  "positive_control": "PG2",
+  "mode": "grant",
+  "input": {
+    "chain": [
+      "eyJib2R5Ijp7ImFjdGlvbnMiOlsiY3JlZGVudGlhbC5sZWFzZSJdLCJhdWQiOiJzZXJ2aWNlLWEiLCJjYXZlYXRzIjpudWxsLCJkZXB0aCI6MywiZXhwIjoiMjAyNi0wMS0wMlQwMDowMDowMFoiLCJleHBpcmVzIjoiMjAyNi0wMS0wMlQwMDowMDowMFoiLCJpYXQiOiIyMDI1LTEyLTMxVDAwOjAwOjAwWiIsImlzc3VlciI6ImVkMjU1MTk6d3VlMnQxR0plTFpUcXpZdWRrelJJaHlZMTFsQXp5UFhEanNUWGdYb0lyayIsIm5vbmNlIjoiQndjSEJ3Y0hCd2NIQndjSEJ3Y0hCdyIsIm5vdF9iZWZvcmUiOiIyMDI1LTEyLTMxVDAwOjAwOjAwWiIsInBhcmVudCI6bnVsbCwic3ViamVjdCI6ImVkMjU1MTk6YTFZc200MGxndFpUcmtTS0JQRDIwbjRnSldTWUprd0l3MmZKWWdpODgzNCIsInRhcmdldHMiOlt7Imhhcm5lc3MiOiJjbGF1ZGVfY29kZSIsImlkIjoidGVhbS8qIiwia2luZCI6ImNyZWRlbnRpYWwiLCJwcm9maWxlIjoiZGV2In1dLCJ0eXBlIjoiZ3JhbnQvMSJ9LCJpZCI6InNoYTI1Njo5N2Y2OTlkMzMyZWZjNTFhNGY0MDhjM2VmODYyM2Y3NmVhZmRhMTQxNzhjOGU5OWM1ODdjY2Q1M2FkYWJkYTJkIiwic2lnbmF0dXJlcyI6W3sia2V5IjoiZWQyNTUxOTp3dWUydDFHSmVMWlRxell1ZGt6UkloeVkxMWxBenlQWERqc1RYZ1hvSXJrIiwicm9sZSI6ImF1dGhvciIsInNpZyI6IkRzRTZ1WEhldkQ3WmRJSXlvTF9WWkp3Rk50UDBuOWxCRFVnVkpwT1V3OEJFcmRobC04ZnNWOWtrYzF2VE1heFhyNGJmVG1UZFdsWEpUYm82X0FWeURBIn1dLCJ2ZXJzaW9uIjoic3dhcm0tZW52ZWxvcGUvMiJ9"
+    ]
+  },
+  "fixture": {
+    "agent_evidence": {
+      "ed25519:a1Ysm40lgtZTrkSKBPD20n4gJWSYJkwIw2fJYgi8834": {
+        "active": true,
+        "attestation": "valid",
+        "binding": {
+          "epoch": "epoch-1",
+          "generation": "generation-1",
+          "owner": "owner-a",
+          "path": "message/agent-1",
+          "registration_number": 2
+        },
+        "class": "agent",
+        "key": "ed25519:a1Ysm40lgtZTrkSKBPD20n4gJWSYJkwIw2fJYgi8834",
+        "not_after": "2026-02-01T00:00:00Z",
+        "not_before": "2025-12-01T00:00:00Z",
+        "public_bytes": "a1Ysm40lgtZTrkSKBPD20n4gJWSYJkwIw2fJYgi8834",
+        "purpose": "message-signing",
+        "revocation": "not_revoked"
+      }
+    },
+    "agent_expected": {
+      "ed25519:a1Ysm40lgtZTrkSKBPD20n4gJWSYJkwIw2fJYgi8834": {
+        "epoch": "epoch-1",
+        "generation": "generation-1",
+        "owner": "owner-a",
+        "path": "message/agent-1",
+        "registration_number": 2
+      }
+    },
+    "audience": "service-a",
+    "binding": {
+      "arguments": {
+        "mode": "operator",
+        "registration_number": 1
+      },
+      "epoch": "epoch-1",
+      "operation": "revoke",
+      "owner": "owner-a",
+      "target": {
+        "id": 1,
+        "kind": "registration"
+      }
+    },
+    "id_journal_available": true,
+    "known_keys": [
+      "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+      "ed25519:a1Ysm40lgtZTrkSKBPD20n4gJWSYJkwIw2fJYgi8834",
+      "ed25519:9DNPnft6cVUIqapzh9MRne66FsSoh49u5jwz_2x0hPM",
+      "p256:AtvuKbwrlJKTmC1cFKDUv9lAx4xolphryoTXkRZN0Ayl"
+    ],
+    "now": "2026-01-01T00:01:00Z",
+    "replay_available": true,
+    "request": {
+      "action": "credential.lease",
+      "key": "ed25519:a1Ysm40lgtZTrkSKBPD20n4gJWSYJkwIw2fJYgi8834",
+      "target": {
+        "harness": "model-cli",
+        "id": "team/member",
+        "kind": "credential",
+        "profile": "dev"
+      }
+    },
+    "required_roles": [
+      "author"
+    ],
+    "revocation": {
+      "complete": true,
+      "issued_at": "2026-01-01T00:01:00Z",
+      "max_age": 60,
+      "revoked_ids": [],
+      "revoked_keys": [],
+      "rollback_safe": true,
+      "verdict": "not_revoked"
+    },
+    "root": "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+    "seen": {},
+    "signer_facts": {
+      "current": true,
+      "presence": true,
+      "presence_current": true
+    },
+    "time": {
+      "authority_until": "2026-01-01T00:06:00Z",
+      "fresh": true,
+      "trusted": true
+    },
+    "used_actions": [],
+    "watermark": "2026-01-01T00:01:00Z",
+    "watermark_available": true
+  },
+  "expected": {
+    "code": "envelope_malformed",
+    "plan": {}
+  }
+}

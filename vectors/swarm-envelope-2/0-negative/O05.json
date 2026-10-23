@@ -55,7 +55,8 @@
     "seen": {},
     "signer_facts": {
       "current": true,
-      "presence": true
+      "presence": true,
+      "presence_current": true
     },
     "time": {
       "authority_until": "2026-01-01T00:06:00Z",

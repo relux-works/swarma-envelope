@@ -126,12 +126,13 @@ def identifier(value, pattern=False, single=False):
     return re.fullmatch(expr, value) is not None
 
 
-def target(value, pattern=False):
+def target(value, pattern=False, operator=False):
     if not isinstance(value, dict):
         return False
     kind = value.get("kind")
     names = {"kind", "id", "harness", "profile"} if kind == "credential" else {"kind", "id"}
-    return (kind in {"credential", "station", "registration", "account"}
+    return (isinstance(kind, str)
+            and kind in ({"registration", "account"} if operator else {"credential", "station"})
             and set(value) == names
             and ((type(value["id"]) is int and 1 <= value["id"] <= 9007199254740991)
                  if kind == "registration" else identifier(value["id"], pattern))
@@ -264,7 +265,7 @@ def schema(envelope, expected):
                     < timestamp(c["expires"]) <= end, "envelope_malformed")
     elif expected == "operator-act/1":
         require(identifier(b["operation"].replace(".", "/")) if isinstance(b["operation"], str) else False, "envelope_malformed")
-        require(target(b["target"]) and b["target"]["kind"] in {"registration", "account"}, "envelope_malformed")
+        require(target(b["target"], operator=True), "envelope_malformed")
         require(isinstance(b["owner"], str) and 1 <= len(b["owner"].encode("utf-8")) <= 255
                 and isinstance(b["epoch"], str) and re.fullmatch(r"[!-~]{1,255}", b["epoch"]), "envelope_malformed")
         unb64(b["action_id"], 16)
@@ -409,7 +410,7 @@ def envelope(raw, expected, f):
     if expected == "message/1":
         agent_binding(b["author"], f)
         if any(s["role"] == "approver" for s in sigs):
-            require(f["signer_facts"]["current"], "key_binding_unavailable")
+            operator_key_current(f)
             revocation(f, [], [s["key"] for s in sigs if s["role"] == "approver"])
     elif expected == "grant/1":
         for key in (b["issuer"], b["subject"]):
@@ -459,6 +460,16 @@ def grants(raw_chain, f):
     require(all(isinstance(i, str) for i in ids) and len(set(ids)) == len(ids), "grant_chain_malformed")
     req = f["request"]
     require(isinstance(req, dict) and set(req) == {"key", "action", "target"}, "grant_chain_malformed")
+    # G1 checks request field types before later set/dict/containment operations.
+    try:
+        key_bytes(req["key"])
+        require(isinstance(req["action"], str), "envelope_malformed")
+        t = req["target"]
+        require(isinstance(t, dict) and isinstance(t.get("kind"), str), "envelope_malformed")
+        exact(t, "kind id harness profile" if t["kind"] == "credential" else "kind id")
+        require(all(isinstance(v, str) for v in t.values()), "envelope_malformed")
+    except Refusal:
+        raise Refusal("grant_chain_malformed") from None
     es = [envelope(r, "grant/1", f) for r in raw]
     bs = [e["body"] for e in es]
     for child, parent, pe in zip(bs, bs[1:], es[1:]):
@@ -492,6 +503,12 @@ def grants(raw_chain, f):
     return es
 
 
+def operator_key_current(f):
+    current = f.get("signer_facts", {}).get("current")
+    require(type(current) is bool, "key_binding_unavailable")
+    require(current, "key_binding_invalid")
+
+
 def operator(e, f):
     b, binding = e["body"], f["binding"]
     operations = {"revoke": ("registration", False), "grant.issue": ("account", True)}
@@ -501,10 +518,11 @@ def operator(e, f):
             and b["target"]["kind"] == kind and b["owner"] == binding["owner"]
             and b["epoch"] == binding["epoch"]
             and b["arguments_digest"] == digest(ccj(binding["arguments"])), "act_binding_mismatch")
+    operator_key_current(f)
     revocation(f, [e["id"]], [s["key"] for s in e["signatures"]])
     if widening:
         require(b["confirmed"], "act_confirmation_required")
-        require(f["signer_facts"]["presence"] and f["signer_facts"]["current"], "act_presence_required")
+        require(f["signer_facts"]["presence"] is True and f["signer_facts"].get("presence_current") is True, "act_presence_required")
     require(f["replay_available"], "replay_unavailable")
     require(b["action_id"] not in f["used_actions"], "act_replay")
 

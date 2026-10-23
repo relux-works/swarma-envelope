@@ -59,6 +59,8 @@ signatures in the fixtures, not a boolean signature-valid input.
 | K01–K20 | Required attestation availability/validity, strict bytes/id derivation, purpose/class, active generation/owner/path/registration/epoch binding and three-outcome revocation, including grant issuers and subjects. |
 | D01–D47, PD1–PD7 | Every directed pair among all seven published tags, role/type mutation inside one message domain, exact case/space/CR rules. External rows prove tag/signature separation only; external body schemas are not simulated. |
 | S01–S26, PS1–PS5 | Message signer accepts exactly swarma-msg/2, refuses grant/act/registrar/broker and unknown future-service tags, checks canonicality, exact size/depth boundaries and no envelope semantics. S07 uses a generic unregistered sentinel, not an invented signing-service witness tag. |
+| R01–R12, PR1–PR4 | Review regressions for enum type safety, signed operator-only grant targets, unsupported broker names, key currency, presence currency and the envelope/handler qualification boundary. PR4 is a valid station grant alongside credential controls. |
+| T0001–T0618 | Every other JSON type at each closed wire/request field, nested object and array entry across message, multi-signature message, populated-caveat grant, narrowing act and widening/account act. Exact ordered structural refusal and empty plan; caller provider/store snapshots remain typed external evidence. |
 | O01–O18, PO1–PO4 | Exact consumer/binding/argument/epoch/key, single-use act, widening confirmation/provider facts, replay availability and record bound. |
 
 These are bounded witnesses, not exhaustive property proofs or an implementation

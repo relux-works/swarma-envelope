@@ -115,7 +115,7 @@ func target(id string) M {
 	return M{"kind": "credential", "id": id, "harness": "model-cli", "profile": "dev"}
 }
 func context() M {
-	f := M{"now": "2026-01-01T00:01:00Z", "watermark": "2026-01-01T00:01:00Z", "time": M{"trusted": true, "fresh": true, "authority_until": "2026-01-01T00:06:00Z"}, "watermark_available": true, "audience": "service-a", "known_keys": []any{keys[0].ID, keys[1].ID, keys[2].ID, keys[6].ID}, "required_roles": []any{"author"}, "id_journal_available": true, "seen": M{}, "root": keys[0].ID, "revocation": M{"verdict": "not_revoked", "issued_at": "2026-01-01T00:01:00Z", "max_age": 60, "complete": true, "rollback_safe": true, "revoked_ids": []any{}, "revoked_keys": []any{}}, "replay_available": true, "used_actions": []any{}, "signer_facts": M{"presence": true, "current": true}, "binding": M{"operation": "revoke", "target": M{"kind": "registration", "id": 1}, "owner": "owner-a", "epoch": "epoch-1", "arguments": M{"registration_number": 1, "mode": "operator"}}, "request": M{"key": keys[2].ID, "action": "credential.lease", "target": target("team/member")}}
+	f := M{"now": "2026-01-01T00:01:00Z", "watermark": "2026-01-01T00:01:00Z", "time": M{"trusted": true, "fresh": true, "authority_until": "2026-01-01T00:06:00Z"}, "watermark_available": true, "audience": "service-a", "known_keys": []any{keys[0].ID, keys[1].ID, keys[2].ID, keys[6].ID}, "required_roles": []any{"author"}, "id_journal_available": true, "seen": M{}, "root": keys[0].ID, "revocation": M{"verdict": "not_revoked", "issued_at": "2026-01-01T00:01:00Z", "max_age": 60, "complete": true, "rollback_safe": true, "revoked_ids": []any{}, "revoked_keys": []any{}}, "replay_available": true, "used_actions": []any{}, "signer_facts": M{"presence": true, "current": true, "presence_current": true}, "binding": M{"operation": "revoke", "target": M{"kind": "registration", "id": 1}, "owner": "owner-a", "epoch": "epoch-1", "arguments": M{"registration_number": 1, "mode": "operator"}}, "request": M{"key": keys[2].ID, "action": "credential.lease", "target": target("team/member")}}
 	expected, evidence := M{}, M{}
 	for i, k := range keys[:6] {
 		binding := M{"owner": "owner-a", "path": fmt.Sprintf("message/agent-%d", i), "generation": fmt.Sprintf("generation-%d", i), "registration_number": i + 1, "epoch": "epoch-1"}
@@ -507,7 +507,7 @@ func main() {
 		link(v, 0, 0, func(b M) { b["targets"] = []any{M{"kind": "station", "id": "team/*"}} })
 	})
 	neg("O16", "Unknown act operation has no guessed authority.", "PO1", "act_operation_unknown", "operator", func(v *Vector) { resign(v, 0, func(b M) { b["operation"] = "unknown.operation" }) })
-	neg("O17", "Provider current-presence facts cannot be stale for widening.", "PO3", "act_presence_required", "operator", func(v *Vector) { widen(v, true); v.Fixture["signer_facts"].(M)["current"] = false })
+	neg("O17", "Provider current-presence facts cannot be stale for widening.", "PO3", "act_presence_required", "operator", func(v *Vector) { widen(v, true); v.Fixture["signer_facts"].(M)["presence_current"] = false })
 
 	neg("E41", "Mixed-order Ed25519 public key refuses.", "PE1", "envelope_signature_invalid", "envelope", func(v *Vector) {
 		// Standard base point plus the order-four point encoded as 32 zero bytes.
@@ -576,6 +576,8 @@ func main() {
 	add("PG7", "Snapshot age of exactly 60 seconds is within the bound.", "", "accept", v)
 
 	files := map[string][]byte{}
+	reworkVectors()
+	typeSweep()
 	seeds, pubs := M{}, M{}
 	for i, k := range keys {
 		name := fmt.Sprintf("test-%d", i)
@@ -880,6 +882,189 @@ func pruneAgentEvidence(v *Vector) {
 	for key := range expected {
 		if !needed[key] {
 			delete(expected, key)
+		}
+	}
+}
+
+// Regressions isolate the review classes before the systematic wrong-type family.
+func reworkVectors() {
+	neg("R01", "Array target.kind refuses structurally before hashing an enum.", "PE1", "envelope_malformed", "envelope", func(v *Vector) {
+		edit(v, func(e M) { e["body"].(map[string]any)["target"].(map[string]any)["kind"] = []any{} })
+	})
+	neg("R02", "Array request.action refuses at G1 without a plan or a hash-key exception.", "PG1", "grant_chain_malformed", "grant", func(v *Vector) { v.Fixture["request"].(M)["action"] = []any{} })
+	for i, kind := range []string{"registration", "account"} {
+		v := base("grant", 0)
+		// Re-sign both links and their parent edge; the unsupported target is the only defect.
+		for j := 1; j >= 0; j-- {
+			link(&v, j, 1-j, func(b M) {
+				id := any(1)
+				if kind == "account" {
+					id = "account-1"
+				}
+				b["targets"] = []any{M{"kind": kind, "id": id}}
+				if j == 0 {
+					b["parent"] = decode(v.Input["chain"].([]any)[1].(string))["id"]
+				}
+			})
+		}
+		add(fmt.Sprintf("R%02d", 3+i), "Signed two-link grant rejects operator-only "+kind+" targets at E2 before containment.", "PG1", "envelope_malformed", v)
+	}
+	neg("R05", "Object target.kind refuses structurally without an enum hash exception.", "PE1", "envelope_malformed", "envelope", func(v *Vector) {
+		edit(v, func(e M) { e["body"].(map[string]any)["target"].(map[string]any)["kind"] = M{} })
+	})
+	neg("R06", "Object request.action refuses at G1 before vocabulary membership.", "PG1", "grant_chain_malformed", "grant", func(v *Vector) { v.Fixture["request"].(M)["action"] = M{} })
+	neg("R07", "A non-current operator key refuses even a narrowing act.", "PO1", "key_binding_invalid", "operator", func(v *Vector) { v.Fixture["signer_facts"].(M)["current"] = false })
+	neg("R08", "A non-current operator key refuses before widening presence checks.", "PO3", "key_binding_invalid", "operator", func(v *Vector) { widen(v, true); v.Fixture["signer_facts"].(M)["current"] = false })
+	neg("R09", "An underscore harness needs an explicit versioned broker map, not implicit normalization.", "PG2", "envelope_malformed", "grant", func(v *Vector) {
+		v.Input["chain"] = chain(1)
+		v.Fixture["request"].(M)["key"] = keys[1].ID
+		link(v, 0, 0, func(b M) { b["targets"].([]any)[0].(map[string]any)["harness"] = "claude_code" })
+	})
+	v := base("envelope", 0)
+	extraSignature(&v, false)
+	v.Fixture["signer_facts"].(M)["current"] = false
+	add("R10", "Optional message approval also refuses a non-current operator key.", "PE5", "key_binding_invalid", v)
+	neg("R11", "Missing operator key currency is unavailable even for narrowing.", "PO1", "key_binding_unavailable", "operator", func(v *Vector) { delete(v.Fixture["signer_facts"].(M), "current") })
+	neg("R12", "Missing presence-enrollment currency refuses widening without changing key currency.", "PO3", "act_presence_required", "operator", func(v *Vector) { widen(v, true); delete(v.Fixture["signer_facts"].(M), "presence_current") })
+
+	v = base("operator", 0)
+	v.Fixture["signer_facts"].(M)["presence_current"] = false
+	add("PR1", "Narrowing uses a current pinned key without claiming current presence enrollment or A3.", "", "accept", v)
+	v = base("envelope", 0)
+	resign(&v, 0, func(b M) { b["arguments"] = M{"unregistered-handler-field": true} })
+	add("PR2", "Envelope-only verification authenticates arbitrary argument objects; consumer schema and authorization remain mandatory.", "", "accept", v)
+	v = base("grant", 0)
+	link(&v, 0, 1, func(b M) { b["caveats"] = M{"lang": "caveats/v1", "not_before": b["iat"], "expires": b["exp"]} })
+	add("PR3", "A valid populated caveat provides the positive control for nested schema sweeps.", "", "accept", v)
+	v = base("grant", 0)
+	for j := 1; j >= 0; j-- {
+		link(&v, j, 1-j, func(b M) {
+			b["actions"] = []any{"agent.spawn"}
+			b["targets"] = []any{M{"kind": "station", "id": "team/*"}}
+			if j == 0 {
+				b["parent"] = decode(v.Input["chain"].([]any)[1].(string))["id"]
+			}
+		})
+	}
+	v.Fixture["request"].(M)["action"] = "agent.spawn"
+	v.Fixture["request"].(M)["target"] = M{"kind": "station", "id": "team/member"}
+	add("PR4", "A correctly signed station-target chain authorizes agent.spawn alongside the credential control.", "", "accept", v)
+
+}
+
+func jsonKind(x any) string {
+	switch x.(type) {
+	case nil:
+		return "null"
+	case bool:
+		return "bool"
+	case string:
+		return "string"
+	case []any:
+		return "array"
+	case map[string]any:
+		return "object"
+	default:
+		return "integer"
+	}
+}
+func copyVector(v Vector) Vector {
+	b, e := json.Marshal(v)
+	must(e)
+	var out Vector
+	must(json.Unmarshal(b, &out))
+	return out
+}
+func setPath(root any, path []any, value any) {
+	for _, p := range path[:len(path)-1] {
+		if n, ok := p.(int); ok {
+			root = root.([]any)[n]
+		} else {
+			root = root.(map[string]any)[p.(string)]
+		}
+	}
+	last := path[len(path)-1]
+	if n, ok := last.(int); ok {
+		root.([]any)[n] = value
+	} else {
+		root.(map[string]any)[last.(string)] = value
+	}
+}
+
+// Claims: every closed wire/request field rejects every other JSON type at its
+// ordered structural gate. Opaque argument values have no application schema
+// here; their object container is covered, their arbitrary JSON children are not.
+func typeSweep() {
+	n := 0
+	for _, control := range []string{"PE1", "PE5", "PR3", "PO1", "PO3"} {
+		var src Vector
+		for _, c := range cases {
+			if c.ID == control {
+				src = c
+				break
+			}
+		}
+		var record M
+		if src.Mode == "grant" {
+			record = decode(src.Input["chain"].([]any)[0].(string))
+		} else {
+			record = decode(src.Input["envelope"].(string))
+		}
+		var walk func(any, []any, bool)
+		walk = func(node any, path []any, request bool) {
+			if len(path) > 0 {
+				field, _ := path[len(path)-1].(string)
+				for _, wrong := range []any{nil, false, 1, "x", []any{}, M{}} {
+					if jsonKind(wrong) == jsonKind(node) || (wrong == nil && (field == "parent" || field == "caveats")) {
+						continue
+					}
+					v := copyVector(src)
+					if request {
+						setPath(v.Fixture["request"], path, wrong)
+					} else {
+						var e M
+						if v.Mode == "grant" {
+							e = decode(v.Input["chain"].([]any)[0].(string))
+						} else {
+							e = decode(v.Input["envelope"].(string))
+						}
+						setPath(e, path, wrong)
+						if v.Mode == "grant" {
+							v.Input["chain"].([]any)[0] = wire(e)
+						} else {
+							v.Input["envelope"] = wire(e)
+						}
+					}
+					n++
+					code := "envelope_malformed"
+					if request || (src.Mode == "grant" && len(path) == 1 && path[0] == "id") {
+						code = "grant_chain_malformed"
+					}
+					add(fmt.Sprintf("T%04d", n), fmt.Sprintf("Wrong %s type at %s %v (request=%t) refuses at its structural gate.", jsonKind(wrong), control, path, request), control, code, v)
+				}
+				if field == "arguments" {
+					return
+				}
+			}
+			switch value := node.(type) {
+			case map[string]any:
+				fields := make([]string, 0, len(value))
+				for k := range value {
+					fields = append(fields, k)
+				}
+				sort.Strings(fields)
+				for _, k := range fields {
+					walk(value[k], append(append([]any{}, path...), k), request)
+				}
+			case []any:
+				for i, child := range value {
+					walk(child, append(append([]any{}, path...), i), request)
+				}
+			}
+		}
+		walk(record, nil, false)
+		if src.Mode == "grant" {
+			walk(src.Fixture["request"], nil, true)
 		}
 	}
 }

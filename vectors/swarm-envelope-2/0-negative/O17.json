@@ -56,8 +56,9 @@
     "root": "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
     "seen": {},
     "signer_facts": {
-      "current": false,
-      "presence": true
+      "current": true,
+      "presence": true,
+      "presence_current": false
     },
     "time": {
       "authority_until": "2026-01-01T00:06:00Z",

@@ -26,6 +26,9 @@ activation decisions. The normative details are in
 | D18 — message signer budget | Provider checks only length, exact message tag and canonical CCJ-1 remainder (including codec bounds), then signs original bytes. Base64url + <=4096 bytes metadata leaves a total frame <=36,868 bytes with header. | Native owner must publish the actual request grammar and enforce metadata/depth budgets; no field names or Keymaker implementation are invented here. |
 | D19 — attestation adapter | Caller validates against protected Keymaker root and supplies exact key bytes/id, purpose, owner/path/generation/registration/epoch, validity, active binding, attestation status and three-outcome revocation. Unavailable refuses. | Attestation serialization/publication/rotation stays with Keymaker. Identity evidence is neither grant issuance permission nor a new grant-signing service; K3 must refuse grant and act tags. |
 
+| D20 — target/schema qualification | E2 rejects operator-only targets in grants/messages. G1 validates the complete request type/member schema; G8 validates concrete identifiers. Consumer handler schemas and authority gates remain mandatory after envelope-only acceptance. | A later adapter must explicitly map unsupported broker names such as `claude_code`, reject collisions and reissue grants; no implicit normalization. |
+| D21 — operator currency | Current pinned-key authority and revocation are mandatory for every act; presence-enrollment currency is a separate widening-only gate. | Qualify both evidence sources independently; narrowing without presence enrollment claims no A3. |
+
 No owner registry, phone enrollment protocol, production verifier, migration
 executable, Matrix extension or consumer activation is delivered by this slice.
 All vector inputs are synthetic public test data.

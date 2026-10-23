@@ -22,3 +22,13 @@ rows qualify domain separation only, not the external service's admission.
 Agent attestation verdicts and expected principal tuples are separate explicit
 caller inputs. This tool tests how they constrain acceptance, not how an
 unpublished Keymaker certificate format is cryptographically verified.
+
+The generated T family sweeps wrong JSON types across every closed wire field
+in message, grant, operator-act, signature, target and caveat records and the
+closed grant request, including nested array entries and both operator target
+forms. Each case pins its ordered structural refusal and empty plan. Opaque
+argument children have no handler schema here; only the arguments object
+container is typed. Typed caller provider/store snapshots are external evidence,
+not wire records, and this family does not qualify their adapters. PR2 makes
+explicit that accepting an envelope with an unexpected argument member does
+not authorize dispatch.

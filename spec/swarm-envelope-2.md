@@ -79,7 +79,11 @@ Arguments MUST pass the caller-selected registered action schema at admission.
 Envelope-only vectors use synthetic argument objects for codec/size controls;
 they check envelope mechanics and publish no general message payload grammar,
 session commands or board policy. Authentication alone MUST NOT authorize
-message delivery or execution.
+message delivery or execution. The receiving consumer MUST validate the complete
+arguments object against its registered action/handler schema, reject unknown
+members and invalid values for that schema, and authorize the concrete action
+and target before dispatch. Envelope-only acceptance can include unexpected
+argument members; it proves neither handler-schema validity nor authority.
 
 ### 2.2 CCJ-1 and preimages
 
@@ -316,6 +320,14 @@ In addition to common members a grant has exactly:
 | `parent` | Parent envelope id, or null only at root. |
 | `caveats` | null, or exactly `{lang:"caveats/v1",not_before:time,expires:time}`. |
 
+Grant targets and message targets admit only `credential` and `station`.
+Operator targets (`registration` with a positive integer id, and `account`)
+are a separate domain. An operator-only or unknown target kind inside a grant
+or message MUST refuse `envelope_malformed` at E2, before crypto, chain edges
+or containment. `grant_target_invalid` at G5 instead means a structurally valid
+grant target kind is incompatible with its action (for example, station with
+credential.lease). No integer operator id reaches grant prefix containment.
+
 The initial closed action vocabulary and target types are:
 
 | Action | Target |
@@ -347,6 +359,14 @@ are deferred and MUST refuse. Effective start is max(not_before,caveat start),
 end is min(expires,caveat end); null uses the grant window.
 
 ### 3.2 Chain and request verification
+
+The closed concrete request is exactly `{key,action,target}`. G1 requires a
+canonical key id, a string action and a target object with string kind/id and,
+for credential, string harness/profile; target member names are closed by kind.
+Wrong field types or member sets return `grant_chain_malformed` at G1. Concrete
+identifier syntax, wildcard exclusion and supported target kind are checked at
+G8 (`request_target_invalid`), followed by registered action and coverage. This
+keeps an invalid request type out of every hash/membership operation.
 
 Chains are leaf first, 1–4 signed envelopes, with no repeated ids or unrelated
 records. Every envelope, including the leaf, MUST pass §2 and the checks below.
@@ -411,6 +431,7 @@ no grant is admitted to that implementation by this document.
 | Subject | key or generation-bound `agent:` leaf | Keys only; agent keys need caller-verified Keymaker evidence (§2.6). No silent UID/generation conversion. Generation binding in broker records still needs a separately versioned consumer adapter. |
 | Actions | `credential.lease`, `agent.spawn` | Adds `message.deliver`; broker adapter MUST refuse it. |
 | Targets | Separate exact accounts/harnesses/profiles lists | Typed correlated tuples; prefix ids allowed here, refused by broker. Enumerate exact Cartesian tuples only when source rights actually permit that product. |
+| Harness/profile spelling | Broker includes the harness name `claude_code` | Single-segment grammar here excludes underscore. This is a representation narrowing, not an exact-string adapter. Never silently normalize to `claude-code`: a future versioned consumer adapter needs an explicit approved one-to-one name map, collision/unknown-name refusal and reissued signed grants; until then refuse the unsupported source name. |
 | Interval | not_before, expires_at | not_before, expires; exact UTC seconds, equal common iat/exp. No lossy rounding. |
 | Depth/parent | Remaining depth, leaf-first, at most four | Same chain structure; depth explicitly 0–3. Every leaf edge remains checked. |
 | Conditions | Time only, no role/wildcard/presence | Time-only caveats/v1; project into effective interval or refuse. No weakening. |
@@ -452,6 +473,15 @@ activation). Other operations require a published consumer profile and arguments
 schema before admission. Unknown operations MUST refuse. A pinned device key
 MUST be authorized for this owner, current and not revoked. Neither login to an
 operator account nor an arbitrary key in a chain makes an act valid.
+
+Key currency and presence-enrollment currency are separate caller facts.
+`SignerFacts.current` means the pinned key remains currently authorized for the
+owner; false MUST refuse `key_binding_invalid` for every act, including narrowing
+(and any message approval). Missing key currency MUST refuse
+`key_binding_unavailable`. Revocation remains a separate mandatory check.
+`SignerFacts.presence_current` means the provider's presence-enrollment evidence
+is current. Its absence/false requires `act_presence_required` for widening;
+narrowing may proceed with a current key without this evidence and claims no A3.
 
 Widening MUST require `confirmed=true` AND current trusted signer-provider
 enrollment evidence that the pinned key requires user presence for each use and
@@ -577,7 +607,7 @@ Watermark.Load -> value + continuity | unavailable
 Revocations.Check(owner, ids, keys, sample) -> not_revoked | revoked | unavailable
 IdJournal.Lookup(id) -> absent | exact_bytes | unavailable
 Replay.Lookup(consumer,action_id) -> unused | used | unavailable
-SignerFacts.Lookup(owner,key) -> pinned + current + presence_policy | unavailable
+SignerFacts.Lookup(owner,key) -> pinned + current + presence_current + presence_policy | unavailable
 AgentKeyEvidence.Lookup(key_id) -> validated attestation result + current binding | unavailable
 Commit(plan) -> atomic reserve + durable watermark + id binding | conflict | unavailable
 ```
@@ -614,7 +644,7 @@ entries are checked in array order. Codes are distinct per listed substep:
 | G7 | Fresh complete revocation for every id/issuer/subject | `revocation_unavailable` / `revoked` |
 | G8 | Concrete target before membership; requesting key/action/target coverage | `request_target_invalid` / `grant_not_authorized` |
 | O1 | Operation profile, exact target/owner/epoch/argument digest | `act_operation_unknown` / `act_binding_mismatch` |
-| O2 | Current signer revocation evidence | `revocation_unavailable` / `revoked` |
+| O2 | Current pinned-key authority, then signer revocation evidence | `key_binding_unavailable` / `key_binding_invalid` / `revocation_unavailable` / `revoked` |
 | O3 | Widening confirmed flag then qualified presence facts | `act_confirmation_required` / `act_presence_required` |
 | O4 | Available durable replay journal, unused action id | `replay_unavailable` / `act_replay` |
 | C1 | Adapter Commit conflict/unavailability | `act_replay` / `state_unavailable` |
@@ -622,7 +652,8 @@ entries are checked in array order. Codes are distinct per listed substep:
 For grant intake G1 precedes G2; G2 performs E/T/K1 checks per link, then G3–G8.
 K1 runs after T2 and before E8. Message approvers additionally require current
 protected operator pins and fresh revocation evidence; unavailable current key
-facts return `key_binding_unavailable`, and revocation uses G7 codes.
+facts return `key_binding_unavailable`, false key currency returns
+`key_binding_invalid`, and revocation uses G7 codes.
 For operator intake E/T checks precede O1–O4. E2 validates type-specific schema
 using the expected type, but type string equality is deferred to E3. G4 audience
 attenuation is additionally enforced even though G2's configured audience
