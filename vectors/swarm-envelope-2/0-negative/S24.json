@@ -1,0 +1,14 @@
+{
+  "id": "S24",
+  "claim": "Invalid UTF-8 is refused by the signer codec.",
+  "positive_control": "PS1",
+  "mode": "signer",
+  "input": {
+    "preimage": "c3dhcm1hLW1zZy8yCv8"
+  },
+  "fixture": {},
+  "expected": {
+    "code": "signer_payload_invalid",
+    "plan": {}
+  }
+}

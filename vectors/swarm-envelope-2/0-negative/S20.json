@@ -1,0 +1,14 @@
+{
+  "id": "S20",
+  "claim": "Floating-point tokens refuse signer canonicality.",
+  "positive_control": "PS1",
+  "mode": "signer",
+  "input": {
+    "preimage": "c3dhcm1hLW1zZy8yCnsiYSI6MS4wfQ"
+  },
+  "fixture": {},
+  "expected": {
+    "code": "signer_payload_invalid",
+    "plan": {}
+  }
+}

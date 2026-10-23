@@ -4,9 +4,38 @@
   "positive_control": "PE1",
   "mode": "envelope",
   "input": {
-    "envelope": "eyJib2R5Ijp7ImFjdGlvbiI6Im1lc3NhZ2UuZGVsaXZlciIsImFyZ3VtZW50cyI6eyJ0ZXh0IjoiaGVsbG8ifSwiYXVkIjoic2VydmljZS1hIiwiYXV0aG9yIjoiZWQyNTUxOTp3dWUydDFHSmVMWlRxell1ZGt6UkloeVkxMWxBenlQWERqc1RYZ1hvSXJrIiwiZXhwIjoiMjAyNi0wMS0wMVQwMDowMjowMFoiLCJpYXQiOiIyMDI2LTAxLTAxVDAwOjAwOjAwWiIsIm5vbmNlIjoiQndjSEJ3Y0hCd2NIQndjSEJ3Y0hCdyIsInRhcmdldCI6eyJpZCI6InRlYW0vbWVtYmVyIiwia2luZCI6InN0YXRpb24ifSwidHlwZSI6Im1lc3NhZ2UvMSJ9LCJpZCI6InNoYTI1NjphZTJjOWUzYzM2ZTZkN2Q1ZDMyYzJmNmVjM2M2M2Y3ODZkNjNmYzkyYTE3NGYxYmVlNWFlMDhjNWQxZjE5MTE1Iiwic2lnbmF0dXJlcyI6W3sia2V5IjoiZWQyNTUxOTp3dWUydDFHSmVMWlRxell1ZGt6UkloeVkxMWxBenlQWERqc1RYZ1hvSXJrIiwicm9sZSI6ImF1dGhvciIsInNpZyI6ImtXb1Bta3dBdmFJcTUzS2k0SHNINDJkbWtiY3hYQjVZbVhVM3UydkdBREotZkRQWll6a0kyYTFoOUNlRE9GSWM2bjA5M2lzeWh2ZDBzd1NXXzNsLURnIn1dLCJ2ZXJzaW9uIjoic3dhcm0tZW52ZWxvcGUvMiJ9"
+    "envelope": "eyJib2R5Ijp7ImFjdGlvbiI6Im1lc3NhZ2UuZGVsaXZlciIsImFyZ3VtZW50cyI6eyJ0ZXh0IjoiaGVsbG8ifSwiYXVkIjoic2VydmljZS1hIiwiYXV0aG9yIjoiZWQyNTUxOTp3dWUydDFHSmVMWlRxell1ZGt6UkloeVkxMWxBenlQWERqc1RYZ1hvSXJrIiwiZXhwIjoiMjAyNi0wMS0wMVQwMDowMjowMFoiLCJpYXQiOiIyMDI2LTAxLTAxVDAwOjAwOjAwWiIsIm5vbmNlIjoiQndjSEJ3Y0hCd2NIQndjSEJ3Y0hCdyIsInRhcmdldCI6eyJpZCI6InRlYW0vbWVtYmVyIiwia2luZCI6InN0YXRpb24ifSwidHlwZSI6Im1lc3NhZ2UvMSJ9LCJpZCI6InNoYTI1NjplNGI3M2U3OWZjNWMxNjhmNWY3NzNkNTY4Yzc4NjQ2ZWMzODkxYTlmYmRlZjgyMDRhNDczMmU4N2E0YTFlM2NiIiwic2lnbmF0dXJlcyI6W3sia2V5IjoiZWQyNTUxOTp3dWUydDFHSmVMWlRxell1ZGt6UkloeVkxMWxBenlQWERqc1RYZ1hvSXJrIiwicm9sZSI6ImF1dGhvciIsInNpZyI6IklvWk16cXpuTjRCOFRoaTA0SE1fQWNMTy1RWlpxRzV0TkZEelc0TEVSa3RmTzRGRjNQX25NWVdvTjgxeF9NdVlUQVVRRXRzaldXRzFvUm9CbEREdkRBIn1dLCJ2ZXJzaW9uIjoic3dhcm0tZW52ZWxvcGUvMiJ9"
   },
   "fixture": {
+    "agent_evidence": {
+      "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk": {
+        "active": true,
+        "attestation": "valid",
+        "binding": {
+          "epoch": "epoch-1",
+          "generation": "generation-0",
+          "owner": "owner-a",
+          "path": "message/agent-0",
+          "registration_number": 1
+        },
+        "class": "agent",
+        "key": "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+        "not_after": "2026-02-01T00:00:00Z",
+        "not_before": "2025-12-01T00:00:00Z",
+        "public_bytes": "wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+        "purpose": "message-signing",
+        "revocation": "not_revoked"
+      }
+    },
+    "agent_expected": {
+      "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk": {
+        "epoch": "epoch-1",
+        "generation": "generation-0",
+        "owner": "owner-a",
+        "path": "message/agent-0",
+        "registration_number": 1
+      }
+    },
     "audience": "service-b",
     "binding": {
       "arguments": {

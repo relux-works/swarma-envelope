@@ -5,10 +5,39 @@
   "mode": "grant",
   "input": {
     "chain": [
-      "eyJib2R5Ijp7ImFjdGlvbnMiOlsiY3JlZGVudGlhbC5sZWFzZSJdLCJhdWQiOiJzZXJ2aWNlLWEiLCJjYXZlYXRzIjpudWxsLCJkZXB0aCI6MywiZXhwIjoiMjAyNi0wMS0wMlQwMDowMDowMFoiLCJleHBpcmVzIjoiMjAyNi0wMS0wMlQwMDowMDowMFoiLCJpYXQiOiIyMDI1LTEyLTMxVDAwOjAwOjAwWiIsImlzc3VlciI6ImVkMjU1MTk6d3VlMnQxR0plTFpUcXpZdWRrelJJaHlZMTFsQXp5UFhEanNUWGdYb0lyayIsIm5vbmNlIjoiQndjSEJ3Y0hCd2NIQndjSEJ3Y0hCdyIsIm5vdF9iZWZvcmUiOiIyMDI1LTEyLTMxVDAwOjAwOjAwWiIsInBhcmVudCI6bnVsbCwic3ViamVjdCI6ImVkMjU1MTk6YTFZc200MGxndFpUcmtTS0JQRDIwbjRnSldTWUprd0l3MmZKWWdpODgzNCIsInRhcmdldHMiOlt7ImlkIjoidGVhbS8qIiwia2luZCI6InN0YXRpb24ifV0sInR5cGUiOiJncmFudC8xIn0sImlkIjoic2hhMjU2OmUxNzMyZWZiYmI0NjJhNTkxZjMxNjU0YzUyZDY5MDEyMGQxNjY4MDRhMTNiNjBjZWJiNjg4M2U2OTA1MWM5NzUiLCJzaWduYXR1cmVzIjpbeyJrZXkiOiJlZDI1NTE5Ond1ZTJ0MUdKZUxaVHF6WXVka3pSSWh5WTExbEF6eVBYRGpzVFhnWG9JcmsiLCJyb2xlIjoiYXV0aG9yIiwic2lnIjoiR3hValZUeGJxbXA2NXBpYU9RU2NCR3BaS2tZVGU3aHk0OGpxYVdfT1ZjZUJCZHdtNFlUc3hJNmJkSlBfNlU5QWRka2M2eXFpX2dWcW50dnZxN2p0Q3cifV0sInZlcnNpb24iOiJzd2FybS1lbnZlbG9wZS8yIn0"
+      "eyJib2R5Ijp7ImFjdGlvbnMiOlsiY3JlZGVudGlhbC5sZWFzZSJdLCJhdWQiOiJzZXJ2aWNlLWEiLCJjYXZlYXRzIjpudWxsLCJkZXB0aCI6MywiZXhwIjoiMjAyNi0wMS0wMlQwMDowMDowMFoiLCJleHBpcmVzIjoiMjAyNi0wMS0wMlQwMDowMDowMFoiLCJpYXQiOiIyMDI1LTEyLTMxVDAwOjAwOjAwWiIsImlzc3VlciI6ImVkMjU1MTk6d3VlMnQxR0plTFpUcXpZdWRrelJJaHlZMTFsQXp5UFhEanNUWGdYb0lyayIsIm5vbmNlIjoiQndjSEJ3Y0hCd2NIQndjSEJ3Y0hCdyIsIm5vdF9iZWZvcmUiOiIyMDI1LTEyLTMxVDAwOjAwOjAwWiIsInBhcmVudCI6bnVsbCwic3ViamVjdCI6ImVkMjU1MTk6YTFZc200MGxndFpUcmtTS0JQRDIwbjRnSldTWUprd0l3MmZKWWdpODgzNCIsInRhcmdldHMiOlt7ImlkIjoidGVhbS8qIiwia2luZCI6InN0YXRpb24ifV0sInR5cGUiOiJncmFudC8xIn0sImlkIjoic2hhMjU2OjJiYTZjNWI0Y2U0NGM1ODhjNWU5ZTMwN2FiYzFhNTY4Nzg4MDBiZTQxMGYxNWM4NDIxYTQxMTQ5NDdkNGNmYjQiLCJzaWduYXR1cmVzIjpbeyJrZXkiOiJlZDI1NTE5Ond1ZTJ0MUdKZUxaVHF6WXVka3pSSWh5WTExbEF6eVBYRGpzVFhnWG9JcmsiLCJyb2xlIjoiYXV0aG9yIiwic2lnIjoiOXNrQmNCazVqUmM5THRNRmdnN3ZGeEpEcTBTYW53X05DeUM5elA5VXUyNVdQaUI4OU9TcTdMWjNrQ184YzdGa0l3UGc1UklpQlFISG1iSU9PMkw2RFEifV0sInZlcnNpb24iOiJzd2FybS1lbnZlbG9wZS8yIn0"
     ]
   },
   "fixture": {
+    "agent_evidence": {
+      "ed25519:a1Ysm40lgtZTrkSKBPD20n4gJWSYJkwIw2fJYgi8834": {
+        "active": true,
+        "attestation": "valid",
+        "binding": {
+          "epoch": "epoch-1",
+          "generation": "generation-1",
+          "owner": "owner-a",
+          "path": "message/agent-1",
+          "registration_number": 2
+        },
+        "class": "agent",
+        "key": "ed25519:a1Ysm40lgtZTrkSKBPD20n4gJWSYJkwIw2fJYgi8834",
+        "not_after": "2026-02-01T00:00:00Z",
+        "not_before": "2025-12-01T00:00:00Z",
+        "public_bytes": "a1Ysm40lgtZTrkSKBPD20n4gJWSYJkwIw2fJYgi8834",
+        "purpose": "message-signing",
+        "revocation": "not_revoked"
+      }
+    },
+    "agent_expected": {
+      "ed25519:a1Ysm40lgtZTrkSKBPD20n4gJWSYJkwIw2fJYgi8834": {
+        "epoch": "epoch-1",
+        "generation": "generation-1",
+        "owner": "owner-a",
+        "path": "message/agent-1",
+        "registration_number": 2
+      }
+    },
     "audience": "service-a",
     "binding": {
       "arguments": {

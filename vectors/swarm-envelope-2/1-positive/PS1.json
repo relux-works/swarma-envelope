@@ -1,0 +1,17 @@
+{
+  "id": "PS1",
+  "claim": "A canonical object under the exact message tag is signer-admissible, without envelope parsing.",
+  "positive_control": "",
+  "mode": "signer",
+  "input": {
+    "preimage": "c3dhcm1hLW1zZy8yCnt9"
+  },
+  "fixture": {},
+  "expected": {
+    "code": "accept",
+    "plan": {
+      "preimage_sha256": "sha256:a7569fa70cb266702732a72cf3e5b67b75eb3ddd98fb30d9a7bd43f6c7d77d03",
+      "tag": "swarma-msg/2"
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "id": "D32",
+  "claim": "A signature under swarma-waggle grant/1 does not verify under swarma-credential-broker grant/1.",
+  "positive_control": "PD6",
+  "mode": "domain",
+  "input": {
+    "key": "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+    "preimage": "c3dhcm1hLWNyZWRlbnRpYWwtYnJva2VyIGdyYW50LzEKeyJib2R5Ijp7ImF1ZCI6InNlcnZpY2UtYSIsImV4cCI6IjIwMjYtMDEtMDFUMDA6MDI6MDBaIiwiaWF0IjoiMjAyNi0wMS0wMVQwMDowMDowMFoiLCJub25jZSI6IkJ3Y0hCd2NIQndjSEJ3Y0hCd2NIQnciLCJ0eXBlIjoibWVzc2FnZS8xIn0sImtleSI6ImVkMjU1MTk6d3VlMnQxR0plTFpUcXpZdWRrelJJaHlZMTFsQXp5UFhEanNUWGdYb0lyayIsInJvbGUiOiJhdXRob3IiLCJ2ZXJzaW9uIjoic3dhcm0tZW52ZWxvcGUvMiJ9",
+    "sig": "OY1T3bhfmB4urPYLnyiDphORjlPpVKnwD6e9nitJzVmMNqvBWUoVCv2AXMhugr_Ah8MNNZ7Oz8o34CywR1lADw"
+  },
+  "fixture": {
+    "expected_tag": "swarma-credential-broker grant/1"
+  },
+  "expected": {
+    "code": "envelope_signature_invalid",
+    "plan": {}
+  }
+}

@@ -1,12 +1,14 @@
 {
   "id": "E27",
   "claim": "High-S P-256 twin refuses.",
-  "positive_control": "PE2",
-  "mode": "envelope",
+  "positive_control": "PO1",
+  "mode": "operator",
   "input": {
-    "envelope": "eyJib2R5Ijp7ImFjdGlvbiI6Im1lc3NhZ2UuZGVsaXZlciIsImFyZ3VtZW50cyI6eyJ0ZXh0IjoiaGVsbG8ifSwiYXVkIjoic2VydmljZS1hIiwiYXV0aG9yIjoicDI1NjpBdHZ1S2J3cmxKS1RtQzFjRktEVXY5bEF4NHhvbHBocnlvVFhrUlpOMEF5bCIsImV4cCI6IjIwMjYtMDEtMDFUMDA6MDI6MDBaIiwiaWF0IjoiMjAyNi0wMS0wMVQwMDowMDowMFoiLCJub25jZSI6IkJ3Y0hCd2NIQndjSEJ3Y0hCd2NIQnciLCJ0YXJnZXQiOnsiaWQiOiJ0ZWFtL21lbWJlciIsImtpbmQiOiJzdGF0aW9uIn0sInR5cGUiOiJtZXNzYWdlLzEifSwiaWQiOiJzaGEyNTY6ZTg1MjY0NWY1NDU4MDc3NDk2MDgyYTFiY2ZiNDRlMjQwNDFmZjI5ZTZmNTMwMDZkODZmMWFhNzc2Zjc2NWU2YSIsInNpZ25hdHVyZXMiOlt7ImtleSI6InAyNTY6QXR2dUtid3JsSktUbUMxY0ZLRFV2OWxBeDR4b2xwaHJ5b1RYa1JaTjBBeWwiLCJyb2xlIjoiYXV0aG9yIiwic2lnIjoidVhRc3E0U3JSN1hPSWhCQ0ZfZkFNTXgwMDdHMFZ5dkpyR2p3MnNiNmdvV3hQWW5NVksteGRfZkR1OFlEcU5WQlRFc2dVTmlUZHBmV2VUZGI0NWQwcmcifV0sInZlcnNpb24iOiJzd2FybS1lbnZlbG9wZS8yIn0"
+    "envelope": "eyJib2R5Ijp7ImFjdGlvbl9pZCI6IkNBZ0lDQWdJQ0FnSUNBZ0lDQWdJQ0EiLCJhcmd1bWVudHNfZGlnZXN0Ijoic2hhMjU2OjBkNmFmMWY1MWExNzI5MTM3M2RkOGY4MGU5OWJmODIyZTk3Njk2ZjUwNDlmODg3MzQ3OGY0ZGI0Nzc5MzliODQiLCJhdWQiOiJzZXJ2aWNlLWEiLCJjb25maXJtZWQiOmZhbHNlLCJlcG9jaCI6ImVwb2NoLTEiLCJleHAiOiIyMDI2LTAxLTAxVDAwOjAyOjAwWiIsImlhdCI6IjIwMjYtMDEtMDFUMDA6MDA6MDBaIiwibm9uY2UiOiJCd2NIQndjSEJ3Y0hCd2NIQndjSEJ3Iiwib3BlcmF0aW9uIjoicmV2b2tlIiwib3duZXIiOiJvd25lci1hIiwidGFyZ2V0Ijp7ImlkIjoxLCJraW5kIjoicmVnaXN0cmF0aW9uIn0sInR5cGUiOiJvcGVyYXRvci1hY3QvMSJ9LCJpZCI6InNoYTI1Njo5YzdkZGI0OGU0N2ZlMjczM2ZiMTRkNzViOGUxZWY3MGRhZjczMDk5YzRjZTAxZDc2NjQzYzUzMDlhM2EzNjlhIiwic2lnbmF0dXJlcyI6W3sia2V5IjoicDI1NjpBdHZ1S2J3cmxKS1RtQzFjRktEVXY5bEF4NHhvbHBocnlvVFhrUlpOMEF5bCIsInJvbGUiOiJhcHByb3ZlciIsInNpZyI6IjNIMWZJRjhFZ2FEczExV2F1SWwwZmhtT0lGN2Ywb0JxNmlOaWo1RS14T1hmdlVUV3c2c2hMeDVKMENGT1pTa0Z4MVA4eUtsendDb3pmZW9qc28zQUd3In1dLCJ2ZXJzaW9uIjoic3dhcm0tZW52ZWxvcGUvMiJ9"
   },
   "fixture": {
+    "agent_evidence": {},
+    "agent_expected": {},
     "audience": "service-a",
     "binding": {
       "arguments": {
@@ -41,7 +43,7 @@
       }
     },
     "required_roles": [
-      "author"
+      "approver"
     ],
     "revocation": {
       "complete": true,

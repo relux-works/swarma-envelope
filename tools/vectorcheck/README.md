@@ -13,3 +13,12 @@ verifier API. It does not consult the generator or generated verdict code.
 Use the Go byte inventory check in addition to it to detect case removal and
 format drift. All keys are public synthetic fixtures. Never send real acts or
 secrets to a fixture directory.
+
+The `signer` mode checks admissibility of full preimage bytes, with exact tag,
+canonicality, 24,576-byte and depth-12 bounds. It does not execute a signer or
+claim a signature was released. The `domain` mode checks exact tag bytes and
+actual raw signatures independently of an envelope/body schema; external tag
+rows qualify domain separation only, not the external service's admission.
+Agent attestation verdicts and expected principal tuples are separate explicit
+caller inputs. This tool tests how they constrain acceptance, not how an
+unpublished Keymaker certificate format is cryptographically verified.

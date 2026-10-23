@@ -1,0 +1,14 @@
+{
+  "id": "S13",
+  "claim": "DEL is a forbidden tag byte.",
+  "positive_control": "PS1",
+  "mode": "signer",
+  "input": {
+    "preimage": "c3dhcm1hLW1zZy8yfwp7fQ"
+  },
+  "fixture": {},
+  "expected": {
+    "code": "signer_tag_malformed",
+    "plan": {}
+  }
+}

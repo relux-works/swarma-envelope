@@ -1,0 +1,21 @@
+{
+  "id": "PD4",
+  "claim": "The exact configured tag verifies its own signature without implying consumer admission: swarma-registrar registration/1.",
+  "positive_control": "",
+  "mode": "domain",
+  "input": {
+    "key": "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+    "preimage": "c3dhcm1hLXJlZ2lzdHJhciByZWdpc3RyYXRpb24vMQp7ImJvZHkiOnsiYXVkIjoic2VydmljZS1hIiwiZXhwIjoiMjAyNi0wMS0wMVQwMDowMjowMFoiLCJpYXQiOiIyMDI2LTAxLTAxVDAwOjAwOjAwWiIsIm5vbmNlIjoiQndjSEJ3Y0hCd2NIQndjSEJ3Y0hCdyIsInR5cGUiOiJtZXNzYWdlLzEifSwia2V5IjoiZWQyNTUxOTp3dWUydDFHSmVMWlRxell1ZGt6UkloeVkxMWxBenlQWERqc1RYZ1hvSXJrIiwicm9sZSI6ImF1dGhvciIsInZlcnNpb24iOiJzd2FybS1lbnZlbG9wZS8yIn0",
+    "sig": "_VWSnrM4skqwbtrpREDf2IcgVKipKAf7nQrdoTMQqRLdNDYb8RJcom5ChIBPMkFK-JPQjeZmCVUoAkwj-IVnDQ"
+  },
+  "fixture": {
+    "expected_tag": "swarma-registrar registration/1"
+  },
+  "expected": {
+    "code": "accept",
+    "plan": {
+      "key": "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+      "tag": "swarma-registrar registration/1"
+    }
+  }
+}

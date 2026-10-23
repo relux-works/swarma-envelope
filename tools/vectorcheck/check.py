@@ -62,30 +62,30 @@ def no_number(_):
     raise Refusal("envelope_malformed")
 
 
-def values(value, depth=0):
+def values(value, depth=0, max_depth=16):
     if isinstance(value, (dict, list)):
         depth += 1
-        require(depth <= 16, "envelope_malformed")
+        require(depth <= max_depth, "envelope_malformed")
         if isinstance(value, list):
             require(len(value) <= 64, "envelope_malformed")
             for item in value:
-                values(item, depth)
+                values(item, depth, max_depth)
         else:
             for key, item in value.items():
-                values(key, depth)
-                values(item, depth)
+                values(key, depth, max_depth)
+                values(item, depth, max_depth)
     elif isinstance(value, str):
         require(not any(0xD800 <= ord(c) <= 0xDFFF for c in value), "envelope_malformed")
         require(len(value.encode("utf-8")) <= 8192, "envelope_malformed")
 
 
-def parse(raw):
+def parse(raw, max_depth=16):
     try:
         value = json.loads(raw.decode("utf-8"), object_pairs_hook=pairs,
                            parse_int=integer, parse_float=no_number, parse_constant=no_number)
     except (ValueError, UnicodeError, RecursionError):
         raise Refusal("envelope_malformed") from None
-    values(value)
+    values(value, max_depth=max_depth)
     return value
 
 
@@ -290,6 +290,72 @@ def window(start, end, low, high):
     require(low >= timestamp(start), "not_yet_valid")
 
 
+OWN_TAGS = {"message/1": "swarma-msg/2", "grant/1": "swarma-waggle grant/1",
+            "operator-act/1": "swarma-waggle operator-act/1"}
+REGISTERED_TAGS = set(OWN_TAGS.values()) | {
+    "swarma-registrar registration/1", "swarma-registrar enrollment/1",
+    "swarma-credential-broker grant/1", "swarma-credential-broker revocation/1"}
+
+
+def split_tag(raw, malformed):
+    tag, delimiter, payload = raw.partition(b"\n")
+    require(delimiter and 1 <= len(tag) <= 96 and all(0x20 <= c <= 0x7e for c in tag), malformed)
+    return tag, payload
+
+
+def signer_admission(raw):
+    require(len(raw) <= 24576, "signer_preimage_too_large")
+    tag, payload = split_tag(raw, "signer_tag_malformed")
+    require(tag == b"swarma-msg/2", "signer_domain_refused")
+    try:
+        decoded = parse(payload, max_depth=12)
+        canonical = ccj(decoded)
+    except Refusal:
+        raise Refusal("signer_payload_invalid") from None
+    require(canonical == payload, "signer_payload_invalid")
+    return {"tag": "swarma-msg/2", "preimage_sha256": digest(raw)}
+
+
+def check_domain(inp, f):
+    expected = f["expected_tag"]
+    require(expected in REGISTERED_TAGS, "domain_unknown")
+    raw = unb64(inp["preimage"])
+    tag, payload = split_tag(raw, "domain_tag_malformed")
+    require(tag == expected.encode("ascii"), "domain_mismatch")
+    require(ccj(parse(payload)) == payload, "envelope_malformed")
+    verify_signature(inp["key"], unb64(inp["sig"], 64), raw)
+    return {"tag": expected, "key": inp["key"]}
+
+
+def signing_preimage(body, key, role, expected):
+    return (OWN_TAGS[expected]+"\n").encode("ascii") + ccj({
+        "version": "swarm-envelope/2", "role": role, "key": key, "body": body})
+
+
+def agent_binding(key, f):
+    records, bindings = f.get("agent_evidence"), f.get("agent_expected")
+    require(isinstance(records, dict) and isinstance(bindings, dict)
+            and key in records and key in bindings, "key_binding_unavailable")
+    record, binding = records[key], bindings[key]
+    require(record.get("attestation") != "unavailable"
+            and record.get("revocation") != "unavailable", "key_binding_unavailable")
+    require(record.get("attestation") == "valid", "key_binding_invalid")
+    require(record.get("revocation") != "revoked", "revoked")
+    require(record.get("revocation") == "not_revoked", "key_binding_invalid")
+    alg, public = key_bytes(key)
+    try:
+        attested_bytes = unb64(record.get("public_bytes"), 32)
+    except Refusal:
+        raise Refusal("key_binding_invalid") from None
+    require(alg == "ed25519" and record.get("class") == "agent"
+            and record.get("purpose") == "message-signing" and record.get("active") is True
+            and record.get("key") == key and attested_bytes == public
+            and "ed25519:" + b64(attested_bytes) == key
+            and record.get("binding") == binding, "key_binding_invalid")
+    low, high = time_values(f)
+    require(timestamp(record["not_before"]) <= low and high < timestamp(record["not_after"]), "key_binding_invalid")
+
+
 def envelope(raw, expected, f):
     require(len(raw) <= (8192 if expected == "operator-act/1" else 65536), "envelope_too_large")
     e = parse(raw)
@@ -305,7 +371,7 @@ def envelope(raw, expected, f):
             and set(required) <= {s["role"] for s in sigs}, "envelope_role_invalid")
     if expected in {"grant/1", "operator-act/1"}:
         require(len(sigs) == 1 and sigs[0]["role"] == ("author" if expected == "grant/1" else "approver"), "envelope_role_invalid")
-    require(e["id"] == digest(("waggle " + expected + "\n").encode("ascii")+ccj(b)), "envelope_id_mismatch")
+    require(e["id"] == digest((OWN_TAGS[expected] + "\n").encode("ascii")+ccj(b)), "envelope_id_mismatch")
     if expected == "grant/1":
         alg, public = key_bytes(b["subject"])
         if alg == "ed25519":
@@ -324,11 +390,31 @@ def envelope(raw, expected, f):
             require(s["key"] in f["known_keys"], "signer_unknown")
             if expected == "message/1" and s["role"] == "author":
                 require(s["key"] == b["author"], "signer_unknown")
-        pre = ("waggle swarm-envelope/2 " + expected + " " + s["role"] + "\n").encode("ascii") + ccj({"body": b, "key": s["key"]})
+        alg, _ = key_bytes(s["key"])
+        allowed = ((expected == "message/1" and (s["role"], alg) in {("author", "ed25519"), ("approver", "p256")})
+                   or (expected == "operator-act/1" and (s["role"], alg) == ("approver", "p256"))
+                   or (expected == "grant/1" and s["role"] == "author" and alg in {"ed25519", "p256"}))
+        require(allowed, "signature_profile_invalid")
+        pre = signing_preimage(b, s["key"], s["role"], expected)
+        if expected == "message/1":
+            require(len(pre) <= 24576, "signature_preimage_too_large")
+            try:
+                values({"version": "swarm-envelope/2", "role": s["role"], "key": s["key"], "body": b}, max_depth=12)
+            except Refusal:
+                raise Refusal("signature_preimage_invalid") from None
         verify_signature(s["key"], unb64(s["sig"], 64), pre)
     require(b["aud"] == f["audience"], "audience_mismatch")
     low, high = time_values(f)
     window(b["iat"], b["exp"], low, high)
+    if expected == "message/1":
+        agent_binding(b["author"], f)
+        if any(s["role"] == "approver" for s in sigs):
+            require(f["signer_facts"]["current"], "key_binding_unavailable")
+            revocation(f, [], [s["key"] for s in sigs if s["role"] == "approver"])
+    elif expected == "grant/1":
+        for key in (b["issuer"], b["subject"]):
+            if key.startswith("ed25519:") and not (key == b["issuer"] and key == f["root"]):
+                agent_binding(key, f)
     require(f["id_journal_available"], "id_journal_unavailable")
     require(e["id"] not in f["seen"] or unb64(f["seen"][e["id"]]) == raw, "envelope_conflict")
     return e
@@ -426,6 +512,10 @@ def operator(e, f):
 def verdict(vector):
     f, inp, mode = vector["fixture"], vector["input"], vector["mode"]
     try:
+        if mode == "signer":
+            return {"code": "accept", "plan": signer_admission(unb64(inp["preimage"]))}
+        if mode == "domain":
+            return {"code": "accept", "plan": check_domain(inp, f)}
         if mode == "grant":
             es = grants(inp["chain"], f)
         else:

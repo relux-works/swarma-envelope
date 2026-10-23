@@ -7,6 +7,8 @@ UTF-8 bytes, not characters. Refusal codes in §6 are stable within this draft.
 ## 1. Scope, ownership and existing waggle
 
 This slice defines `swarm-envelope/2`, general `grant/1` and `operator-act/1`.
+The platform choice of CCJ-1 plus an explicit domain tag is settled; SSHSIG is
+not the platform-service encoding. The exact v0 schemas remain under review.
 For platform services it supersedes the SSHSIG encoding and verification rules
 in [waggle v5.2 §§4, 19](https://github.com/relux-works/waggle/blob/c618202899a196a9d5a1f56fa5c003ebf3fd2d91/spec/waggle.md).
 SSHSIG remains a separate repository/offline proposal, including board acts
@@ -49,7 +51,10 @@ are reserved and MUST refuse. A role never confers authority by itself. Required
 roles and admitted keys come from the caller's protected policy. Grants require
 exactly one `author` signature by `issuer`; operator acts exactly one `approver`
 from the owner's pinned device keys. A message requires `author` by its `author`
-key; extra signatures require caller policy, and MUST all verify.
+Ed25519 agent key; optional `approver` signatures MUST use pinned P-256
+operator device keys. Extra signatures require caller policy and MUST all verify.
+The accepted algorithm/role/type matrix in §2.4 is exhaustive. Recognizing a
+role name does not mean a v0 profile admits it.
 
 All objects are closed: unknown/missing fields and wrong JSON types MUST refuse,
 including nested objects. The JSON reader MUST enforce limits while reading:
@@ -70,11 +75,11 @@ and messages have lifetime at most 120 seconds; grants have no implicit renewal
 or maximum lifetime beyond the chain and protected consumer policy.
 
 `message/1` adds exactly `author`, `action`, `target`, `arguments` (an object).
-Arguments MUST pass the caller-selected registered action schema. The vector-only
-`message.deliver` profile is `{text:string}` or `{text:string,sequence:integer[]}`
-for serializer controls; it publishes no general message payload grammar. This minimal
-form tests envelope mechanics; it does not publish session commands or board
-policy. Authentication alone MUST NOT authorize message delivery or execution.
+Arguments MUST pass the caller-selected registered action schema at admission.
+Envelope-only vectors use synthetic argument objects for codec/size controls;
+they check envelope mechanics and publish no general message payload grammar,
+session commands or board policy. Authentication alone MUST NOT authorize
+message delivery or execution.
 
 ### 2.2 CCJ-1 and preimages
 
@@ -87,23 +92,37 @@ lone surrogates, floats/exponents, negative zero, and integers outside
 [-9007199254740991, 9007199254740991] MUST refuse. Bodies MUST NOT contain
 signature metadata, and canonicalization MUST NOT recursively strip `sig`.
 
-The caller supplies the expected type T from the channel. Domain D is ASCII
-`waggle ` followed by T; the body type MUST equal T. Let C = CCJ-1(body).
+The caller supplies the expected type T from the protected channel. D is the
+exact tag assigned to T in §2.4; the body type MUST equal T. For a signature
+entry with role R and key id K, define the **signed record** as exactly
+`{body:body,key:K,role:R,version:"swarm-envelope/2"}`. Its member order on the
+wire below is illustrative; CCJ-1 supplies the byte order.
 
 ```text
-preimage = ASCII(D) || 0x0a || C
-id = "sha256:" || lowercase_hex(SHA-256(preimage))
-signature_preimage(role,key) =
-  ASCII("waggle swarm-envelope/2 " + T + " " + role) || 0x0a ||
-  CCJ-1({body: body, key: key})
+content_preimage = ASCII(D) || 0x0a || CCJ-1(body)
+id = "sha256:" || lowercase_hex(SHA-256(content_preimage))
+signed_record = {body: body, key: K, role: R, version: "swarm-envelope/2"}
+preimage = signature_preimage = ASCII(D) || 0x0a || CCJ-1(signed_record)
 ```
 
-There is no trailing newline. The envelope id, version and signatures are
-outside the body; the mandatory version is fixed in the signing domain. A
-signature covers the complete canonical body, the role, key id and expected
-type. The hash construction matches the broker's domain/newline/CCJ-1 pattern;
-the domain and role-bound signature preimage deliberately differ. Neither an
-id nor a signature can be reused across types, versions, keys or roles.
+**`preimage` is the complete byte sequence supplied to a signer.** The content
+hash input is separately named `content_preimage`: it is not the signing input.
+There is no trailing newline in either. The envelope id and signatures are
+outside the signed record; the version, role, key id and complete body are
+inside it. The body's `type` is therefore signed even though the message tag
+is fixed. All message roles use the same tag and the same construction with a
+different signed `role` value. A signature for one role, key, version or type
+MUST NOT verify after replacing that value. An id alone does not bind a role.
+
+This is one domain/LF/CCJ-1 construction with two explicit payload schemas.
+The signature payload is the protected signed record, not bare body bytes.
+Receivers MUST reconstruct it from their expected type, fixed version and the
+entry, never accept an arbitrary preimage in place of a verified envelope.
+Neither a message signer nor a carrier selects the expected type for a receiver.
+Raw-preimage entry points MUST compare the tag up to the first LF byte exactly;
+envelope verifiers construct that exact tag themselves. No old `waggle` tag or
+role-specific tag is a compatibility alias. Existing draft signatures must be
+regenerated, not relabelled.
 
 A caller-owned id journal MUST retain the exact accepted wire bytes. An already
 seen id with different bytes MUST refuse `envelope_conflict`, including changed
@@ -130,6 +149,156 @@ SHA-256(signature_preimage), raw big-endian 32-byte r || 32-byte s, with
 curves/algorithms and algorithm inference MUST refuse. No SSHSIG or FIDO wrapper
 is admitted. User presence is a signer-provider enrollment requirement, not an
 invented ECDSA flag. Unsupported presence evidence MUST fail closed.
+
+### 2.4 Exact domain registry and key profiles
+
+A tag is 1–96 bytes, each in ASCII 0x20–0x7e inclusive. LF (0x0a), CR (0x0d),
+all other control bytes, DEL and non-ASCII bytes are forbidden. The first 0x0a
+is the one delimiter; the complete remainder MUST be CCJ-1 bytes. No trimming,
+case folding, Unicode normalization or prefix/pattern acceptance is permitted.
+Leading/trailing spaces satisfy the byte alphabet but are not aliases for a
+registered tag. New literal tags enter only through a reviewed change to this
+closed table; caller configuration cannot register an alias.
+
+| Exact ASCII tag | Assigned content / owner | Message signer membership |
+| --- | --- | --- |
+| `swarma-msg/2` | message/1 signed record; this specification | Accepted exactly |
+| `swarma-waggle grant/1` | General grant/1; this specification | Refused |
+| `swarma-waggle operator-act/1` | operator-act/1; this specification | Refused |
+| `swarma-registrar registration/1` | Registrar registration; registrar §2 | Refused |
+| `swarma-registrar enrollment/1` | Registrar enrollment; registrar §2 | Refused |
+| `swarma-credential-broker grant/1` | Broker's separate closed grant; broker §6 | Refused |
+| `swarma-credential-broker revocation/1` | Broker's revocation; broker §6.4 | Refused |
+| Unpublished signing-service witness domain (no literal assigned here) | Signing service owns publication; placeholder is NOT a registered tag | Refused until separately published; never implicitly admitted |
+
+All seven published literals above MUST be pairwise distinct. Prefix uniqueness
+is not required: even if one tag is a prefix of another, at the shorter tag's
+end one preimage has LF while the other has a non-LF tag byte. Exact tag plus
+LF already separates them. In particular `swarma-msg/20` is not accepted merely
+because it shares bytes with `swarma-msg/2`.
+
+**Decision: one fixed message tag.** Type, role, version and key binding live
+inside the signed record (§2.2). This keeps the signer's admissibility check to
+one exact byte comparison and a canonicality/limit check, while receivers bind
+all semantic distinctions. A growing role/type tag grammar would add signer
+configuration without removing the need for receiver schema and authority
+checks. Grants and operator acts are outside the message-signing namespace.
+
+The accepted signature profiles are exhaustive:
+
+| Expected type | Signature role | Key class / algorithm | Required provenance |
+| --- | --- | --- | --- |
+| message/1 | author | Agent / Ed25519 | Caller-validated Keymaker attestation and current generation binding (§2.6); key equals body.author |
+| message/1 | approver, optional or caller-required | Operator device / P-256 low-S | Owner's protected device pin, current revocation and caller signature policy |
+| grant/1 | author, exactly one | Grant authority / Ed25519 or P-256 low-S | Pinned owner root or issuer named by parent; agent issuers/subjects additionally satisfy §2.6 |
+| operator-act/1 | approver, exactly one | Operator device / P-256 low-S | Owner's protected device pin and §4 act checks |
+
+An operator **device** key MUST be P-256; an agent key MUST be Ed25519. A pinned
+grant root is a separate authority key and need not be an operator device.
+All other combinations MUST refuse `signature_profile_invalid`: in particular
+P-256 agent authors, Ed25519 operator acts and agent approvers/delegates. The
+`delegate` role is reserved without an admitted v0 profile. An optional message
+approver is a signature on content, not a replacement operator act or an A3
+claim. Grant authority still requires the complete chain; key class is no grant.
+A K3 message signer cannot issue a grant: a separately qualified grant-domain
+signer would be required. This specification publishes no such Keymaker method.
+
+### 2.5 Message signer provider: opaque canonical bytes
+
+Keymaker's message byte signer is the first signing consumer of this format.
+The signer-provider interface is:
+
+```text
+SignMessage(full_preimage_bytes) -> {key_id, raw_signature_64_bytes} | refusal
+```
+
+The provider's configured station key is Ed25519. It MUST check, in order:
+
+1. Full preimage length <=24,576 bytes, before allocation/signing.
+2. A first LF exists; bytes before it satisfy the tag alphabet/length in §2.4.
+3. Those bytes equal exactly `swarma-msg/2`.
+4. The remainder is canonical CCJ-1: parse/re-encode MUST equal the received
+   remainder byte for byte, with depth <=12 (root container = 1), strings
+   <=8,192 bytes and arrays <=64 entries, plus every CCJ-1 rejection rule.
+
+It MUST sign the original complete bytes, without changing whitespace, adding a
+newline, reconstructing an envelope, parsing its schema or deciding action,
+role, type, audience, grants or operator authority. Codec parsing is required;
+envelope parsing is not. The signature is ordinary Ed25519, not a signature on
+the content id or a second hash. The key id MUST be derived from the bound public
+key by §2.3 and returned with the raw signature. Refusal releases no signature.
+Existing caller/kernel identity checks remain the signing service's boundary;
+the rules here add no caller-controlled key selector or native method grammar.
+
+Because this signer is deliberately schema-blind, it may sign a canonical
+record claiming `approver` or another body type under the fixed message tag.
+That does not authorize the claim: receivers MUST enforce §2.4 and reconstruct
+the tag for their caller-selected type. Operator/grant verifiers cannot reuse
+that signature. PS5 and E13/D43/D44 distinguish these two responsibilities.
+The operator device provider is separate: it signs the act domain using P-256
+low-S and satisfies §4's presence/confirmation obligations; it is never this
+message signer under another tag.
+
+**Frame budget assumption for the future native adapter:** the full preimage
+travels as canonical unpadded base64url in JSON, or in an equally bounded opaque
+byte carrier, with at most 4,096 bytes for every other request field and JSON
+syntax. At the 24,576-byte input bound base64url is exactly 32,768 bytes. Thus a
+JSON payload is at most 36,864 bytes, or 36,868 including a 4-byte header, leaving
+28,668 bytes below even a 65,536-byte total-frame ceiling. The native owner MUST
+publish and enforce that metadata budget; arbitrary JSON escaping of raw bytes
+is not an equivalent carrier. No request field names are invented here.
+The canonical signed record cap of 12 also leaves four container levels below
+the native depth-16 ceiling; a base64url string adds no decoded JSON nesting to
+the outer frame. The complete native request still MUST enforce depth <=16.
+Both signer and message verifier MUST enforce the preimage budget and depth.
+
+### 2.6 Caller-supplied key and attestation evidence
+
+No attestation serialization, certificate chain format, root rotation or
+Keymaker registry API is defined here. The caller resolves and verifies the
+service-owned attestation against its protected Keymaker root and supplies a
+typed result, not a cached self-asserted flag from the envelope. Publication,
+freshness and revocation use that service's mechanism; when it is unavailable
+this slice MUST refuse rather than infer identity from a display name or UID.
+The interface supplies, for every agent key needed by verification:
+
+```text
+AgentKeyEvidence(key_id) ->
+  public_key_bytes, derived_key_id, key_class=agent, purpose=message-signing,
+  owner, path, generation, registration_number, epoch, active_generation,
+  not_before, not_after,
+  attestation_status = valid | invalid | unavailable,
+  revocation_status = not_revoked | revoked | unavailable
+```
+
+Ed25519 key id derivation is exactly `ed25519:` plus canonical unpadded
+base64url of the 32 public-key bytes. P-256 device pins use `p256:` plus the
+canonical compressed point bytes; no independent alias/fingerprint is accepted.
+The result's bytes/id MUST equal the signed key id. Purpose MUST be exactly
+`message-signing`, not Git/SSH login/registration or an arbitrary string. The
+attested owner, path, positive safe registration number and epoch MUST equal
+the caller's protected expected principal binding. Its generation MUST equal
+current caller-supplied generation evidence, and the generation MUST be active.
+Neither reusable UID nor registration number alone substitutes for generation.
+The validity interval is start-inclusive/end-exclusive under §3.3's min/max time.
+
+Missing evidence, unavailable attestation/revocation or missing expected binding
+MUST return `key_binding_unavailable`. Invalid attestation, mismatched key/id,
+class, purpose, binding, inactive generation or validity MUST return
+`key_binding_invalid`; a revoked key returns `revoked`. Only valid,
+`not_revoked` evidence may proceed. These results are required even when the
+signature equation itself passes. The current signed snapshot and rollback
+requirements in §3.3 still apply to authorization.
+
+Message verification applies this interface to its author. Grant verification
+applies it to every agent issuer and subject, including the leaf, before the
+key is used as requester identity. A directly pinned owner root is verified by
+its protected authority pin rather than relabelled as an agent; operator device
+pins retain their separate policy. A valid message-purpose attestation proves
+agent key identity, not `credential.lease`, `agent.spawn`, grant issuance or
+message delivery authority. The grant chain supplies those permissions.
+A message key held by Keymaker still cannot sign the grant tag through K3;
+authority to delegate and availability of a qualified signer are separate gates.
 
 ## 3. General grant/1
 
@@ -236,10 +405,10 @@ no grant is admitted to that implementation by this document.
 
 | Area | Broker §§6–8 proposal | This slice / required adapter treatment |
 | --- | --- | --- |
-| Canonicalization, id | CCJ-1, domain + LF + body, sha256 id | Same byte algorithm; new domain `waggle grant/1` produces new ids. |
-| Container/signature | `{body,id,sig}`; issuer Ed25519 over id preimage | Adds version, signatures array, roles and key binding; re-sign, never relabel. Adds P-256 low-S. |
+| Canonicalization, id | CCJ-1, domain + LF + body, sha256 id | Same byte algorithm; new domain `swarma-waggle grant/1` produces new ids. |
+| Container/signature | `{body,id,sig}`; issuer Ed25519 over id preimage | Adds version, signatures array and signed record binding role/key/version/body (§2.2); re-sign, never relabel. Adds P-256 low-S for authority keys; agent keys remain Ed25519. |
 | Common fields | type in body; no aud/nonce/iat/exp | Adds all four; iat/exp equal grant interval. Adapter MUST supply explicit bounded values. |
-| Subject | key or generation-bound `agent:` leaf | Keys only; no silent UID/generation conversion. Generation binding needs a separately versioned consumer adapter. |
+| Subject | key or generation-bound `agent:` leaf | Keys only; agent keys need caller-verified Keymaker evidence (§2.6). No silent UID/generation conversion. Generation binding in broker records still needs a separately versioned consumer adapter. |
 | Actions | `credential.lease`, `agent.spawn` | Adds `message.deliver`; broker adapter MUST refuse it. |
 | Targets | Separate exact accounts/harnesses/profiles lists | Typed correlated tuples; prefix ids allowed here, refused by broker. Enumerate exact Cartesian tuples only when source rights actually permit that product. |
 | Interval | not_before, expires_at | not_before, expires; exact UTC seconds, equal common iat/exp. No lossy rounding. |
@@ -275,6 +444,7 @@ In addition to common members, exactly:
 | `arguments_digest` | `sha256:` + lowercase hex SHA-256(CCJ-1(canonical operation arguments)); no domain or trailing LF. |
 | `confirmed` | Boolean signed assertion that exact-content confirmation occurred. |
 
+Only pinned P-256 operator device keys may sign this type (§2.4).
 Only protected consumer operation policy classifies widening versus narrowing;
 the sender MUST NOT select that class. v0 profiles here are Keymaker `revoke`
 (narrowing) and illustrative `grant.issue` on an account (widening, no broker
@@ -322,7 +492,8 @@ retains its own registrant/retirement checks. This profile consumes no widening.
 The caller supplies trusted time, protected owner/key pin and binding epoch,
 revocation evidence, id bytes journal and durable used-action journal. Missing
 verifier/evidence, unavailable revocation/time/watermark/key policy/journal or failed state
-commit maps to `operator_record_unavailable`. Malformation, bad signature,
+commit maps to `operator_record_unavailable` (including `key_binding_unavailable` if required
+by an adapter). Malformation, bad signature,
 foreign key/root, wrong binding/audience/epoch/arguments, expiry/future time,
 replay, invalid delegation/attenuation or any other definite invalidity maps to
 `operator_record_invalid`. Fine reasons MUST stay in local audit. No new
@@ -407,6 +578,7 @@ Revocations.Check(owner, ids, keys, sample) -> not_revoked | revoked | unavailab
 IdJournal.Lookup(id) -> absent | exact_bytes | unavailable
 Replay.Lookup(consumer,action_id) -> unused | used | unavailable
 SignerFacts.Lookup(owner,key) -> pinned + current + presence_policy | unavailable
+AgentKeyEvidence.Lookup(key_id) -> validated attestation result + current binding | unavailable
 Commit(plan) -> atomic reserve + durable watermark + id binding | conflict | unavailable
 ```
 
@@ -427,10 +599,11 @@ entries are checked in array order. Codes are distinct per listed substep:
 | E3 | Fixed version, then expected type | `envelope_version_unsupported` / `envelope_type_mismatch` |
 | E4 | Reserved/missing required role, duplicate pair, or grant/act role cardinality | `envelope_role_invalid` |
 | E5 | Recomputed id | `envelope_id_mismatch` |
-| E6 | Available key policy, key pin/issuer/author match, then strict crypto (high-S distinguished) | `signer_unavailable` / `signer_unknown` / `signature_high_s` / `envelope_signature_invalid` |
+| E6 | Available key policy, key pin/issuer/author match, then allowed profile, message preimage size/depth, then strict crypto | `signer_unavailable` / `signer_unknown` / `signature_profile_invalid` / `signature_preimage_too_large` / `signature_preimage_invalid` / `signature_high_s` / `envelope_signature_invalid` |
 | E7 | Exact protected audience | `audience_mismatch` |
 | T1 | Trusted/fresh provider authority, watermark availability | `time_unavailable` / `watermark_unavailable` |
 | T2 | Each expiry at max, then start at min | `expired` / `not_yet_valid` |
+| K1 | Required agent key evidence availability, attestation, revocation, id/class/purpose/binding and validity (§2.6) | `key_binding_unavailable` / `key_binding_invalid` / `revoked` |
 | E8 | Id journal availability, then same id other bytes | `id_journal_unavailable` / `envelope_conflict` |
 | G1 | Chain length 1–4, unique ids, closed request/schema | `grant_chain_malformed` |
 | G2 | E1–E8 for every link (before remaining G rows) | envelope/time code above |
@@ -446,7 +619,10 @@ entries are checked in array order. Codes are distinct per listed substep:
 | O4 | Available durable replay journal, unused action id | `replay_unavailable` / `act_replay` |
 | C1 | Adapter Commit conflict/unavailability | `act_replay` / `state_unavailable` |
 
-For grant intake G1 precedes G2; G2 performs E/T checks per link, then G3–G8.
+For grant intake G1 precedes G2; G2 performs E/T/K1 checks per link, then G3–G8.
+K1 runs after T2 and before E8. Message approvers additionally require current
+protected operator pins and fresh revocation evidence; unavailable current key
+facts return `key_binding_unavailable`, and revocation uses G7 codes.
 For operator intake E/T checks precede O1–O4. E2 validates type-specific schema
 using the expected type, but type string equality is deferred to E3. G4 audience
 attenuation is additionally enforced even though G2's configured audience
@@ -456,13 +632,32 @@ is a consumer gate, never guessed from signed text. Refusal MUST cause no effect
 or authority mutation; refusal audit is permitted. Vectors record an empty
 persistence plan on refusal and a candidate plan on accept, never committed I/O.
 
+Message signer admission (§2.5) has its own ordered refusals: size
+`signer_preimage_too_large`; tag grammar/delimiter `signer_tag_malformed`;
+exact message membership `signer_domain_refused`; CCJ-1 canonicality/depth
+`signer_payload_invalid`. It performs no effect authorization. In domain-only
+conformance probes a malformed tag is `domain_tag_malformed`, an unregistered
+configured tag `domain_unknown`, and unequal received/configured bytes
+`domain_mismatch`; a correctly retagged foreign signature then fails
+`envelope_signature_invalid`. These probes isolate mathematical separation,
+including external domains, and do not claim to implement external body schemas
+or admission gates.
+
 ## 7. Consumer gates and remaining risks
+
+| Consumer | Contract from this slice | Activation boundary |
+| --- | --- | --- |
+| Keymaker message signer (first signing consumer) | Exact tag, canonical preimage, size/depth and raw Ed25519 output in §§2.2, 2.4–2.5; caller key evidence in §2.6 | Native intake and attestation publication belong to Keymaker; not implemented here |
+| Keymaker operator_record verifier | Pinned P-256 act and exact persistent-revoke mapping in §4.2 | Future verifier and durable caller integration still required |
+| Credential broker, later | General grant adapter and repeated binding/lease/renewal gates in §3.4 | Broker v0 R1 unchanged |
+| Carrier | Unchanged envelope bytes and bounded event/pointer requirement in §5 | Transport owner publishes wire budget and pointer form |
 
 Keymaker: §4.2 is the exact persistent-revoke mapping. Its kernel caller,
 registration, generation, target-retirement and outer mutation journal checks
 remain mandatory. `register` gains no signature requirement. No new surface-A
 signing domain is implied; Keymaker's SSH signing capability cannot automatically
-sign this slice. A qualified operator device signer supplies the act.
+sign this slice. Its proposed message signer consumes §2.5 rather than
+reinterpreting surface A. A qualified P-256 operator device signer supplies the act.
 
 Broker: the later adapter checks `agent.spawn` and `credential.lease` in the
 requester's chain at bind, with the dispatcher chain separately validated. Lease

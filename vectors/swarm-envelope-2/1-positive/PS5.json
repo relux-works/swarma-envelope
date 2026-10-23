@@ -1,0 +1,17 @@
+{
+  "id": "PS5",
+  "claim": "The signer codec does not interpret a role; the recipient must reject an agent approver.",
+  "positive_control": "",
+  "mode": "signer",
+  "input": {
+    "preimage": "c3dhcm1hLW1zZy8yCnsiYm9keSI6eyJhY3Rpb24iOiJtZXNzYWdlLmRlbGl2ZXIiLCJhcmd1bWVudHMiOnsidGV4dCI6ImhlbGxvIn0sImF1ZCI6InNlcnZpY2UtYSIsImF1dGhvciI6ImVkMjU1MTk6d3VlMnQxR0plTFpUcXpZdWRrelJJaHlZMTFsQXp5UFhEanNUWGdYb0lyayIsImV4cCI6IjIwMjYtMDEtMDFUMDA6MDI6MDBaIiwiaWF0IjoiMjAyNi0wMS0wMVQwMDowMDowMFoiLCJub25jZSI6IkJ3Y0hCd2NIQndjSEJ3Y0hCd2NIQnciLCJ0YXJnZXQiOnsiaWQiOiJ0ZWFtL21lbWJlciIsImtpbmQiOiJzdGF0aW9uIn0sInR5cGUiOiJtZXNzYWdlLzEifSwia2V5IjoiZWQyNTUxOTp3dWUydDFHSmVMWlRxell1ZGt6UkloeVkxMWxBenlQWERqc1RYZ1hvSXJrIiwicm9sZSI6ImFwcHJvdmVyIiwidmVyc2lvbiI6InN3YXJtLWVudmVsb3BlLzIifQ"
+  },
+  "fixture": {},
+  "expected": {
+    "code": "accept",
+    "plan": {
+      "preimage_sha256": "sha256:f9297c223c2555943bdf0199e49036eb1d7c860d28135bab7d245ecc15549f2b",
+      "tag": "swarma-msg/2"
+    }
+  }
+}

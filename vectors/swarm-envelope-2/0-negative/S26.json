@@ -1,0 +1,14 @@
+{
+  "id": "S26",
+  "claim": "Empty signed remainder refuses.",
+  "positive_control": "PS1",
+  "mode": "signer",
+  "input": {
+    "preimage": "c3dhcm1hLW1zZy8yCg"
+  },
+  "fixture": {},
+  "expected": {
+    "code": "signer_payload_invalid",
+    "plan": {}
+  }
+}

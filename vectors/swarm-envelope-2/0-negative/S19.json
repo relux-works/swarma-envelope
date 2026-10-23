@@ -1,0 +1,14 @@
+{
+  "id": "S19",
+  "claim": "Duplicate JSON members refuse signer canonicality.",
+  "positive_control": "PS1",
+  "mode": "signer",
+  "input": {
+    "preimage": "c3dhcm1hLW1zZy8yCnsiYSI6MSwiYSI6Mn0"
+  },
+  "fixture": {},
+  "expected": {
+    "code": "signer_payload_invalid",
+    "plan": {}
+  }
+}

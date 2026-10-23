@@ -1,0 +1,14 @@
+{
+  "id": "S02",
+  "claim": "Message signer refuses non-message or unpublished service domains: swarma-waggle operator-act/1.",
+  "positive_control": "PS1",
+  "mode": "signer",
+  "input": {
+    "preimage": "c3dhcm1hLXdhZ2dsZSBvcGVyYXRvci1hY3QvMQp7fQ"
+  },
+  "fixture": {},
+  "expected": {
+    "code": "signer_domain_refused",
+    "plan": {}
+  }
+}

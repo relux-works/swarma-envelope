@@ -1,0 +1,18 @@
+{
+  "id": "D01",
+  "claim": "A signature under swarma-waggle grant/1 does not verify under swarma-msg/2.",
+  "positive_control": "PD1",
+  "mode": "domain",
+  "input": {
+    "key": "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+    "preimage": "c3dhcm1hLW1zZy8yCnsiYm9keSI6eyJhdWQiOiJzZXJ2aWNlLWEiLCJleHAiOiIyMDI2LTAxLTAxVDAwOjAyOjAwWiIsImlhdCI6IjIwMjYtMDEtMDFUMDA6MDA6MDBaIiwibm9uY2UiOiJCd2NIQndjSEJ3Y0hCd2NIQndjSEJ3IiwidHlwZSI6Im1lc3NhZ2UvMSJ9LCJrZXkiOiJlZDI1NTE5Ond1ZTJ0MUdKZUxaVHF6WXVka3pSSWh5WTExbEF6eVBYRGpzVFhnWG9JcmsiLCJyb2xlIjoiYXV0aG9yIiwidmVyc2lvbiI6InN3YXJtLWVudmVsb3BlLzIifQ",
+    "sig": "OY1T3bhfmB4urPYLnyiDphORjlPpVKnwD6e9nitJzVmMNqvBWUoVCv2AXMhugr_Ah8MNNZ7Oz8o34CywR1lADw"
+  },
+  "fixture": {
+    "expected_tag": "swarma-msg/2"
+  },
+  "expected": {
+    "code": "envelope_signature_invalid",
+    "plan": {}
+  }
+}

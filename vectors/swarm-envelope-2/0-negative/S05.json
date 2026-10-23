@@ -1,0 +1,14 @@
+{
+  "id": "S05",
+  "claim": "Message signer refuses non-message or unpublished service domains: swarma-credential-broker grant/1.",
+  "positive_control": "PS1",
+  "mode": "signer",
+  "input": {
+    "preimage": "c3dhcm1hLWNyZWRlbnRpYWwtYnJva2VyIGdyYW50LzEKe30"
+  },
+  "fixture": {},
+  "expected": {
+    "code": "signer_domain_refused",
+    "plan": {}
+  }
+}

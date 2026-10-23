@@ -1,0 +1,14 @@
+{
+  "id": "S07",
+  "claim": "Message signer refuses non-message or unpublished service domains: unregistered/1.",
+  "positive_control": "PS1",
+  "mode": "signer",
+  "input": {
+    "preimage": "dW5yZWdpc3RlcmVkLzEKe30"
+  },
+  "fixture": {},
+  "expected": {
+    "code": "signer_domain_refused",
+    "plan": {}
+  }
+}

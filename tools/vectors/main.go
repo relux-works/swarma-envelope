@@ -62,9 +62,20 @@ func digest(b []byte) string { h := sha256.Sum256(b); return "sha256:" + hex.Enc
 func wire(m M) string        { return b64(canonical(m)) }
 func decode(s string) M      { var m M; must(json.Unmarshal(unb64(s), &m)); return m }
 func body(v Vector) M        { return decode(v.Input["envelope"].(string))["body"].(map[string]any) }
-func domain(t string) string { return "waggle " + t }
+func domain(t string) string {
+	switch t {
+	case "message/1":
+		return "swarma-msg/2"
+	case "grant/1":
+		return "swarma-waggle grant/1"
+	case "operator-act/1":
+		return "swarma-waggle operator-act/1"
+	default:
+		panic("unregistered type")
+	}
+}
 func sigPre(b M, role, key, t string) []byte {
-	return append([]byte("waggle swarm-envelope/2 "+t+" "+role+"\n"), canonical(M{"body": b, "key": key})...)
+	return append([]byte(domain(t)+"\n"), canonical(M{"version": "swarm-envelope/2", "body": b, "key": key, "role": role})...)
 }
 func sign(k Key, p []byte) []byte {
 	if k.Ed != nil {
@@ -104,9 +115,21 @@ func target(id string) M {
 	return M{"kind": "credential", "id": id, "harness": "model-cli", "profile": "dev"}
 }
 func context() M {
-	return M{"now": "2026-01-01T00:01:00Z", "watermark": "2026-01-01T00:01:00Z", "time": M{"trusted": true, "fresh": true, "authority_until": "2026-01-01T00:06:00Z"}, "watermark_available": true, "audience": "service-a", "known_keys": []any{keys[0].ID, keys[1].ID, keys[2].ID, keys[6].ID}, "required_roles": []any{"author"}, "id_journal_available": true, "seen": M{}, "root": keys[0].ID, "revocation": M{"verdict": "not_revoked", "issued_at": "2026-01-01T00:01:00Z", "max_age": 60, "complete": true, "rollback_safe": true, "revoked_ids": []any{}, "revoked_keys": []any{}}, "replay_available": true, "used_actions": []any{}, "signer_facts": M{"presence": true, "current": true}, "binding": M{"operation": "revoke", "target": M{"kind": "registration", "id": 1}, "owner": "owner-a", "epoch": "epoch-1", "arguments": M{"registration_number": 1, "mode": "operator"}}, "request": M{"key": keys[2].ID, "action": "credential.lease", "target": target("team/member")}}
+	f := M{"now": "2026-01-01T00:01:00Z", "watermark": "2026-01-01T00:01:00Z", "time": M{"trusted": true, "fresh": true, "authority_until": "2026-01-01T00:06:00Z"}, "watermark_available": true, "audience": "service-a", "known_keys": []any{keys[0].ID, keys[1].ID, keys[2].ID, keys[6].ID}, "required_roles": []any{"author"}, "id_journal_available": true, "seen": M{}, "root": keys[0].ID, "revocation": M{"verdict": "not_revoked", "issued_at": "2026-01-01T00:01:00Z", "max_age": 60, "complete": true, "rollback_safe": true, "revoked_ids": []any{}, "revoked_keys": []any{}}, "replay_available": true, "used_actions": []any{}, "signer_facts": M{"presence": true, "current": true}, "binding": M{"operation": "revoke", "target": M{"kind": "registration", "id": 1}, "owner": "owner-a", "epoch": "epoch-1", "arguments": M{"registration_number": 1, "mode": "operator"}}, "request": M{"key": keys[2].ID, "action": "credential.lease", "target": target("team/member")}}
+	expected, evidence := M{}, M{}
+	for i, k := range keys[:6] {
+		binding := M{"owner": "owner-a", "path": fmt.Sprintf("message/agent-%d", i), "generation": fmt.Sprintf("generation-%d", i), "registration_number": i + 1, "epoch": "epoch-1"}
+		expected[k.ID] = binding
+		evidence[k.ID] = M{"binding": binding, "class": "agent", "key": k.ID, "public_bytes": b64(k.Ed.Public().(ed25519.PublicKey)), "purpose": "message-signing", "not_before": "2025-12-01T00:00:00Z", "not_after": "2026-02-01T00:00:00Z", "attestation": "valid", "revocation": "not_revoked", "active": true}
+	}
+	f["agent_expected"], f["agent_evidence"] = expected, evidence
+	return f
 }
+
 func base(mode string, idx int) Vector {
+	if mode == "operator" && idx == 0 {
+		idx = 6
+	}
 	f := context()
 	v := Vector{Mode: mode, Input: M{}, Fixture: f}
 	if mode == "grant" {
@@ -162,6 +185,9 @@ func edit(v *Vector, fn func(M)) {
 	v.Input["envelope"] = wire(e)
 }
 func resign(v *Vector, idx int, fn func(M)) {
+	if v.Mode == "operator" && idx == 0 {
+		idx = 6
+	}
 	b := body(*v)
 	fn(b)
 	role := "author"
@@ -177,11 +203,16 @@ func link(v *Vector, i, idx int, fn func(M)) {
 	a[i] = wire(envelope(b, keys[idx], "author"))
 }
 func add(id, claim, pair, code string, v Vector) {
+	pruneAgentEvidence(&v)
 	v.ID = id
 	v.Claim = claim
 	v.Positive = pair
 	v.Expected = M{"code": code, "plan": M{}}
-	if code == "accept" {
+	if code == "accept" && v.Mode == "signer" {
+		v.Expected["plan"] = M{"tag": "swarma-msg/2", "preimage_sha256": digest(unb64(v.Input["preimage"].(string)))}
+	} else if code == "accept" && v.Mode == "domain" {
+		v.Expected["plan"] = M{"tag": v.Fixture["expected_tag"], "key": v.Input["key"]}
+	} else if code == "accept" {
 		ids := []any{}
 		if v.Mode == "grant" {
 			for _, raw := range v.Input["chain"].([]any) {
@@ -249,7 +280,7 @@ func main() {
 			s["sig"] = b64(raw)
 		})
 	})
-	neg("E13", "An author signature cannot also count as approver.", "PE1", "envelope_signature_invalid", "envelope", func(v *Vector) {
+	neg("E13", "An agent author signature cannot count as an operator approver.", "PE1", "signature_profile_invalid", "envelope", func(v *Vector) {
 		edit(v, func(e M) {
 			a := e["signatures"].([]any)
 			old := a[0].(map[string]any)
@@ -291,8 +322,8 @@ func main() {
 	neg("E24", "Unavailable id journal refuses.", "PE1", "id_journal_unavailable", "envelope", func(v *Vector) { v.Fixture["id_journal_available"] = false })
 	neg("E25", "Untrusted clock refuses.", "PE1", "time_unavailable", "envelope", func(v *Vector) { v.Fixture["time"].(M)["trusted"] = false })
 	neg("E26", "Unavailable watermark refuses.", "PE1", "watermark_unavailable", "envelope", func(v *Vector) { v.Fixture["watermark_available"] = false })
-	neg("E27", "High-S P-256 twin refuses.", "PE2", "signature_high_s", "envelope", func(v *Vector) {
-		*v = base("envelope", 6)
+	neg("E27", "High-S P-256 twin refuses.", "PO1", "signature_high_s", "operator", func(v *Vector) {
+		*v = base("operator", 6)
 		edit(v, func(e M) {
 			s := e["signatures"].([]any)[0].(map[string]any)
 			r := unb64(s["sig"].(string))
@@ -326,7 +357,7 @@ func main() {
 		edit(v, func(e M) {
 			b := e["body"].(map[string]any)
 			b["arguments"].(map[string]any)["text"] = "changed"
-			e["id"] = digest(append([]byte("waggle message/1\n"), canonical(b)...))
+			e["id"] = digest(append([]byte("swarma-msg/2\n"), canonical(b)...))
 		})
 	})
 	neg("E31", "Wrong audience refuses.", "PE1", "audience_mismatch", "envelope", func(v *Vector) { v.Fixture["audience"] = "service-b" })
@@ -393,12 +424,12 @@ func main() {
 	neg("O11", "Wrong owner refuses.", "PO1", "act_binding_mismatch", "operator", func(v *Vector) { v.Fixture["binding"].(M)["owner"] = "owner-b" })
 	neg("O12", "Wrong registration target refuses.", "PO1", "act_binding_mismatch", "operator", func(v *Vector) { v.Fixture["binding"].(M)["target"] = M{"kind": "registration", "id": 2} })
 	neg("O13", "Revocation outage maps to unavailable.", "PO1", "revocation_unavailable", "operator", func(v *Vector) { v.Fixture["revocation"].(M)["complete"] = false })
-	neg("O14", "Revoked device refuses.", "PO1", "revoked", "operator", func(v *Vector) { v.Fixture["revocation"].(M)["revoked_keys"] = []any{keys[0].ID} })
+	neg("O14", "Revoked device refuses.", "PO1", "revoked", "operator", func(v *Vector) { v.Fixture["revocation"].(M)["revoked_keys"] = []any{keys[6].ID} })
 	neg("O15", "Operator record has its own 8192-byte bound.", "PO1", "envelope_too_large", "operator", func(v *Vector) {
 		v.Input["envelope"] = b64(append(unb64(v.Input["envelope"].(string)), bytes.Repeat([]byte{' '}, 8192)...))
 	})
-	neg("E32", "Malformed P-256 compressed point refuses.", "PE2", "envelope_signature_invalid", "envelope", func(v *Vector) {
-		*v = base("envelope", 6)
+	neg("E32", "Malformed P-256 compressed point refuses.", "PO1", "envelope_signature_invalid", "operator", func(v *Vector) {
+		*v = base("operator", 6)
 		raw := make([]byte, 33)
 		raw[0] = 2
 		for i := 1; i < 33; i++ {
@@ -407,9 +438,9 @@ func main() {
 		bad := "p256:" + b64(raw)
 		v.Fixture["known_keys"] = []any{bad}
 		edit(v, func(e M) {
-			e["body"].(map[string]any)["author"] = bad
+			// Operator signer key is the protected known pin, not a body author field.
 			e["signatures"].([]any)[0].(map[string]any)["key"] = bad
-			e["id"] = digest(append([]byte("waggle message/1\n"), canonical(e["body"])...))
+			e["id"] = digest(append([]byte("swarma-waggle operator-act/1\n"), canonical(e["body"])...))
 		})
 	})
 	neg("E33", "Small-order Ed25519 public key refuses.", "PE1", "envelope_signature_invalid", "envelope", func(v *Vector) {
@@ -418,7 +449,7 @@ func main() {
 		edit(v, func(e M) {
 			e["body"].(map[string]any)["author"] = bad
 			e["signatures"].([]any)[0].(map[string]any)["key"] = bad
-			e["id"] = digest(append([]byte("waggle message/1\n"), canonical(e["body"])...))
+			e["id"] = digest(append([]byte("swarma-msg/2\n"), canonical(e["body"])...))
 		})
 	})
 	neg("E34", "Noncanonical point R refuses.", "PE1", "envelope_signature_invalid", "envelope", func(v *Vector) {
@@ -431,8 +462,8 @@ func main() {
 			sig["sig"] = b64(raw)
 		})
 	})
-	neg("E35", "P-256 zero scalar refuses.", "PE2", "envelope_signature_invalid", "envelope", func(v *Vector) {
-		*v = base("envelope", 6)
+	neg("E35", "P-256 zero scalar refuses.", "PO1", "envelope_signature_invalid", "operator", func(v *Vector) {
+		*v = base("operator", 6)
 		edit(v, func(e M) {
 			sig := e["signatures"].([]any)[0].(map[string]any)
 			raw := unb64(sig["sig"].(string))
@@ -485,14 +516,16 @@ func main() {
 		edit(v, func(e M) {
 			e["body"].(map[string]any)["author"] = bad
 			e["signatures"].([]any)[0].(map[string]any)["key"] = bad
-			e["id"] = digest(append([]byte("waggle message/1\n"), canonical(e["body"])...))
+			e["id"] = digest(append([]byte("swarma-msg/2\n"), canonical(e["body"])...))
 		})
 	})
 	neg("O18", "Unavailable operator key policy refuses as unavailable evidence.", "PO1", "signer_unavailable", "operator", func(v *Vector) { v.Fixture["known_keys"] = nil })
 
+	addendumVectors()
+
 	// Positive controls prohibit an implementation that simply rejects everything.
 	add("PE1", "Valid Ed25519 message bytes authenticate; authority is separate.", "", "accept", base("envelope", 0))
-	add("PE2", "Valid compressed P-256 and raw low-S signature authenticate.", "", "accept", base("envelope", 6))
+	add("PE2", "A distinct attested Ed25519 agent key authenticates its message.", "", "accept", base("envelope", 1))
 	v := base("envelope", 0)
 	v.Input["envelope"] = b64(append([]byte(" \n"), unb64(v.Input["envelope"].(string))...))
 	add("PE3", "Noncanonical wire whitespace canonicalizes without changing preimages.", "", "accept", v)
@@ -515,7 +548,9 @@ func main() {
 	link(&v, 0, 1, func(b M) { b["targets"] = []any{target("team/member")} })
 	add("PG5", "Exact child target attenuates a prefix parent.", "", "accept", v)
 	add("PO1", "Narrowing persistent revoke permits confirmed=false with valid pin.", "", "accept", base("operator", 0))
-	add("PO2", "Pinned P-256 operator key signs the same narrowing contract.", "", "accept", base("operator", 6))
+	v = base("operator", 6)
+	resign(&v, 6, func(b M) { b["confirmed"] = true })
+	add("PO2", "A confirmed P-256 narrowing act remains narrowing.", "", "accept", v)
 	v = base("operator", 0)
 	widen(&v, true)
 	add("PO3", "Widening needs both exact-content assertion and qualified provider.", "", "accept", v)
@@ -624,12 +659,227 @@ func rootCaveat(v *Vector, start, end string) {
 }
 func extraSignature(v *Vector, bad bool) {
 	b := body(*v)
-	p := sigPre(b, "approver", keys[1].ID, "message/1")
-	sig := sign(keys[1], p)
+	p := sigPre(b, "approver", keys[6].ID, "message/1")
+	sig := sign(keys[6], p)
 	if bad {
 		sig[4] ^= 1
 	}
 	edit(v, func(e M) {
-		e["signatures"] = append(e["signatures"].([]any), M{"role": "approver", "key": keys[1].ID, "sig": b64(sig)})
+		e["signatures"] = append(e["signatures"].([]any), M{"role": "approver", "key": keys[6].ID, "sig": b64(sig)})
 	})
+}
+
+// Boundary controls prove the message signer checks bytes and codec limits only.
+func signerVector(raw []byte) Vector {
+	return Vector{Mode: "signer", Input: M{"preimage": b64(raw)}, Fixture: M{}}
+}
+func tagged(tag string, payload []byte) []byte { return append([]byte(tag+"\n"), payload...) }
+func signerSized(n int) []byte {
+	payload := M{"chunks": []any{"", strings.Repeat("x", 8192), strings.Repeat("x", 8192)}}
+	initial := tagged("swarma-msg/2", canonical(payload))
+	payload["chunks"].([]any)[0] = strings.Repeat("x", n-len(initial))
+	result := tagged("swarma-msg/2", canonical(payload))
+	if len(result) != n {
+		panic("wrong preimage boundary")
+	}
+	return result
+}
+func messageSized(n int) Vector {
+	v := base("envelope", 0)
+	b := body(v)
+	b["arguments"] = M{"chunks": []any{"", strings.Repeat("x", 8192), strings.Repeat("x", 8192)}}
+	pre := sigPre(b, "author", keys[0].ID, "message/1")
+	b["arguments"].(M)["chunks"].([]any)[0] = strings.Repeat("x", n-len(pre))
+	if len(sigPre(b, "author", keys[0].ID, "message/1")) != n {
+		panic("wrong message boundary")
+	}
+	v.Input["envelope"] = wire(envelope(b, keys[0], "author"))
+	return v
+}
+func domainVector(expected, source string, payload M) Vector {
+	bytes := canonical(payload)
+	return Vector{Mode: "domain", Input: M{"preimage": b64(tagged(expected, bytes)), "key": keys[0].ID, "sig": b64(sign(keys[0], tagged(source, bytes)))}, Fixture: M{"expected_tag": expected}}
+}
+func agentEvidence(v *Vector, i int) M { return v.Fixture["agent_evidence"].(M)[keys[i].ID].(M) }
+func addendumVectors() {
+	// Each ordered pair isolates domain separation: id/body and target tag are valid.
+	tags := []string{"swarma-msg/2", "swarma-waggle grant/1", "swarma-waggle operator-act/1", "swarma-registrar registration/1", "swarma-registrar enrollment/1", "swarma-credential-broker grant/1", "swarma-credential-broker revocation/1"}
+	payload := M{"version": "swarm-envelope/2", "role": "author", "key": keys[0].ID, "body": common("message/1")}
+	number := 0
+	for i, expected := range tags {
+		for _, source := range tags {
+			if source == expected {
+				continue
+			}
+			number++
+			v := domainVector(expected, source, payload)
+			add(fmt.Sprintf("D%02d", number), "A signature under "+source+" does not verify under "+expected+".", fmt.Sprintf("PD%d", i+1), "envelope_signature_invalid", v)
+		}
+	}
+	v := domainVector(tags[0], tags[0], payload)
+	altered := decode(b64(canonical(payload)))
+	altered["role"] = "approver"
+	v.Input["preimage"] = b64(tagged(tags[0], canonical(altered)))
+	add("D43", "Role is cryptographically bound even when one tag covers all message roles.", "PD1", "envelope_signature_invalid", v)
+	v = domainVector(tags[0], tags[0], payload)
+	altered = decode(b64(canonical(payload)))
+	altered["body"].(map[string]any)["type"] = "grant/1"
+	v.Input["preimage"] = b64(tagged(tags[0], canonical(altered)))
+	add("D44", "Body type is cryptographically bound independently of schema refusal.", "PD1", "envelope_signature_invalid", v)
+	for i, a := range []struct{ tag, code string }{{"swarma-msg/2 ", "domain_mismatch"}, {"Swarma-msg/2", "domain_mismatch"}, {"swarma-msg/2\r", "domain_tag_malformed"}} {
+		v = domainVector(tags[0], tags[0], payload)
+		v.Input["preimage"] = b64(tagged(a.tag, canonical(payload)))
+		add(fmt.Sprintf("D%d", 45+i), "A received tag is compared exactly; case, space or CR is not normalized.", "PD1", a.code, v)
+	}
+	// Known non-message domains and one unregistered future-service sentinel.
+	for i, tag := range append(append([]string{}, tags[1:]...), "unregistered/1") {
+		add(fmt.Sprintf("S%02d", i+1), "Message signer refuses non-message or unpublished service domains: "+tag+".", "PS1", "signer_domain_refused", signerVector(tagged(tag, []byte(`{}`))))
+	}
+	bad := []struct {
+		id, claim, code string
+		raw             []byte
+	}{
+		{"S08", "Trailing space is not stripped from a message tag.", "signer_domain_refused", tagged("swarma-msg/2 ", []byte(`{}`))},
+		{"S09", "Tag case is not folded.", "signer_domain_refused", tagged("Swarma-msg/2", []byte(`{}`))},
+		{"S10", "CR is a forbidden tag control byte.", "signer_tag_malformed", tagged("swarma-msg/2\r", []byte(`{}`))},
+		{"S11", "A longer tag sharing the message prefix is not a member.", "signer_domain_refused", tagged("swarma-msg/20", []byte(`{}`))},
+		{"S12", "A tag longer than 96 bytes refuses.", "signer_tag_malformed", tagged(strings.Repeat("x", 97), []byte(`{}`))},
+		{"S13", "DEL is a forbidden tag byte.", "signer_tag_malformed", tagged("swarma-msg/2\x7f", []byte(`{}`))},
+		{"S14", "Non-ASCII tag bytes refuse.", "signer_tag_malformed", tagged("swarma-msg/2\u00e9", []byte(`{}`))},
+		{"S15", "A missing LF delimiter refuses.", "signer_tag_malformed", []byte("swarma-msg/2{}")},
+		{"S16", "A signer requires canonical JSON, not just equivalent JSON.", "signer_payload_invalid", tagged(tags[0], []byte(` {}`))},
+		{"S17", "Unsorted object keys refuse signer canonicality.", "signer_payload_invalid", tagged(tags[0], []byte(`{"b":1,"a":2}`))},
+		{"S18", "A trailing newline is not signed CCJ-1.", "signer_payload_invalid", tagged(tags[0], []byte("{}\n"))},
+		{"S19", "Duplicate JSON members refuse signer canonicality.", "signer_payload_invalid", tagged(tags[0], []byte(`{"a":1,"a":2}`))},
+		{"S20", "Floating-point tokens refuse signer canonicality.", "signer_payload_invalid", tagged(tags[0], []byte(`{"a":1.0}`))},
+		{"S21", "A canonical preimage one byte above 24576 refuses before signing.", "signer_preimage_too_large", signerSized(24577)},
+		{"S22", "A canonical remainder of depth 13 refuses.", "signer_payload_invalid", tagged(tags[0], []byte(strings.Repeat("[", 13)+`0`+strings.Repeat("]", 13)))},
+		{"S23", "BOM is not canonical UTF-8 JSON.", "signer_payload_invalid", tagged(tags[0], append([]byte{239, 187, 191}, []byte(`{}`)...))},
+		{"S24", "Invalid UTF-8 is refused by the signer codec.", "signer_payload_invalid", tagged(tags[0], []byte{255})},
+		{"S25", "Redundant JSON escaping refuses signer canonicality.", "signer_payload_invalid", tagged(tags[0], []byte(`{"a":"\u0061"}`))},
+		{"S26", "Empty signed remainder refuses.", "signer_payload_invalid", tagged(tags[0], nil)},
+	}
+	for _, a := range bad {
+		pair := "PS1"
+		if a.id == "S21" {
+			pair = "PS2"
+		}
+		if a.id == "S22" {
+			pair = "PS3"
+		}
+		add(a.id, a.claim, pair, a.code, signerVector(a.raw))
+	}
+	neg("E42", "Ed25519 cannot produce an operator-device act.", "PO1", "signature_profile_invalid", "operator", func(v *Vector) { v.Input["envelope"] = wire(envelope(body(*v), keys[0], "approver")) })
+	neg("E43", "P-256 cannot count as an agent author key.", "PE1", "signature_profile_invalid", "envelope", func(v *Vector) { *v = base("envelope", 6) })
+	neg("E44", "An agent key has no delegate-role profile in this slice.", "PE1", "signature_profile_invalid", "envelope", func(v *Vector) {
+		edit(v, func(e M) {
+			e["signatures"] = append(e["signatures"].([]any), M{"role": "delegate", "key": keys[1].ID, "sig": b64(sign(keys[1], sigPre(body(*v), "delegate", keys[1].ID, "message/1")))})
+		})
+	})
+	neg("E45", "An otherwise signed message exceeds the signer preimage budget by one byte.", "PE7", "signature_preimage_too_large", "envelope", func(v *Vector) { *v = messageSized(24577) })
+	changes := []struct {
+		id, claim, code string
+		change          func(*Vector)
+	}{
+		{"K01", "Missing agent evidence is unavailable, not unrevoked.", "key_binding_unavailable", func(v *Vector) { delete(v.Fixture["agent_evidence"].(M), keys[0].ID) }},
+		{"K02", "Unavailable attestation evidence refuses.", "key_binding_unavailable", func(v *Vector) { agentEvidence(v, 0)["attestation"] = "unavailable" }},
+		{"K03", "Invalid attestation is a definite invalid binding.", "key_binding_invalid", func(v *Vector) { agentEvidence(v, 0)["attestation"] = "invalid" }},
+		{"K04", "Revoked attested agent key refuses.", "revoked", func(v *Vector) { agentEvidence(v, 0)["revocation"] = "revoked" }},
+		{"K05", "Unavailable key revocation evidence refuses.", "key_binding_unavailable", func(v *Vector) { agentEvidence(v, 0)["revocation"] = "unavailable" }},
+		{"K06", "A different attested purpose cannot authorize message signing.", "key_binding_invalid", func(v *Vector) { agentEvidence(v, 0)["purpose"] = "git-signing" }},
+		{"K07", "Attested bytes must derive the exact declared key id.", "key_binding_invalid", func(v *Vector) { agentEvidence(v, 0)["public_bytes"] = b64(keys[1].Ed.Public().(ed25519.PublicKey)) }},
+		{"K08", "Generation mismatch cannot authorize a recycled principal.", "key_binding_invalid", func(v *Vector) {
+			agentEvidence(v, 0)["binding"].(M)["generation"] = "generation-old"
+			v.Fixture["agent_expected"].(M)[keys[0].ID] = M{"owner": "owner-a", "path": "message/agent-0", "generation": "generation-0", "registration_number": 1, "epoch": "epoch-1"}
+		}},
+		{"K09", "Attestation validity is exclusive at expiry.", "key_binding_invalid", func(v *Vector) { agentEvidence(v, 0)["not_after"] = v.Fixture["now"] }},
+		{"K10", "A future attestation refuses at the start boundary.", "key_binding_invalid", func(v *Vector) { agentEvidence(v, 0)["not_before"] = "2026-01-01T00:01:01Z" }},
+		{"K11", "Protected owner binding cannot be replaced.", "key_binding_invalid", func(v *Vector) {
+			v.Fixture["agent_expected"].(M)[keys[0].ID] = M{"owner": "owner-b", "path": "message/agent-0", "generation": "generation-0", "registration_number": 1, "epoch": "epoch-1"}
+		}},
+		{"K12", "Protected derivation path cannot be replaced.", "key_binding_invalid", func(v *Vector) {
+			v.Fixture["agent_expected"].(M)[keys[0].ID] = M{"owner": "owner-a", "path": "message/other", "generation": "generation-0", "registration_number": 1, "epoch": "epoch-1"}
+		}},
+		{"K13", "Protected epoch cannot be replaced.", "key_binding_invalid", func(v *Vector) {
+			v.Fixture["agent_expected"].(M)[keys[0].ID] = M{"owner": "owner-a", "path": "message/agent-0", "generation": "generation-0", "registration_number": 1, "epoch": "epoch-2"}
+		}},
+		{"K14", "Protected registration number cannot be replaced.", "key_binding_invalid", func(v *Vector) {
+			v.Fixture["agent_expected"].(M)[keys[0].ID] = M{"owner": "owner-a", "path": "message/agent-0", "generation": "generation-0", "registration_number": 2, "epoch": "epoch-1"}
+		}},
+		{"K15", "An operator-class attestation cannot relabel an Ed25519 agent key.", "key_binding_invalid", func(v *Vector) { agentEvidence(v, 0)["class"] = "operator" }},
+		{"K16", "An inactive generation is not current identity authority.", "key_binding_invalid", func(v *Vector) { agentEvidence(v, 0)["active"] = false }},
+		{"K17", "Missing protected expected generation binding refuses.", "key_binding_unavailable", func(v *Vector) { delete(v.Fixture["agent_expected"].(M), keys[0].ID) }},
+		{"K18", "Attested key id must equal the message author id.", "key_binding_invalid", func(v *Vector) { agentEvidence(v, 0)["key"] = keys[1].ID }},
+	}
+	for _, a := range changes {
+		neg(a.id, a.claim, "PE1", a.code, "envelope", a.change)
+	}
+	neg("K19", "Grant leaf subject needs current attested agent binding.", "PG1", "key_binding_unavailable", "grant", func(v *Vector) { delete(v.Fixture["agent_evidence"].(M), keys[2].ID) })
+	neg("K20", "Delegated agent grant issuer also needs current binding.", "PG1", "key_binding_unavailable", "grant", func(v *Vector) { delete(v.Fixture["agent_evidence"].(M), keys[1].ID) })
+	for i, tag := range tags {
+		add(fmt.Sprintf("PD%d", i+1), "The exact configured tag verifies its own signature without implying consumer admission: "+tag+".", "", "accept", domainVector(tag, tag, payload))
+	}
+	add("PS1", "A canonical object under the exact message tag is signer-admissible, without envelope parsing.", "", "accept", signerVector(tagged(tags[0], []byte(`{}`))))
+	add("PS2", "Exactly 24576 canonical preimage bytes are signer-admissible.", "", "accept", signerVector(signerSized(24576)))
+	add("PS3", "Exactly 12 container levels are signer-admissible.", "", "accept", signerVector(tagged(tags[0], []byte(strings.Repeat("[", 12)+`0`+strings.Repeat("]", 12)))))
+	message := base("envelope", 0)
+	add("PS4", "The constructed agent author preimage is directly signer-admissible.", "", "accept", signerVector(sigPre(body(message), "author", keys[0].ID, "message/1")))
+	add("PS5", "The signer codec does not interpret a role; the recipient must reject an agent approver.", "", "accept", signerVector(sigPre(body(message), "approver", keys[0].ID, "message/1")))
+	add("PE7", "An actual signed agent message at the 24576-byte preimage bound verifies.", "", "accept", messageSized(24576))
+	v = base("grant", 0)
+	v.Input["chain"] = chain(1)
+	root := decode(v.Input["chain"].([]any)[0].(string))["body"].(map[string]any)
+	root["issuer"] = keys[6].ID
+	v.Input["chain"] = []any{wire(envelope(root, keys[6], "author"))}
+	v.Fixture["root"] = keys[6].ID
+	v.Fixture["request"].(M)["key"] = keys[1].ID
+	add("PG8", "A pinned P-256 authority root may issue a grant to an attested Ed25519 subject.", "", "accept", v)
+
+}
+
+// Keep only relevant caller evidence; never fill a deliberately missing record.
+func pruneAgentEvidence(v *Vector) {
+	records, ok := v.Fixture["agent_evidence"].(M)
+	if !ok {
+		return
+	}
+	needed := map[string]bool{}
+	collect := func(raw string, grant bool) {
+		var e M
+		if err := json.Unmarshal(unb64(raw), &e); err != nil {
+			return
+		}
+		b, ok := e["body"].(map[string]any)
+		if !ok {
+			return
+		}
+		fields := []string{"author"}
+		if grant {
+			fields = []string{"issuer", "subject"}
+		}
+		for _, field := range fields {
+			key, ok := b[field].(string)
+			if ok && strings.HasPrefix(key, "ed25519:") && !(field == "issuer" && key == v.Fixture["root"]) {
+				needed[key] = true
+			}
+		}
+	}
+	if v.Mode == "grant" {
+		for _, raw := range v.Input["chain"].([]any) {
+			collect(raw.(string), true)
+		}
+	} else if raw, ok := v.Input["envelope"].(string); ok {
+		collect(raw, false)
+	}
+	expected := v.Fixture["agent_expected"].(M)
+	for key := range records {
+		if !needed[key] {
+			delete(records, key)
+		}
+	}
+	for key := range expected {
+		if !needed[key] {
+			delete(expected, key)
+		}
+	}
 }

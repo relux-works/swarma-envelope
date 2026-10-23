@@ -1,0 +1,14 @@
+{
+  "id": "S08",
+  "claim": "Trailing space is not stripped from a message tag.",
+  "positive_control": "PS1",
+  "mode": "signer",
+  "input": {
+    "preimage": "c3dhcm1hLW1zZy8yIAp7fQ"
+  },
+  "fixture": {},
+  "expected": {
+    "code": "signer_domain_refused",
+    "plan": {}
+  }
+}

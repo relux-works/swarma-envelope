@@ -1,0 +1,14 @@
+{
+  "id": "S22",
+  "claim": "A canonical remainder of depth 13 refuses.",
+  "positive_control": "PS3",
+  "mode": "signer",
+  "input": {
+    "preimage": "c3dhcm1hLW1zZy8yCltbW1tbW1tbW1tbW1swXV1dXV1dXV1dXV1dXQ"
+  },
+  "fixture": {},
+  "expected": {
+    "code": "signer_payload_invalid",
+    "plan": {}
+  }
+}

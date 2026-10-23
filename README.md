@@ -1,16 +1,16 @@
 # waggle
 
-A secure agent coordination and communication protocol: signed messages between agents. waggle defines one message envelope, one verification pipeline and one delivery model for agent orchestrators that share a project. Orchestrators coordinate with each other, first on one machine, then across a few operators over the internet, later with other organizations. Orchestrators also send one-way commands (clarify, reprioritize, cancel, halt) to their own workers; workers can never instruct orchestrators. The original repository/offline proposal uses SSHSIG. The proposed platform slice uses CCJ-1 records with role-bound Ed25519 or P-256 signatures, grants and operator acts; consumers select their protocol explicitly.
+A secure agent coordination and communication protocol: signed messages between agents. waggle defines one message envelope, one verification pipeline and one delivery model for agent orchestrators that share a project. Orchestrators coordinate with each other, first on one machine, then across a few operators over the internet, later with other organizations. Orchestrators also send one-way commands (clarify, reprioritize, cancel, halt) to their own workers; workers can never instruct orchestrators. The original repository/offline proposal uses SSHSIG. The proposed platform slice uses CCJ-1 records with role-bound signatures, grants and operator acts. Agent authors use Ed25519 under the exact `swarma-msg/2` tag; operator device keys use P-256. Consumers select their protocol explicitly.
 
 ## Status
 
-**Draft design with offline conformance tooling.** The platform slice specifies `swarm-envelope/2`, general `grant/1` and `operator-act/1`. Its 113 vectors (96 negative, 17 positive) have a Go generator and independent Python checker. No production verifier, consumer integration or activation is implemented. The Go module currently contains tools only; the public library is a later slice. Broker v0 retains static R1 admission; Keymaker persistent revoke remains gated on verifier integration.
+**Draft design with offline conformance tooling.** The platform slice specifies `swarm-envelope/2`, general `grant/1` and `operator-act/1`. Its 224 vectors (193 negative, 31 positive) have a Go generator and independent Python checker. No production verifier, consumer integration or activation is implemented. The Go module currently contains tools only; the public library is a later slice. Broker v0 retains static R1 admission; Keymaker persistent revoke remains gated on verifier integration.
 
 ## Layout
 
 | Path | Contents |
 | --- | --- |
-| [`spec/swarm-envelope-2.md`](spec/swarm-envelope-2.md) | Proposed normative platform records, refusal order, pure verifier boundary, exact Keymaker mapping and later broker adapter; supersedes SSHSIG only for platform services |
+| [`spec/swarm-envelope-2.md`](spec/swarm-envelope-2.md) | Proposed normative platform records, refusal order, pure verifier boundary, exact tag registry/signer/key-evidence contracts, Keymaker mapping and later broker adapter; supersedes SSHSIG only for platform services |
 | [`UNRESOLVED_QUESTIONS.md`](UNRESOLVED_QUESTIONS.md) | Adopted defaults and remaining publication/activation decisions |
 | [`vectors/swarm-envelope-2/`](vectors/swarm-envelope-2/) | Negative-first paired format and authorization witnesses |
 | [`vectors/keys/`](vectors/keys/) | Public test-only seeds and key provenance |

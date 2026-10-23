@@ -1,0 +1,14 @@
+{
+  "id": "S12",
+  "claim": "A tag longer than 96 bytes refuses.",
+  "positive_control": "PS1",
+  "mode": "signer",
+  "input": {
+    "preimage": "eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eAp7fQ"
+  },
+  "fixture": {},
+  "expected": {
+    "code": "signer_tag_malformed",
+    "plan": {}
+  }
+}

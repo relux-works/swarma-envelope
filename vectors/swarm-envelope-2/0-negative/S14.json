@@ -1,0 +1,14 @@
+{
+  "id": "S14",
+  "claim": "Non-ASCII tag bytes refuse.",
+  "positive_control": "PS1",
+  "mode": "signer",
+  "input": {
+    "preimage": "c3dhcm1hLW1zZy8yw6kKe30"
+  },
+  "fixture": {},
+  "expected": {
+    "code": "signer_tag_malformed",
+    "plan": {}
+  }
+}

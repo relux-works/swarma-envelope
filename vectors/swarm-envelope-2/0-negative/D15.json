@@ -1,0 +1,18 @@
+{
+  "id": "D15",
+  "claim": "A signature under swarma-registrar registration/1 does not verify under swarma-waggle operator-act/1.",
+  "positive_control": "PD3",
+  "mode": "domain",
+  "input": {
+    "key": "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+    "preimage": "c3dhcm1hLXdhZ2dsZSBvcGVyYXRvci1hY3QvMQp7ImJvZHkiOnsiYXVkIjoic2VydmljZS1hIiwiZXhwIjoiMjAyNi0wMS0wMVQwMDowMjowMFoiLCJpYXQiOiIyMDI2LTAxLTAxVDAwOjAwOjAwWiIsIm5vbmNlIjoiQndjSEJ3Y0hCd2NIQndjSEJ3Y0hCdyIsInR5cGUiOiJtZXNzYWdlLzEifSwia2V5IjoiZWQyNTUxOTp3dWUydDFHSmVMWlRxell1ZGt6UkloeVkxMWxBenlQWERqc1RYZ1hvSXJrIiwicm9sZSI6ImF1dGhvciIsInZlcnNpb24iOiJzd2FybS1lbnZlbG9wZS8yIn0",
+    "sig": "_VWSnrM4skqwbtrpREDf2IcgVKipKAf7nQrdoTMQqRLdNDYb8RJcom5ChIBPMkFK-JPQjeZmCVUoAkwj-IVnDQ"
+  },
+  "fixture": {
+    "expected_tag": "swarma-waggle operator-act/1"
+  },
+  "expected": {
+    "code": "envelope_signature_invalid",
+    "plan": {}
+  }
+}

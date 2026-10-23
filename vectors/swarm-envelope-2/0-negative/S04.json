@@ -1,0 +1,14 @@
+{
+  "id": "S04",
+  "claim": "Message signer refuses non-message or unpublished service domains: swarma-registrar enrollment/1.",
+  "positive_control": "PS1",
+  "mode": "signer",
+  "input": {
+    "preimage": "c3dhcm1hLXJlZ2lzdHJhciBlbnJvbGxtZW50LzEKe30"
+  },
+  "fixture": {},
+  "expected": {
+    "code": "signer_domain_refused",
+    "plan": {}
+  }
+}

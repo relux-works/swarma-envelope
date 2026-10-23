@@ -1,0 +1,17 @@
+{
+  "id": "PS3",
+  "claim": "Exactly 12 container levels are signer-admissible.",
+  "positive_control": "",
+  "mode": "signer",
+  "input": {
+    "preimage": "c3dhcm1hLW1zZy8yCltbW1tbW1tbW1tbWzBdXV1dXV1dXV1dXV0"
+  },
+  "fixture": {},
+  "expected": {
+    "code": "accept",
+    "plan": {
+      "preimage_sha256": "sha256:b615e075ef27cd704f6d8200e32279b22d92d7aa78735169f120353173d47f0d",
+      "tag": "swarma-msg/2"
+    }
+  }
+}

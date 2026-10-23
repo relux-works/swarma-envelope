@@ -1,0 +1,14 @@
+{
+  "id": "S16",
+  "claim": "A signer requires canonical JSON, not just equivalent JSON.",
+  "positive_control": "PS1",
+  "mode": "signer",
+  "input": {
+    "preimage": "c3dhcm1hLW1zZy8yCiB7fQ"
+  },
+  "fixture": {},
+  "expected": {
+    "code": "signer_payload_invalid",
+    "plan": {}
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "id": "S10",
+  "claim": "CR is a forbidden tag control byte.",
+  "positive_control": "PS1",
+  "mode": "signer",
+  "input": {
+    "preimage": "c3dhcm1hLW1zZy8yDQp7fQ"
+  },
+  "fixture": {},
+  "expected": {
+    "code": "signer_tag_malformed",
+    "plan": {}
+  }
+}

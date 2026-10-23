@@ -1,0 +1,14 @@
+{
+  "id": "S09",
+  "claim": "Tag case is not folded.",
+  "positive_control": "PS1",
+  "mode": "signer",
+  "input": {
+    "preimage": "U3dhcm1hLW1zZy8yCnt9"
+  },
+  "fixture": {},
+  "expected": {
+    "code": "signer_domain_refused",
+    "plan": {}
+  }
+}

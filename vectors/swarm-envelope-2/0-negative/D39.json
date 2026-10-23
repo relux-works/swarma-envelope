@@ -1,0 +1,18 @@
+{
+  "id": "D39",
+  "claim": "A signature under swarma-waggle operator-act/1 does not verify under swarma-credential-broker revocation/1.",
+  "positive_control": "PD7",
+  "mode": "domain",
+  "input": {
+    "key": "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+    "preimage": "c3dhcm1hLWNyZWRlbnRpYWwtYnJva2VyIHJldm9jYXRpb24vMQp7ImJvZHkiOnsiYXVkIjoic2VydmljZS1hIiwiZXhwIjoiMjAyNi0wMS0wMVQwMDowMjowMFoiLCJpYXQiOiIyMDI2LTAxLTAxVDAwOjAwOjAwWiIsIm5vbmNlIjoiQndjSEJ3Y0hCd2NIQndjSEJ3Y0hCdyIsInR5cGUiOiJtZXNzYWdlLzEifSwia2V5IjoiZWQyNTUxOTp3dWUydDFHSmVMWlRxell1ZGt6UkloeVkxMWxBenlQWERqc1RYZ1hvSXJrIiwicm9sZSI6ImF1dGhvciIsInZlcnNpb24iOiJzd2FybS1lbnZlbG9wZS8yIn0",
+    "sig": "Z92QF7VP0n6QaQrAya95h8s_xNU0UGahbeO9fuUQI_DTR8Jcx2hjksL5XDaivKE_lBxktfJOiJ-_nSGfDg8iDg"
+  },
+  "fixture": {
+    "expected_tag": "swarma-credential-broker revocation/1"
+  },
+  "expected": {
+    "code": "envelope_signature_invalid",
+    "plan": {}
+  }
+}

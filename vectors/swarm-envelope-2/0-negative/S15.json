@@ -1,0 +1,14 @@
+{
+  "id": "S15",
+  "claim": "A missing LF delimiter refuses.",
+  "positive_control": "PS1",
+  "mode": "signer",
+  "input": {
+    "preimage": "c3dhcm1hLW1zZy8ye30"
+  },
+  "fixture": {},
+  "expected": {
+    "code": "signer_tag_malformed",
+    "plan": {}
+  }
+}

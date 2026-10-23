@@ -1,12 +1,14 @@
 {
   "id": "PO2",
-  "claim": "Pinned P-256 operator key signs the same narrowing contract.",
+  "claim": "A confirmed P-256 narrowing act remains narrowing.",
   "positive_control": "",
   "mode": "operator",
   "input": {
-    "envelope": "eyJib2R5Ijp7ImFjdGlvbl9pZCI6IkNBZ0lDQWdJQ0FnSUNBZ0lDQWdJQ0EiLCJhcmd1bWVudHNfZGlnZXN0Ijoic2hhMjU2OjBkNmFmMWY1MWExNzI5MTM3M2RkOGY4MGU5OWJmODIyZTk3Njk2ZjUwNDlmODg3MzQ3OGY0ZGI0Nzc5MzliODQiLCJhdWQiOiJzZXJ2aWNlLWEiLCJjb25maXJtZWQiOmZhbHNlLCJlcG9jaCI6ImVwb2NoLTEiLCJleHAiOiIyMDI2LTAxLTAxVDAwOjAyOjAwWiIsImlhdCI6IjIwMjYtMDEtMDFUMDA6MDA6MDBaIiwibm9uY2UiOiJCd2NIQndjSEJ3Y0hCd2NIQndjSEJ3Iiwib3BlcmF0aW9uIjoicmV2b2tlIiwib3duZXIiOiJvd25lci1hIiwidGFyZ2V0Ijp7ImlkIjoxLCJraW5kIjoicmVnaXN0cmF0aW9uIn0sInR5cGUiOiJvcGVyYXRvci1hY3QvMSJ9LCJpZCI6InNoYTI1Njo2ZTMyZGI2NGRkNjllYmM1ODkwNzI5N2M0MzlmYmEyZTdiNTQwZGM2MzE5YzI4ZTY3Zjk2MGJjNmFjM2FjZjdlIiwic2lnbmF0dXJlcyI6W3sia2V5IjoicDI1NjpBdHZ1S2J3cmxKS1RtQzFjRktEVXY5bEF4NHhvbHBocnlvVFhrUlpOMEF5bCIsInJvbGUiOiJhcHByb3ZlciIsInNpZyI6IjdncHJsOXdoZzFqSnZqOFNiOGZhY2dLanBrVW9DemJwcnZxNk5vVm9mVElKekw4aExQZWVCTWxHckFqaG14TFBlcjNtUnJ0S29BNjVpQ0JRLWNYc0JnIn1dLCJ2ZXJzaW9uIjoic3dhcm0tZW52ZWxvcGUvMiJ9"
+    "envelope": "eyJib2R5Ijp7ImFjdGlvbl9pZCI6IkNBZ0lDQWdJQ0FnSUNBZ0lDQWdJQ0EiLCJhcmd1bWVudHNfZGlnZXN0Ijoic2hhMjU2OjBkNmFmMWY1MWExNzI5MTM3M2RkOGY4MGU5OWJmODIyZTk3Njk2ZjUwNDlmODg3MzQ3OGY0ZGI0Nzc5MzliODQiLCJhdWQiOiJzZXJ2aWNlLWEiLCJjb25maXJtZWQiOnRydWUsImVwb2NoIjoiZXBvY2gtMSIsImV4cCI6IjIwMjYtMDEtMDFUMDA6MDI6MDBaIiwiaWF0IjoiMjAyNi0wMS0wMVQwMDowMDowMFoiLCJub25jZSI6IkJ3Y0hCd2NIQndjSEJ3Y0hCd2NIQnciLCJvcGVyYXRpb24iOiJyZXZva2UiLCJvd25lciI6Im93bmVyLWEiLCJ0YXJnZXQiOnsiaWQiOjEsImtpbmQiOiJyZWdpc3RyYXRpb24ifSwidHlwZSI6Im9wZXJhdG9yLWFjdC8xIn0sImlkIjoic2hhMjU2OjQxNTM4YzgzZTk4NDFkNzc4M2MyMjY4NDFkN2IzOWU0NzBjMzYzM2RmNTdkYWU2MzY4YzY0NTU0MTJjZjM5MTIiLCJzaWduYXR1cmVzIjpbeyJrZXkiOiJwMjU2OkF0dnVLYndybEpLVG1DMWNGS0RVdjlsQXg0eG9scGhyeW9UWGtSWk4wQXlsIiwicm9sZSI6ImFwcHJvdmVyIiwic2lnIjoiUG9OOF8xUGtLSVhqMVNkN0hiWC1nU3NoM054RTRYOS1iX21Lb2dadjhIOS1pLWFHbHRBYU00aWllYjFSN0c4eDFSN2NkeXRjcllkRzUxMzc5R2hvM3cifV0sInZlcnNpb24iOiJzd2FybS1lbnZlbG9wZS8yIn0"
   },
   "fixture": {
+    "agent_evidence": {},
+    "agent_expected": {},
     "audience": "service-a",
     "binding": {
       "arguments": {
@@ -72,7 +74,7 @@
     "plan": {
       "action_id": "CAgICAgICAgICAgICAgICA",
       "ids": [
-        "sha256:6e32db64dd69ebc58907297c439fba2e7b540dc6319c28e67f960bc6ac3acf7e"
+        "sha256:41538c83e9841d7783c226841d7b39e470c3633df57dae6368c6455412cf3912"
       ],
       "watermark": "2026-01-01T00:01:00Z"
     }

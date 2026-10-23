@@ -4,9 +4,38 @@
   "positive_control": "",
   "mode": "envelope",
   "input": {
-    "envelope": "eyJib2R5Ijp7ImFjdGlvbiI6Im1lc3NhZ2UuZGVsaXZlciIsImFyZ3VtZW50cyI6eyJzZXF1ZW5jZSI6WzIsMV0sInRleHQiOiI8PiYvw6kifSwiYXVkIjoic2VydmljZS1hIiwiYXV0aG9yIjoiZWQyNTUxOTp3dWUydDFHSmVMWlRxell1ZGt6UkloeVkxMWxBenlQWERqc1RYZ1hvSXJrIiwiZXhwIjoiMjAyNi0wMS0wMVQwMDowMjowMFoiLCJpYXQiOiIyMDI2LTAxLTAxVDAwOjAwOjAwWiIsIm5vbmNlIjoiQndjSEJ3Y0hCd2NIQndjSEJ3Y0hCdyIsInRhcmdldCI6eyJpZCI6InRlYW0vbWVtYmVyIiwia2luZCI6InN0YXRpb24ifSwidHlwZSI6Im1lc3NhZ2UvMSJ9LCJpZCI6InNoYTI1NjoxMTM0ZGViNzgyMmYwMzEwOWNhYzhmODVlMTI3ZGUyNDMwNTVhN2E4Y2I1ZjYwODA4MTRiZThkNDhjNGIxM2QxIiwic2lnbmF0dXJlcyI6W3sia2V5IjoiZWQyNTUxOTp3dWUydDFHSmVMWlRxell1ZGt6UkloeVkxMWxBenlQWERqc1RYZ1hvSXJrIiwicm9sZSI6ImF1dGhvciIsInNpZyI6Im5fdUp2ODZwckdRSWU3VGI1RDMtSm1hYUlLNmdwUW15bEdTUjhoVzNGS2xhMWRQTHEwZ1dQcHBuOWYtXzRpNldzeDlSZ3hOVm1wMHdFMDRxWkRtV0J3In1dLCJ2ZXJzaW9uIjoic3dhcm0tZW52ZWxvcGUvMiJ9"
+    "envelope": "eyJib2R5Ijp7ImFjdGlvbiI6Im1lc3NhZ2UuZGVsaXZlciIsImFyZ3VtZW50cyI6eyJzZXF1ZW5jZSI6WzIsMV0sInRleHQiOiI8PiYvw6kifSwiYXVkIjoic2VydmljZS1hIiwiYXV0aG9yIjoiZWQyNTUxOTp3dWUydDFHSmVMWlRxell1ZGt6UkloeVkxMWxBenlQWERqc1RYZ1hvSXJrIiwiZXhwIjoiMjAyNi0wMS0wMVQwMDowMjowMFoiLCJpYXQiOiIyMDI2LTAxLTAxVDAwOjAwOjAwWiIsIm5vbmNlIjoiQndjSEJ3Y0hCd2NIQndjSEJ3Y0hCdyIsInRhcmdldCI6eyJpZCI6InRlYW0vbWVtYmVyIiwia2luZCI6InN0YXRpb24ifSwidHlwZSI6Im1lc3NhZ2UvMSJ9LCJpZCI6InNoYTI1Njo2YzU2MjI3ZWMwZjVmZWE1ZjgxZjQ1YzVmM2Y3MGQzNjc1MmVjY2Y1YzNlZmZhNGJhZWM0NmZmYWZkM2JhYmM5Iiwic2lnbmF0dXJlcyI6W3sia2V5IjoiZWQyNTUxOTp3dWUydDFHSmVMWlRxell1ZGt6UkloeVkxMWxBenlQWERqc1RYZ1hvSXJrIiwicm9sZSI6ImF1dGhvciIsInNpZyI6Im82V2JmQ0UxVE9Qd09sZGNYVUVTTnhHSTVQQkpLU2ZJdlVBekFxZThsRDhkb1dwSVgwY2pfSTJEM24wQjhvLUV3WFV2S3VEQl9pUUZrNnJBTWZKVkNRIn1dLCJ2ZXJzaW9uIjoic3dhcm0tZW52ZWxvcGUvMiJ9"
   },
   "fixture": {
+    "agent_evidence": {
+      "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk": {
+        "active": true,
+        "attestation": "valid",
+        "binding": {
+          "epoch": "epoch-1",
+          "generation": "generation-0",
+          "owner": "owner-a",
+          "path": "message/agent-0",
+          "registration_number": 1
+        },
+        "class": "agent",
+        "key": "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+        "not_after": "2026-02-01T00:00:00Z",
+        "not_before": "2025-12-01T00:00:00Z",
+        "public_bytes": "wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+        "purpose": "message-signing",
+        "revocation": "not_revoked"
+      }
+    },
+    "agent_expected": {
+      "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk": {
+        "epoch": "epoch-1",
+        "generation": "generation-0",
+        "owner": "owner-a",
+        "path": "message/agent-0",
+        "registration_number": 1
+      }
+    },
     "audience": "service-a",
     "binding": {
       "arguments": {
@@ -71,7 +100,7 @@
     "code": "accept",
     "plan": {
       "ids": [
-        "sha256:1134deb7822f03109cac8f85e127de243055a7a8cb5f6080814be8d48c4b13d1"
+        "sha256:6c56227ec0f5fea5f81f45c5f3f70d36752eccf5c3effa4baec46ffafd3babc9"
       ],
       "watermark": "2026-01-01T00:01:00Z"
     }

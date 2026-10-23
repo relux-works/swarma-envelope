@@ -1,0 +1,14 @@
+{
+  "id": "S11",
+  "claim": "A longer tag sharing the message prefix is not a member.",
+  "positive_control": "PS1",
+  "mode": "signer",
+  "input": {
+    "preimage": "c3dhcm1hLW1zZy8yMAp7fQ"
+  },
+  "fixture": {},
+  "expected": {
+    "code": "signer_domain_refused",
+    "plan": {}
+  }
+}

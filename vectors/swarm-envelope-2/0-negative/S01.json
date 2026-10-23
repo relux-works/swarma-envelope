@@ -1,0 +1,14 @@
+{
+  "id": "S01",
+  "claim": "Message signer refuses non-message or unpublished service domains: swarma-waggle grant/1.",
+  "positive_control": "PS1",
+  "mode": "signer",
+  "input": {
+    "preimage": "c3dhcm1hLXdhZ2dsZSBncmFudC8xCnt9"
+  },
+  "fixture": {},
+  "expected": {
+    "code": "signer_domain_refused",
+    "plan": {}
+  }
+}

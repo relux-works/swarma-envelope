@@ -1,0 +1,14 @@
+{
+  "id": "S18",
+  "claim": "A trailing newline is not signed CCJ-1.",
+  "positive_control": "PS1",
+  "mode": "signer",
+  "input": {
+    "preimage": "c3dhcm1hLW1zZy8yCnt9Cg"
+  },
+  "fixture": {},
+  "expected": {
+    "code": "signer_payload_invalid",
+    "plan": {}
+  }
+}

@@ -1,12 +1,41 @@
 {
   "id": "PE2",
-  "claim": "Valid compressed P-256 and raw low-S signature authenticate.",
+  "claim": "A distinct attested Ed25519 agent key authenticates its message.",
   "positive_control": "",
   "mode": "envelope",
   "input": {
-    "envelope": "eyJib2R5Ijp7ImFjdGlvbiI6Im1lc3NhZ2UuZGVsaXZlciIsImFyZ3VtZW50cyI6eyJ0ZXh0IjoiaGVsbG8ifSwiYXVkIjoic2VydmljZS1hIiwiYXV0aG9yIjoicDI1NjpBdHZ1S2J3cmxKS1RtQzFjRktEVXY5bEF4NHhvbHBocnlvVFhrUlpOMEF5bCIsImV4cCI6IjIwMjYtMDEtMDFUMDA6MDI6MDBaIiwiaWF0IjoiMjAyNi0wMS0wMVQwMDowMDowMFoiLCJub25jZSI6IkJ3Y0hCd2NIQndjSEJ3Y0hCd2NIQnciLCJ0YXJnZXQiOnsiaWQiOiJ0ZWFtL21lbWJlciIsImtpbmQiOiJzdGF0aW9uIn0sInR5cGUiOiJtZXNzYWdlLzEifSwiaWQiOiJzaGEyNTY6ZTg1MjY0NWY1NDU4MDc3NDk2MDgyYTFiY2ZiNDRlMjQwNDFmZjI5ZTZmNTMwMDZkODZmMWFhNzc2Zjc2NWU2YSIsInNpZ25hdHVyZXMiOlt7ImtleSI6InAyNTY6QXR2dUtid3JsSktUbUMxY0ZLRFV2OWxBeDR4b2xwaHJ5b1RYa1JaTjBBeWwiLCJyb2xlIjoiYXV0aG9yIiwic2lnIjoidVhRc3E0U3JSN1hPSWhCQ0ZfZkFNTXgwMDdHMFZ5dkpyR2p3MnNiNmdvVk93bll5cTFCT2lRZzhSRG44VnlxLWNKdmFYTTZFSi0wZFFKTm5HTXV3b3cifV0sInZlcnNpb24iOiJzd2FybS1lbnZlbG9wZS8yIn0"
+    "envelope": "eyJib2R5Ijp7ImFjdGlvbiI6Im1lc3NhZ2UuZGVsaXZlciIsImFyZ3VtZW50cyI6eyJ0ZXh0IjoiaGVsbG8ifSwiYXVkIjoic2VydmljZS1hIiwiYXV0aG9yIjoiZWQyNTUxOTphMVlzbTQwbGd0WlRya1NLQlBEMjBuNGdKV1NZSmt3SXcyZkpZZ2k4ODM0IiwiZXhwIjoiMjAyNi0wMS0wMVQwMDowMjowMFoiLCJpYXQiOiIyMDI2LTAxLTAxVDAwOjAwOjAwWiIsIm5vbmNlIjoiQndjSEJ3Y0hCd2NIQndjSEJ3Y0hCdyIsInRhcmdldCI6eyJpZCI6InRlYW0vbWVtYmVyIiwia2luZCI6InN0YXRpb24ifSwidHlwZSI6Im1lc3NhZ2UvMSJ9LCJpZCI6InNoYTI1NjowOGY2M2EwNjllZjBjYmNkZTBkMTU1Y2RmY2UwNjg0NWRkNjhiMmQ2ZDZkOWZmYTQwYjBhNWQ1YjVmMTA1YzFkIiwic2lnbmF0dXJlcyI6W3sia2V5IjoiZWQyNTUxOTphMVlzbTQwbGd0WlRya1NLQlBEMjBuNGdKV1NZSmt3SXcyZkpZZ2k4ODM0Iiwicm9sZSI6ImF1dGhvciIsInNpZyI6ImtGal9ZdTVDeUhiZ3lUVDBMSzZQbUdHVWVHbENvRGZVUlNjVVAtNkdwUVBNN2l0N254S2hsTmcyaUNadjlBU21lelpGZ1d6c09DRHZNMUp0eG1ycEFnIn1dLCJ2ZXJzaW9uIjoic3dhcm0tZW52ZWxvcGUvMiJ9"
   },
   "fixture": {
+    "agent_evidence": {
+      "ed25519:a1Ysm40lgtZTrkSKBPD20n4gJWSYJkwIw2fJYgi8834": {
+        "active": true,
+        "attestation": "valid",
+        "binding": {
+          "epoch": "epoch-1",
+          "generation": "generation-1",
+          "owner": "owner-a",
+          "path": "message/agent-1",
+          "registration_number": 2
+        },
+        "class": "agent",
+        "key": "ed25519:a1Ysm40lgtZTrkSKBPD20n4gJWSYJkwIw2fJYgi8834",
+        "not_after": "2026-02-01T00:00:00Z",
+        "not_before": "2025-12-01T00:00:00Z",
+        "public_bytes": "a1Ysm40lgtZTrkSKBPD20n4gJWSYJkwIw2fJYgi8834",
+        "purpose": "message-signing",
+        "revocation": "not_revoked"
+      }
+    },
+    "agent_expected": {
+      "ed25519:a1Ysm40lgtZTrkSKBPD20n4gJWSYJkwIw2fJYgi8834": {
+        "epoch": "epoch-1",
+        "generation": "generation-1",
+        "owner": "owner-a",
+        "path": "message/agent-1",
+        "registration_number": 2
+      }
+    },
     "audience": "service-a",
     "binding": {
       "arguments": {
@@ -71,7 +100,7 @@
     "code": "accept",
     "plan": {
       "ids": [
-        "sha256:e852645f5458077496082a1bcfb44e24041ff29e6f53006d86f1aa776f765e6a"
+        "sha256:08f63a069ef0cbcde0d155cdfce06845dd68b2d6d6d9ffa40b0a5d5b5f105c1d"
       ],
       "watermark": "2026-01-01T00:01:00Z"
     }
