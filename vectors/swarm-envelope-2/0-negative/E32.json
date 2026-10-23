@@ -1,0 +1,71 @@
+{
+  "id": "E32",
+  "claim": "Malformed P-256 compressed point refuses.",
+  "positive_control": "PE2",
+  "mode": "envelope",
+  "input": {
+    "envelope": "eyJib2R5Ijp7ImFjdGlvbiI6Im1lc3NhZ2UuZGVsaXZlciIsImFyZ3VtZW50cyI6eyJ0ZXh0IjoiaGVsbG8ifSwiYXVkIjoic2VydmljZS1hIiwiYXV0aG9yIjoicDI1NjpBdl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXyIsImV4cCI6IjIwMjYtMDEtMDFUMDA6MDI6MDBaIiwiaWF0IjoiMjAyNi0wMS0wMVQwMDowMDowMFoiLCJub25jZSI6IkJ3Y0hCd2NIQndjSEJ3Y0hCd2NIQnciLCJ0YXJnZXQiOnsiaWQiOiJ0ZWFtL21lbWJlciIsImtpbmQiOiJzdGF0aW9uIn0sInR5cGUiOiJtZXNzYWdlLzEifSwiaWQiOiJzaGEyNTY6OTJiZjMyOGVkYzJhZjIyNTBhZmI0YTY0YjY1NjM3Nzc4N2I2NGVjOGI0MzYzYjY5MTc0OTk5NWZmNjJiODc4ZSIsInNpZ25hdHVyZXMiOlt7ImtleSI6InAyNTY6QXZfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18iLCJyb2xlIjoiYXV0aG9yIiwic2lnIjoidVhRc3E0U3JSN1hPSWhCQ0ZfZkFNTXgwMDdHMFZ5dkpyR2p3MnNiNmdvVk93bll5cTFCT2lRZzhSRG44VnlxLWNKdmFYTTZFSi0wZFFKTm5HTXV3b3cifV0sInZlcnNpb24iOiJzd2FybS1lbnZlbG9wZS8yIn0"
+  },
+  "fixture": {
+    "audience": "service-a",
+    "binding": {
+      "arguments": {
+        "mode": "operator",
+        "registration_number": 1
+      },
+      "epoch": "epoch-1",
+      "operation": "revoke",
+      "owner": "owner-a",
+      "target": {
+        "id": 1,
+        "kind": "registration"
+      }
+    },
+    "id_journal_available": true,
+    "known_keys": [
+      "p256:Av__________________________________________"
+    ],
+    "now": "2026-01-01T00:01:00Z",
+    "replay_available": true,
+    "request": {
+      "action": "credential.lease",
+      "key": "ed25519:9DNPnft6cVUIqapzh9MRne66FsSoh49u5jwz_2x0hPM",
+      "target": {
+        "harness": "model-cli",
+        "id": "team/member",
+        "kind": "credential",
+        "profile": "dev"
+      }
+    },
+    "required_roles": [
+      "author"
+    ],
+    "revocation": {
+      "complete": true,
+      "issued_at": "2026-01-01T00:01:00Z",
+      "max_age": 60,
+      "revoked_ids": [],
+      "revoked_keys": [],
+      "rollback_safe": true,
+      "verdict": "not_revoked"
+    },
+    "root": "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+    "seen": {},
+    "signer_facts": {
+      "current": true,
+      "presence": true
+    },
+    "time": {
+      "authority_until": "2026-01-01T00:06:00Z",
+      "fresh": true,
+      "trusted": true
+    },
+    "used_actions": [],
+    "watermark": "2026-01-01T00:01:00Z",
+    "watermark_available": true
+  },
+  "expected": {
+    "code": "envelope_signature_invalid",
+    "plan": {}
+  }
+}

@@ -1,0 +1,87 @@
+{
+  "id": "PG4",
+  "claim": "Four-link chain checks every decreasing edge including leaf.",
+  "positive_control": "",
+  "mode": "grant",
+  "input": {
+    "chain": [
+      "eyJib2R5Ijp7ImFjdGlvbnMiOlsiY3JlZGVudGlhbC5sZWFzZSJdLCJhdWQiOiJzZXJ2aWNlLWEiLCJjYXZlYXRzIjpudWxsLCJkZXB0aCI6MCwiZXhwIjoiMjAyNi0wMS0wMVQwMDowMjowMFoiLCJleHBpcmVzIjoiMjAyNi0wMS0wMVQwMDowMjowMFoiLCJpYXQiOiIyMDI2LTAxLTAxVDAwOjAwOjAwWiIsImlzc3VlciI6ImVkMjU1MTk6SVVqX0NWQUJIQWFZaVVGdmQ2T3BsWjZzcTZMMGtoUVdfR0lPRi1QaFRKbyIsIm5vbmNlIjoiQndjSEJ3Y0hCd2NIQndjSEJ3Y0hCdyIsIm5vdF9iZWZvcmUiOiIyMDI2LTAxLTAxVDAwOjAwOjAwWiIsInBhcmVudCI6InNoYTI1Njo3MDhmYThkN2RlODBkMmQ0NzViMzliMjRmYTFhOTNhMTQyYzk0NzJhYzczMzc4ZWZhZmYzZDlmZjJjYTUxMGVhIiwic3ViamVjdCI6ImVkMjU1MTk6SEJOT1ZablA3aDlEV1kzU2hHWDBrUThOc0V3QVVqRVpQMTE5TkZfWjR5byIsInRhcmdldHMiOlt7Imhhcm5lc3MiOiJtb2RlbC1jbGkiLCJpZCI6InRlYW0vKiIsImtpbmQiOiJjcmVkZW50aWFsIiwicHJvZmlsZSI6ImRldiJ9XSwidHlwZSI6ImdyYW50LzEifSwiaWQiOiJzaGEyNTY6MmU1NDE2NWY5NTVlMjU4MzBlNzc2NTIxMTMxMDNiYWFmNGUxNjM2ZjQzNTVjMzY0NjE5ZThlMGFhNGU1MjBhYiIsInNpZ25hdHVyZXMiOlt7ImtleSI6ImVkMjU1MTk6SVVqX0NWQUJIQWFZaVVGdmQ2T3BsWjZzcTZMMGtoUVdfR0lPRi1QaFRKbyIsInJvbGUiOiJhdXRob3IiLCJzaWciOiJCQm81aXRUOWxSTDhfLTZsaHJvWnBEVHlRX0w5cGowZENmQ204QUcwQnJjTkk1RkhTeUNfM05ScGd2VGxZQm9aWGZvS3hHLU0zSUhPQWdSaXlLYXNBQSJ9XSwidmVyc2lvbiI6InN3YXJtLWVudmVsb3BlLzIifQ",
+      "eyJib2R5Ijp7ImFjdGlvbnMiOlsiY3JlZGVudGlhbC5sZWFzZSJdLCJhdWQiOiJzZXJ2aWNlLWEiLCJjYXZlYXRzIjpudWxsLCJkZXB0aCI6MSwiZXhwIjoiMjAyNi0wMS0wMVQwMDowMjowMFoiLCJleHBpcmVzIjoiMjAyNi0wMS0wMVQwMDowMjowMFoiLCJpYXQiOiIyMDI2LTAxLTAxVDAwOjAwOjAwWiIsImlzc3VlciI6ImVkMjU1MTk6OUROUG5mdDZjVlVJcWFwemg5TVJuZTY2RnNTb2g0OXU1and6XzJ4MGhQTSIsIm5vbmNlIjoiQndjSEJ3Y0hCd2NIQndjSEJ3Y0hCdyIsIm5vdF9iZWZvcmUiOiIyMDI2LTAxLTAxVDAwOjAwOjAwWiIsInBhcmVudCI6InNoYTI1NjoyMjhmZGEyMzRiODhhNzMwNGY3ZDUyMDVlZTkwZWMwNjlhZWYwNzhmMzUxM2YzNWM2M2U2Y2JhMGE2NmY3NDg0Iiwic3ViamVjdCI6ImVkMjU1MTk6SVVqX0NWQUJIQWFZaVVGdmQ2T3BsWjZzcTZMMGtoUVdfR0lPRi1QaFRKbyIsInRhcmdldHMiOlt7Imhhcm5lc3MiOiJtb2RlbC1jbGkiLCJpZCI6InRlYW0vKiIsImtpbmQiOiJjcmVkZW50aWFsIiwicHJvZmlsZSI6ImRldiJ9XSwidHlwZSI6ImdyYW50LzEifSwiaWQiOiJzaGEyNTY6NzA4ZmE4ZDdkZTgwZDJkNDc1YjM5YjI0ZmExYTkzYTE0MmM5NDcyYWM3MzM3OGVmYWZmM2Q5ZmYyY2E1MTBlYSIsInNpZ25hdHVyZXMiOlt7ImtleSI6ImVkMjU1MTk6OUROUG5mdDZjVlVJcWFwemg5TVJuZTY2RnNTb2g0OXU1and6XzJ4MGhQTSIsInJvbGUiOiJhdXRob3IiLCJzaWciOiJ5LURNMGNVcjBSV19tTUJrb1MzMUdpM3FISFV6LTJoTjk2bWIxck1USzA1TndqZ1pnd3hnQzh6SFdMU2hEVW5vOFJxVHhET2EzWk04WGY4bEU5OHJDdyJ9XSwidmVyc2lvbiI6InN3YXJtLWVudmVsb3BlLzIifQ",
+      "eyJib2R5Ijp7ImFjdGlvbnMiOlsiY3JlZGVudGlhbC5sZWFzZSJdLCJhdWQiOiJzZXJ2aWNlLWEiLCJjYXZlYXRzIjpudWxsLCJkZXB0aCI6MiwiZXhwIjoiMjAyNi0wMS0wMVQwMDowMjowMFoiLCJleHBpcmVzIjoiMjAyNi0wMS0wMVQwMDowMjowMFoiLCJpYXQiOiIyMDI2LTAxLTAxVDAwOjAwOjAwWiIsImlzc3VlciI6ImVkMjU1MTk6YTFZc200MGxndFpUcmtTS0JQRDIwbjRnSldTWUprd0l3MmZKWWdpODgzNCIsIm5vbmNlIjoiQndjSEJ3Y0hCd2NIQndjSEJ3Y0hCdyIsIm5vdF9iZWZvcmUiOiIyMDI2LTAxLTAxVDAwOjAwOjAwWiIsInBhcmVudCI6InNoYTI1Njo5ZTA1YmQzNjFjNzgxNjc5MWRmZDkxODUzYWFiZGI3MDIzODExMjQ0MTFhMjFmMTY4ODNkNWVmNjBmODUwZGM3Iiwic3ViamVjdCI6ImVkMjU1MTk6OUROUG5mdDZjVlVJcWFwemg5TVJuZTY2RnNTb2g0OXU1and6XzJ4MGhQTSIsInRhcmdldHMiOlt7Imhhcm5lc3MiOiJtb2RlbC1jbGkiLCJpZCI6InRlYW0vKiIsImtpbmQiOiJjcmVkZW50aWFsIiwicHJvZmlsZSI6ImRldiJ9XSwidHlwZSI6ImdyYW50LzEifSwiaWQiOiJzaGEyNTY6MjI4ZmRhMjM0Yjg4YTczMDRmN2Q1MjA1ZWU5MGVjMDY5YWVmMDc4ZjM1MTNmMzVjNjNlNmNiYTBhNjZmNzQ4NCIsInNpZ25hdHVyZXMiOlt7ImtleSI6ImVkMjU1MTk6YTFZc200MGxndFpUcmtTS0JQRDIwbjRnSldTWUprd0l3MmZKWWdpODgzNCIsInJvbGUiOiJhdXRob3IiLCJzaWciOiJoeDd4b2dZckJqX2hzdEZmSktXN3FtT2JGaUMxeVRGZU05ZlhveU43RXhRZV9ubHJiRVVlSy12RmQ3N1BsVHU1VmNpLUJabUduWUVHdEJIX1B1NjJDdyJ9XSwidmVyc2lvbiI6InN3YXJtLWVudmVsb3BlLzIifQ",
+      "eyJib2R5Ijp7ImFjdGlvbnMiOlsiY3JlZGVudGlhbC5sZWFzZSJdLCJhdWQiOiJzZXJ2aWNlLWEiLCJjYXZlYXRzIjpudWxsLCJkZXB0aCI6MywiZXhwIjoiMjAyNi0wMS0wMlQwMDowMDowMFoiLCJleHBpcmVzIjoiMjAyNi0wMS0wMlQwMDowMDowMFoiLCJpYXQiOiIyMDI1LTEyLTMxVDAwOjAwOjAwWiIsImlzc3VlciI6ImVkMjU1MTk6d3VlMnQxR0plTFpUcXpZdWRrelJJaHlZMTFsQXp5UFhEanNUWGdYb0lyayIsIm5vbmNlIjoiQndjSEJ3Y0hCd2NIQndjSEJ3Y0hCdyIsIm5vdF9iZWZvcmUiOiIyMDI1LTEyLTMxVDAwOjAwOjAwWiIsInBhcmVudCI6bnVsbCwic3ViamVjdCI6ImVkMjU1MTk6YTFZc200MGxndFpUcmtTS0JQRDIwbjRnSldTWUprd0l3MmZKWWdpODgzNCIsInRhcmdldHMiOlt7Imhhcm5lc3MiOiJtb2RlbC1jbGkiLCJpZCI6InRlYW0vKiIsImtpbmQiOiJjcmVkZW50aWFsIiwicHJvZmlsZSI6ImRldiJ9XSwidHlwZSI6ImdyYW50LzEifSwiaWQiOiJzaGEyNTY6OWUwNWJkMzYxYzc4MTY3OTFkZmQ5MTg1M2FhYmRiNzAyMzgxMTI0NDExYTIxZjE2ODgzZDVlZjYwZjg1MGRjNyIsInNpZ25hdHVyZXMiOlt7ImtleSI6ImVkMjU1MTk6d3VlMnQxR0plTFpUcXpZdWRrelJJaHlZMTFsQXp5UFhEanNUWGdYb0lyayIsInJvbGUiOiJhdXRob3IiLCJzaWciOiJwTXFiQlo5eGZqLU5Wb3dvVmhKaDVGTlhiN1FNVEJuSFhmM3F6Rkg3NUNKX0Y1blBBSzVzV250Nk9VMTVjSTVIeHRTN1RjRHh5dmpQTWk4SGJCTUZDUSJ9XSwidmVyc2lvbiI6InN3YXJtLWVudmVsb3BlLzIifQ"
+    ]
+  },
+  "fixture": {
+    "audience": "service-a",
+    "binding": {
+      "arguments": {
+        "mode": "operator",
+        "registration_number": 1
+      },
+      "epoch": "epoch-1",
+      "operation": "revoke",
+      "owner": "owner-a",
+      "target": {
+        "id": 1,
+        "kind": "registration"
+      }
+    },
+    "id_journal_available": true,
+    "known_keys": [
+      "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+      "ed25519:a1Ysm40lgtZTrkSKBPD20n4gJWSYJkwIw2fJYgi8834",
+      "ed25519:9DNPnft6cVUIqapzh9MRne66FsSoh49u5jwz_2x0hPM",
+      "p256:AtvuKbwrlJKTmC1cFKDUv9lAx4xolphryoTXkRZN0Ayl"
+    ],
+    "now": "2026-01-01T00:01:00Z",
+    "replay_available": true,
+    "request": {
+      "action": "credential.lease",
+      "key": "ed25519:HBNOVZnP7h9DWY3ShGX0kQ8NsEwAUjEZP119NF_Z4yo",
+      "target": {
+        "harness": "model-cli",
+        "id": "team/member",
+        "kind": "credential",
+        "profile": "dev"
+      }
+    },
+    "required_roles": [
+      "author"
+    ],
+    "revocation": {
+      "complete": true,
+      "issued_at": "2026-01-01T00:01:00Z",
+      "max_age": 60,
+      "revoked_ids": [],
+      "revoked_keys": [],
+      "rollback_safe": true,
+      "verdict": "not_revoked"
+    },
+    "root": "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+    "seen": {},
+    "signer_facts": {
+      "current": true,
+      "presence": true
+    },
+    "time": {
+      "authority_until": "2026-01-01T00:06:00Z",
+      "fresh": true,
+      "trusted": true
+    },
+    "used_actions": [],
+    "watermark": "2026-01-01T00:01:00Z",
+    "watermark_available": true
+  },
+  "expected": {
+    "code": "accept",
+    "plan": {
+      "ids": [
+        "sha256:2e54165f955e25830e77652113103baaf4e1636f4355c364619e8e0aa4e520ab",
+        "sha256:708fa8d7de80d2d475b39b24fa1a93a142c9472ac73378efaff3d9ff2ca510ea",
+        "sha256:228fda234b88a7304f7d5205ee90ec069aef078f3513f35c63e6cba0a66f7484",
+        "sha256:9e05bd361c7816791dfd91853aabdb702381124411a21f16883d5ef60f850dc7"
+      ],
+      "watermark": "2026-01-01T00:01:00Z"
+    }
+  }
+}

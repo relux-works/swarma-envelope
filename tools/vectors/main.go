@@ -1,0 +1,635 @@
+// Command vectors creates test-only fixtures, never deployment keys or authority.
+package main
+
+import (
+	"bytes"
+	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/elliptic"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
+	"encoding/json"
+	"flag"
+	"fmt"
+	"math/big"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+
+	"github.com/relux-works/swarma-registrar/ccj"
+)
+
+type M = map[string]any
+type Key struct {
+	ID   string
+	Seed []byte
+	Ed   ed25519.PrivateKey
+	EC   *ecdsa.PrivateKey
+}
+type Vector struct {
+	ID       string `json:"id"`
+	Claim    string `json:"claim"`
+	Positive string `json:"positive_control"`
+	Mode     string `json:"mode"`
+	Input    M      `json:"input"`
+	Fixture  M      `json:"fixture"`
+	Expected M      `json:"expected"`
+}
+
+var keys []Key
+var cases []Vector
+
+func b64(b []byte) string   { return base64.RawURLEncoding.EncodeToString(b) }
+func unb64(s string) []byte { b, e := base64.RawURLEncoding.DecodeString(s); must(e); return b }
+func must(e error) {
+	if e != nil {
+		panic(e)
+	}
+}
+func canonical(v any) []byte {
+	b, e := json.Marshal(v)
+	must(e)
+	p, e := ccj.Parse(b, ccj.RegistrationMalformed)
+	must(e)
+	b, e = ccj.Marshal(p, ccj.RegistrationMalformed)
+	must(e)
+	return b
+}
+
+func digest(b []byte) string { h := sha256.Sum256(b); return "sha256:" + hex.EncodeToString(h[:]) }
+func wire(m M) string        { return b64(canonical(m)) }
+func decode(s string) M      { var m M; must(json.Unmarshal(unb64(s), &m)); return m }
+func body(v Vector) M        { return decode(v.Input["envelope"].(string))["body"].(map[string]any) }
+func domain(t string) string { return "waggle " + t }
+func sigPre(b M, role, key, t string) []byte {
+	return append([]byte("waggle swarm-envelope/2 "+t+" "+role+"\n"), canonical(M{"body": b, "key": key})...)
+}
+func sign(k Key, p []byte) []byte {
+	if k.Ed != nil {
+		return ed25519.Sign(k.Ed, p)
+	}
+	// Deterministic test-only ECDSA: NOT a production signing implementation.
+	h := sha256.Sum256(append(append([]byte{}, k.Seed...), p...))
+	n := k.EC.Curve.Params().N
+	nonce := new(big.Int).SetBytes(h[:])
+	nonce.Mod(nonce, new(big.Int).Sub(n, big.NewInt(1)))
+	nonce.Add(nonce, big.NewInt(1))
+	x, _ := k.EC.Curve.ScalarBaseMult(nonce.Bytes())
+	r := new(big.Int).Mod(x, n)
+	z := sha256.Sum256(p)
+	s := new(big.Int).Mul(r, k.EC.D)
+	s.Add(s, new(big.Int).SetBytes(z[:]))
+	s.Mul(s, new(big.Int).ModInverse(nonce, n))
+	s.Mod(s, n)
+	if s.Cmp(new(big.Int).Rsh(new(big.Int).Set(n), 1)) > 0 {
+		s.Sub(n, s)
+	}
+	out := make([]byte, 64)
+	r.FillBytes(out[:32])
+	s.FillBytes(out[32:])
+	return out
+}
+func envelope(b M, k Key, role string) M {
+	return signed(b, k, role, b["type"].(string), domain(b["type"].(string)))
+}
+func signed(b M, k Key, role, t, d string) M {
+	return M{"version": "swarm-envelope/2", "body": b, "id": digest(append([]byte(d+"\n"), canonical(b)...)), "signatures": []any{M{"role": role, "key": k.ID, "sig": b64(sign(k, sigPre(b, role, k.ID, t)))}}}
+}
+func common(t string) M {
+	return M{"type": t, "aud": "service-a", "nonce": b64(bytes.Repeat([]byte{7}, 16)), "iat": "2026-01-01T00:00:00Z", "exp": "2026-01-01T00:02:00Z"}
+}
+func target(id string) M {
+	return M{"kind": "credential", "id": id, "harness": "model-cli", "profile": "dev"}
+}
+func context() M {
+	return M{"now": "2026-01-01T00:01:00Z", "watermark": "2026-01-01T00:01:00Z", "time": M{"trusted": true, "fresh": true, "authority_until": "2026-01-01T00:06:00Z"}, "watermark_available": true, "audience": "service-a", "known_keys": []any{keys[0].ID, keys[1].ID, keys[2].ID, keys[6].ID}, "required_roles": []any{"author"}, "id_journal_available": true, "seen": M{}, "root": keys[0].ID, "revocation": M{"verdict": "not_revoked", "issued_at": "2026-01-01T00:01:00Z", "max_age": 60, "complete": true, "rollback_safe": true, "revoked_ids": []any{}, "revoked_keys": []any{}}, "replay_available": true, "used_actions": []any{}, "signer_facts": M{"presence": true, "current": true}, "binding": M{"operation": "revoke", "target": M{"kind": "registration", "id": 1}, "owner": "owner-a", "epoch": "epoch-1", "arguments": M{"registration_number": 1, "mode": "operator"}}, "request": M{"key": keys[2].ID, "action": "credential.lease", "target": target("team/member")}}
+}
+func base(mode string, idx int) Vector {
+	f := context()
+	v := Vector{Mode: mode, Input: M{}, Fixture: f}
+	if mode == "grant" {
+		v.Input["chain"] = chain(2)
+		return v
+	}
+	t, role := "message/1", "author"
+	if mode == "operator" {
+		t, role = "operator-act/1", "approver"
+		f["required_roles"] = []any{"approver"}
+	}
+	b := common(t)
+	if mode == "operator" {
+		for k, val := range (M{"operation": "revoke", "target": M{"kind": "registration", "id": 1}, "owner": "owner-a", "epoch": "epoch-1", "action_id": b64(bytes.Repeat([]byte{8}, 16)), "arguments_digest": digest(canonical(f["binding"].(M)["arguments"])), "confirmed": false}) {
+			b[k] = val
+		}
+	} else {
+		b["author"] = keys[idx].ID
+		b["action"] = "message.deliver"
+		b["target"] = M{"kind": "station", "id": "team/member"}
+		b["arguments"] = M{"text": "hello"}
+	}
+	v.Input["envelope"] = wire(envelope(b, keys[idx], role))
+	return v
+}
+func chain(n int) []any {
+	var out []any
+	parent := any(nil)
+	for i := 0; i < n; i++ {
+		b := common("grant/1")
+		b["issuer"] = keys[i].ID
+		b["subject"] = keys[i+1].ID
+		b["actions"] = []any{"credential.lease"}
+		b["targets"] = []any{target("team/*")}
+		b["depth"] = max(3-i, 0)
+		b["parent"] = parent
+		b["caveats"] = nil
+		if i == 0 {
+			b["iat"] = "2025-12-31T00:00:00Z"
+			b["exp"] = "2026-01-02T00:00:00Z"
+		}
+		b["not_before"] = b["iat"]
+		b["expires"] = b["exp"]
+		e := envelope(b, keys[i], "author")
+		parent = e["id"]
+		out = append([]any{wire(e)}, out...)
+	}
+	return out
+}
+func edit(v *Vector, fn func(M)) {
+	e := decode(v.Input["envelope"].(string))
+	fn(e)
+	v.Input["envelope"] = wire(e)
+}
+func resign(v *Vector, idx int, fn func(M)) {
+	b := body(*v)
+	fn(b)
+	role := "author"
+	if v.Mode == "operator" {
+		role = "approver"
+	}
+	v.Input["envelope"] = wire(envelope(b, keys[idx], role))
+}
+func link(v *Vector, i, idx int, fn func(M)) {
+	a := v.Input["chain"].([]any)
+	b := decode(a[i].(string))["body"].(map[string]any)
+	fn(b)
+	a[i] = wire(envelope(b, keys[idx], "author"))
+}
+func add(id, claim, pair, code string, v Vector) {
+	v.ID = id
+	v.Claim = claim
+	v.Positive = pair
+	v.Expected = M{"code": code, "plan": M{}}
+	if code == "accept" {
+		ids := []any{}
+		if v.Mode == "grant" {
+			for _, raw := range v.Input["chain"].([]any) {
+				ids = append(ids, decode(raw.(string))["id"])
+			}
+		} else {
+			ids = append(ids, decode(v.Input["envelope"].(string))["id"])
+		}
+		p := M{"watermark": v.Fixture["now"], "ids": ids}
+		if v.Fixture["watermark"].(string) > v.Fixture["now"].(string) {
+			p["watermark"] = v.Fixture["watermark"]
+		}
+		if v.Mode == "operator" {
+			p["action_id"] = body(v)["action_id"]
+		}
+		v.Expected["plan"] = p
+	}
+	cases = append(cases, v)
+}
+func neg(id, claim, pair, code, mode string, fn func(*Vector)) {
+	v := base(mode, 0)
+	fn(&v)
+	add(id, claim, pair, code, v)
+}
+func main() {
+	out := flag.String("out", "vectors", "fixture root")
+	check := flag.Bool("check", false, "compare all generated bytes without writing")
+	flag.Parse()
+	for i := 0; i < 6; i++ {
+		seed := sha256.Sum256([]byte(fmt.Sprintf("waggle public test seed %d", i)))
+		private := ed25519.NewKeyFromSeed(seed[:])
+		keys = append(keys, Key{ID: "ed25519:" + b64(private.Public().(ed25519.PublicKey)), Seed: seed[:], Ed: private})
+	}
+	seed := sha256.Sum256([]byte("waggle public test p256 seed"))
+	c := elliptic.P256()
+	d := new(big.Int).SetBytes(seed[:])
+	d.Mod(d, new(big.Int).Sub(c.Params().N, big.NewInt(1)))
+	d.Add(d, big.NewInt(1))
+	x, y := c.ScalarBaseMult(d.Bytes())
+	keys = append(keys, Key{ID: "p256:" + b64(elliptic.MarshalCompressed(c, x, y)), Seed: seed[:], EC: &ecdsa.PrivateKey{PublicKey: ecdsa.PublicKey{Curve: c, X: x, Y: y}, D: d}})
+	// Each negative states its specific claim and names a valid neighboring control.
+	neg("E01", "Duplicate decoded member names refuse before hashing.", "PE1", "envelope_malformed", "envelope", func(v *Vector) {
+		raw := unb64(v.Input["envelope"].(string))
+		v.Input["envelope"] = b64(bytes.Replace(raw, []byte(`"version":`), []byte(`"version":"swarm-envelope/2","ver\u0073ion":`), 1))
+	})
+	lexical := []struct{ id, claim, old, new string }{
+		{"E02", "Floats refuse the codec.", `"text":"hello"`, `"text":1.0`}, {"E03", "Exponents refuse the codec.", `"text":"hello"`, `"text":1e0`}, {"E04", "Negative zero refuses the codec.", `"text":"hello"`, `"text":-0`}, {"E05", "Unsafe integers refuse the codec.", `"text":"hello"`, `"text":9007199254740992`}, {"E06", "Lone surrogate refuses the codec.", `"text":"hello"`, `"text":"\ud800"`}}
+	for _, a := range lexical {
+		neg(a.id, a.claim, "PE1", "envelope_malformed", "envelope", func(v *Vector) {
+			v.Input["envelope"] = b64(bytes.Replace(unb64(v.Input["envelope"].(string)), []byte(a.old), []byte(a.new), 1))
+		})
+	}
+	neg("E07", "Invalid UTF-8 refuses.", "PE1", "envelope_malformed", "envelope", func(v *Vector) {
+		v.Input["envelope"] = b64(append([]byte{255}, unb64(v.Input["envelope"].(string))...))
+	})
+	neg("E08", "Unknown fields refuse.", "PE1", "envelope_malformed", "envelope", func(v *Vector) { edit(v, func(e M) { e["extra"] = true }) })
+	neg("E09", "Unknown versions refuse without fallback.", "PE1", "envelope_version_unsupported", "envelope", func(v *Vector) { edit(v, func(e M) { e["version"] = "swarm-envelope/3" }) })
+	neg("E10", "Channel selects type, not signed body.", "PE1", "envelope_type_mismatch", "envelope", func(v *Vector) { resign(v, 0, func(b M) { b["type"] = "grant/1" }) })
+	neg("E11", "Wrong id refuses before crypto.", "PE1", "envelope_id_mismatch", "envelope", func(v *Vector) { edit(v, func(e M) { e["id"] = "sha256:" + strings.Repeat("0", 64) }) })
+	neg("E12", "Invalid equation refuses.", "PE1", "envelope_signature_invalid", "envelope", func(v *Vector) {
+		edit(v, func(e M) {
+			s := e["signatures"].([]any)[0].(map[string]any)
+			raw := unb64(s["sig"].(string))
+			raw[5] ^= 1
+			s["sig"] = b64(raw)
+		})
+	})
+	neg("E13", "An author signature cannot also count as approver.", "PE1", "envelope_signature_invalid", "envelope", func(v *Vector) {
+		edit(v, func(e M) {
+			a := e["signatures"].([]any)
+			old := a[0].(map[string]any)
+			e["signatures"] = append(a, M{"role": "approver", "key": old["key"], "sig": old["sig"]})
+		})
+		v.Fixture["required_roles"] = []any{"author", "approver"}
+	})
+	neg("E14", "Type-domain signature transplant fails after expected id repair.", "PE1", "envelope_signature_invalid", "envelope", func(v *Vector) {
+		b := body(*v)
+		v.Input["envelope"] = wire(signed(b, keys[0], "author", "grant/1", domain("message/1")))
+	})
+	neg("E15", "Foreign id domain refuses.", "PE1", "envelope_id_mismatch", "envelope", func(v *Vector) {
+		b := body(*v)
+		v.Input["envelope"] = wire(signed(b, keys[0], "author", "message/1", "foreign message/1"))
+	})
+	neg("E16", "Reserved role refuses.", "PE1", "envelope_role_invalid", "envelope", func(v *Vector) {
+		edit(v, func(e M) { e["signatures"].([]any)[0].(map[string]any)["role"] = "endorser" })
+	})
+	neg("E17", "Missing required role refuses.", "PE1", "envelope_role_invalid", "envelope", func(v *Vector) { v.Fixture["required_roles"] = []any{"approver"} })
+	neg("E18", "Duplicate signature pair refuses.", "PE1", "envelope_role_invalid", "envelope", func(v *Vector) {
+		edit(v, func(e M) { a := e["signatures"].([]any); e["signatures"] = append(a, a[0]) })
+	})
+	neg("E19", "Oversize received bytes refuse before parsing.", "PE1", "envelope_too_large", "envelope", func(v *Vector) {
+		v.Input["envelope"] = b64(append(unb64(v.Input["envelope"].(string)), bytes.Repeat([]byte{' '}, 65536)...))
+	})
+	neg("E20", "Depth 17 refuses.", "PE1", "envelope_malformed", "envelope", func(v *Vector) {
+		raw := unb64(v.Input["envelope"].(string))
+		deep := strings.Repeat("[", 14) + `"hello"` + strings.Repeat("]", 14)
+		v.Input["envelope"] = b64(bytes.Replace(raw, []byte(`"hello"`), []byte(deep), 1))
+	})
+	neg("E21", "Padded base64 refuses.", "PE1", "envelope_malformed", "envelope", func(v *Vector) {
+		edit(v, func(e M) { s := e["signatures"].([]any)[0].(map[string]any); s["sig"] = s["sig"].(string) + "=" })
+	})
+	neg("E22", "Unknown signer is not trusted.", "PE1", "signer_unknown", "envelope", func(v *Vector) { v.Fixture["known_keys"] = []any{keys[1].ID} })
+	neg("E23", "Same id with other received bytes conflicts.", "PE1", "envelope_conflict", "envelope", func(v *Vector) {
+		e := decode(v.Input["envelope"].(string))
+		v.Fixture["seen"] = M{e["id"].(string): b64(append(unb64(v.Input["envelope"].(string)), ' '))}
+	})
+	neg("E24", "Unavailable id journal refuses.", "PE1", "id_journal_unavailable", "envelope", func(v *Vector) { v.Fixture["id_journal_available"] = false })
+	neg("E25", "Untrusted clock refuses.", "PE1", "time_unavailable", "envelope", func(v *Vector) { v.Fixture["time"].(M)["trusted"] = false })
+	neg("E26", "Unavailable watermark refuses.", "PE1", "watermark_unavailable", "envelope", func(v *Vector) { v.Fixture["watermark_available"] = false })
+	neg("E27", "High-S P-256 twin refuses.", "PE2", "signature_high_s", "envelope", func(v *Vector) {
+		*v = base("envelope", 6)
+		edit(v, func(e M) {
+			s := e["signatures"].([]any)[0].(map[string]any)
+			r := unb64(s["sig"].(string))
+			hi := new(big.Int).Sub(elliptic.P256().Params().N, new(big.Int).SetBytes(r[32:]))
+			hi.FillBytes(r[32:])
+			s["sig"] = b64(r)
+		})
+	})
+	neg("E28", "Ed25519 noncanonical scalar refuses.", "PE1", "envelope_signature_invalid", "envelope", func(v *Vector) {
+		edit(v, func(e M) {
+			s := e["signatures"].([]any)[0].(map[string]any)
+			r := unb64(s["sig"].(string))
+			for i := 32; i < 64; i++ {
+				r[i] = 255
+			}
+			s["sig"] = b64(r)
+		})
+	})
+	neg("E29", "Ed25519 identity point refuses.", "PE1", "envelope_signature_invalid", "envelope", func(v *Vector) {
+		edit(v, func(e M) {
+			s := e["signatures"].([]any)[0].(map[string]any)
+			r := unb64(s["sig"].(string))
+			for i := 0; i < 32; i++ {
+				r[i] = 0
+			}
+			r[0] = 1
+			s["sig"] = b64(r)
+		})
+	})
+	neg("E30", "Changed body with repaired id still fails signature.", "PE1", "envelope_signature_invalid", "envelope", func(v *Vector) {
+		edit(v, func(e M) {
+			b := e["body"].(map[string]any)
+			b["arguments"].(map[string]any)["text"] = "changed"
+			e["id"] = digest(append([]byte("waggle message/1\n"), canonical(b)...))
+		})
+	})
+	neg("E31", "Wrong audience refuses.", "PE1", "audience_mismatch", "envelope", func(v *Vector) { v.Fixture["audience"] = "service-b" })
+	// Grant witnesses modify signed records, so failures must reach authority checks.
+	neg("G01", "Action widening refuses.", "PG1", "grant_not_narrowing", "grant", func(v *Vector) { link(v, 0, 1, func(b M) { b["actions"] = []any{"agent.spawn", "credential.lease"} }) })
+	neg("G02", "Target widening refuses.", "PG1", "grant_not_narrowing", "grant", func(v *Vector) { link(v, 0, 1, func(b M) { b["targets"] = []any{target("other/*")} }) })
+	neg("G03", "Earlier start widens raw lifetime.", "PG1", "grant_not_narrowing", "grant", func(v *Vector) {
+		link(v, 0, 1, func(b M) { b["not_before"] = "2025-12-30T00:00:00Z"; b["iat"] = b["not_before"] })
+	})
+	neg("G04", "Later expiry widens lifetime.", "PG1", "grant_not_narrowing", "grant", func(v *Vector) {
+		link(v, 0, 1, func(b M) { b["expires"] = "2026-01-03T00:00:00Z"; b["exp"] = b["expires"] })
+	})
+	neg("G05", "Delegation depth must decrease.", "PG1", "grant_not_narrowing", "grant", func(v *Vector) { link(v, 0, 1, func(b M) { b["depth"] = 3 }) })
+	neg("G06", "Five-link chain refuses before link verification.", "PG4", "grant_chain_malformed", "grant", func(v *Vector) { v.Input["chain"] = chain(5) })
+	neg("G07", "Broken leaf parent reference refuses.", "PG1", "grant_chain_broken", "grant", func(v *Vector) { link(v, 0, 1, func(b M) { b["parent"] = "sha256:" + strings.Repeat("0", 64) }) })
+	neg("G08", "Child issuer must equal parent subject.", "PG1", "grant_chain_broken", "grant", func(v *Vector) { link(v, 0, 0, func(b M) { b["issuer"] = keys[0].ID }) })
+	neg("G09", "Root must be pinned.", "PG1", "grant_root_unknown", "grant", func(v *Vector) { v.Fixture["root"] = keys[3].ID })
+	neg("G10", "Expiry is exclusive.", "PG1", "expired", "grant", func(v *Vector) { v.Fixture["now"] = "2026-01-01T00:02:00Z" })
+	neg("G11", "Future grant refuses.", "PG1", "not_yet_valid", "grant", func(v *Vector) { v.Fixture["now"] = "2025-12-31T23:59:59Z" })
+	neg("G12", "Watermark rollback cannot revive expired leaf.", "PG1", "expired", "grant", func(v *Vector) { v.Fixture["watermark"] = "2026-01-01T00:02:00Z" })
+	neg("G13", "Root revocation invalidates leaf.", "PG1", "revoked", "grant", func(v *Vector) {
+		v.Fixture["revocation"].(M)["revoked_ids"] = []any{decode(v.Input["chain"].([]any)[1].(string))["id"]}
+	})
+	neg("G14", "Unavailable revocation refuses.", "PG1", "revocation_unavailable", "grant", func(v *Vector) { v.Fixture["revocation"].(M)["verdict"] = "unavailable" })
+	neg("G15", "Unregistered action refuses even on pinned root.", "PG2", "action_unregistered", "grant", func(v *Vector) {
+		v.Input["chain"] = chain(1)
+		v.Fixture["request"].(M)["key"] = keys[1].ID
+		link(v, 0, 0, func(b M) { b["actions"] = []any{"unknown.action"} })
+	})
+	neg("G16", "Pattern in concrete request refuses.", "PG1", "request_target_invalid", "grant", func(v *Vector) { v.Fixture["request"].(M)["target"] = target("team/*") })
+	neg("G17", "Wrong requesting key refuses.", "PG1", "grant_not_authorized", "grant", func(v *Vector) { v.Fixture["request"].(M)["key"] = keys[1].ID })
+	neg("G18", "Wrong target refuses.", "PG1", "grant_not_authorized", "grant", func(v *Vector) { v.Fixture["request"].(M)["target"] = target("other/member") })
+	neg("G19", "Credential tuple cannot change harness.", "PG1", "grant_not_narrowing", "grant", func(v *Vector) {
+		link(v, 0, 1, func(b M) { b["targets"].([]any)[0].(map[string]any)["harness"] = "other" })
+	})
+	neg("G20", "Credential tuple cannot change profile.", "PG1", "grant_not_narrowing", "grant", func(v *Vector) {
+		link(v, 0, 1, func(b M) { b["targets"].([]any)[0].(map[string]any)["profile"] = "other" })
+	})
+	neg("G21", "Caveat expiry refuses.", "PG3", "expired", "grant", func(v *Vector) {
+		link(v, 0, 1, func(b M) {
+			b["caveats"] = M{"lang": "caveats/v1", "not_before": b["iat"], "expires": "2026-01-01T00:01:00Z"}
+		})
+	})
+	neg("G22", "Stale revocation evidence refuses.", "PG1", "revocation_unavailable", "grant", func(v *Vector) { v.Fixture["revocation"].(M)["issued_at"] = "2025-12-31T23:59:59Z" })
+	neg("G23", "Revoked subject key refuses.", "PG1", "revoked", "grant", func(v *Vector) { v.Fixture["revocation"].(M)["revoked_keys"] = []any{keys[2].ID} })
+	neg("G24", "Unknown caveat language refuses.", "PG3", "envelope_malformed", "grant", func(v *Vector) {
+		link(v, 0, 1, func(b M) { b["caveats"] = M{"lang": "rules/v1", "not_before": b["iat"], "expires": b["exp"]} })
+	})
+	neg("G25", "Roles are not v0 key subjects.", "PG1", "envelope_malformed", "grant", func(v *Vector) { link(v, 0, 1, func(b M) { b["subject"] = "role:developer" }) })
+	neg("G26", "Repeated chain records refuse.", "PG1", "grant_chain_malformed", "grant", func(v *Vector) { a := v.Input["chain"].([]any); a[1] = a[0] })
+	neg("G27", "Prefix does not match its bare parent.", "PG1", "grant_not_authorized", "grant", func(v *Vector) { v.Fixture["request"].(M)["target"] = target("team") })
+	neg("G28", "Future watermark cannot bypass start.", "PG1", "not_yet_valid", "grant", func(v *Vector) { v.Fixture["watermark"] = "2025-12-31T23:59:59Z" })
+	// Operator cases bind an independent protected target/epoch/argument fixture.
+	neg("O01", "Consumer audience is exact.", "PO1", "audience_mismatch", "operator", func(v *Vector) { v.Fixture["audience"] = "service-b" })
+	neg("O02", "Changed arguments refuse despite a valid signature.", "PO1", "act_binding_mismatch", "operator", func(v *Vector) { v.Fixture["binding"].(M)["arguments"].(M)["mode"] = "ephemeral" })
+	neg("O03", "Consumed action id refuses without a second plan.", "PO1", "act_replay", "operator", func(v *Vector) { v.Fixture["used_actions"] = []any{body(*v)["action_id"]} })
+	neg("O04", "Wrong epoch refuses.", "PO1", "act_binding_mismatch", "operator", func(v *Vector) { v.Fixture["binding"].(M)["epoch"] = "epoch-2" })
+	neg("O05", "Unknown operator device refuses.", "PO1", "signer_unknown", "operator", func(v *Vector) { v.Fixture["known_keys"] = []any{keys[1].ID} })
+	neg("O06", "Stale act refuses.", "PO1", "expired", "operator", func(v *Vector) { v.Fixture["now"] = "2026-01-01T00:02:00Z" })
+	neg("O07", "Future act refuses.", "PO1", "not_yet_valid", "operator", func(v *Vector) { v.Fixture["now"] = "2025-12-31T23:59:59Z" })
+	neg("O08", "Widening without signed confirmation refuses.", "PO3", "act_confirmation_required", "operator", func(v *Vector) { widen(v, false) })
+	neg("O09", "Self-asserted confirmation cannot replace presence evidence.", "PO3", "act_presence_required", "operator", func(v *Vector) { widen(v, true); v.Fixture["signer_facts"].(M)["presence"] = false })
+	neg("O10", "Replay journal outage refuses.", "PO1", "replay_unavailable", "operator", func(v *Vector) { v.Fixture["replay_available"] = false })
+	neg("O11", "Wrong owner refuses.", "PO1", "act_binding_mismatch", "operator", func(v *Vector) { v.Fixture["binding"].(M)["owner"] = "owner-b" })
+	neg("O12", "Wrong registration target refuses.", "PO1", "act_binding_mismatch", "operator", func(v *Vector) { v.Fixture["binding"].(M)["target"] = M{"kind": "registration", "id": 2} })
+	neg("O13", "Revocation outage maps to unavailable.", "PO1", "revocation_unavailable", "operator", func(v *Vector) { v.Fixture["revocation"].(M)["complete"] = false })
+	neg("O14", "Revoked device refuses.", "PO1", "revoked", "operator", func(v *Vector) { v.Fixture["revocation"].(M)["revoked_keys"] = []any{keys[0].ID} })
+	neg("O15", "Operator record has its own 8192-byte bound.", "PO1", "envelope_too_large", "operator", func(v *Vector) {
+		v.Input["envelope"] = b64(append(unb64(v.Input["envelope"].(string)), bytes.Repeat([]byte{' '}, 8192)...))
+	})
+	neg("E32", "Malformed P-256 compressed point refuses.", "PE2", "envelope_signature_invalid", "envelope", func(v *Vector) {
+		*v = base("envelope", 6)
+		raw := make([]byte, 33)
+		raw[0] = 2
+		for i := 1; i < 33; i++ {
+			raw[i] = 255
+		}
+		bad := "p256:" + b64(raw)
+		v.Fixture["known_keys"] = []any{bad}
+		edit(v, func(e M) {
+			e["body"].(map[string]any)["author"] = bad
+			e["signatures"].([]any)[0].(map[string]any)["key"] = bad
+			e["id"] = digest(append([]byte("waggle message/1\n"), canonical(e["body"])...))
+		})
+	})
+	neg("E33", "Small-order Ed25519 public key refuses.", "PE1", "envelope_signature_invalid", "envelope", func(v *Vector) {
+		bad := "ed25519:" + b64(make([]byte, 32))
+		v.Fixture["known_keys"] = []any{bad}
+		edit(v, func(e M) {
+			e["body"].(map[string]any)["author"] = bad
+			e["signatures"].([]any)[0].(map[string]any)["key"] = bad
+			e["id"] = digest(append([]byte("waggle message/1\n"), canonical(e["body"])...))
+		})
+	})
+	neg("E34", "Noncanonical point R refuses.", "PE1", "envelope_signature_invalid", "envelope", func(v *Vector) {
+		edit(v, func(e M) {
+			sig := e["signatures"].([]any)[0].(map[string]any)
+			raw := unb64(sig["sig"].(string))
+			for i := 0; i < 32; i++ {
+				raw[i] = 255
+			}
+			sig["sig"] = b64(raw)
+		})
+	})
+	neg("E35", "P-256 zero scalar refuses.", "PE2", "envelope_signature_invalid", "envelope", func(v *Vector) {
+		*v = base("envelope", 6)
+		edit(v, func(e M) {
+			sig := e["signatures"].([]any)[0].(map[string]any)
+			raw := unb64(sig["sig"].(string))
+			for i := 0; i < 32; i++ {
+				raw[i] = 0
+			}
+			sig["sig"] = b64(raw)
+		})
+	})
+	neg("E36", "Nonzero base64 trailing bits refuse before crypto.", "PE1", "envelope_malformed", "envelope", func(v *Vector) {
+		edit(v, func(e M) {
+			sig := e["signatures"].([]any)[0].(map[string]any)
+			raw := sig["sig"].(string)
+			alphabet := "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+			j := strings.IndexByte(alphabet, raw[len(raw)-1])
+			sig["sig"] = raw[:len(raw)-1] + string(alphabet[j+1])
+		})
+	})
+	neg("E37", "Expired provider authority refuses.", "PE1", "time_unavailable", "envelope", func(v *Vector) { v.Fixture["time"].(M)["authority_until"] = v.Fixture["now"] })
+	neg("E38", "Invalid nested schema refuses.", "PE1", "envelope_malformed", "envelope", func(v *Vector) { resign(v, 0, func(b M) { b["target"].(map[string]any)["extra"] = true }) })
+	neg("E39", "120-second act limit is inclusive; 121 refuses.", "PO1", "envelope_malformed", "operator", func(v *Vector) { resign(v, 0, func(b M) { b["exp"] = "2026-01-01T00:02:01Z" }) })
+	neg("E40", "A bad extra signature is never silently dropped.", "PE5", "envelope_signature_invalid", "envelope", func(v *Vector) { extraSignature(v, true) })
+	neg("G29", "Leaf signature cannot be skipped.", "PG1", "envelope_signature_invalid", "grant", func(v *Vector) {
+		a := v.Input["chain"].([]any)
+		e := decode(a[0].(string))
+		sig := e["signatures"].([]any)[0].(map[string]any)
+		raw := unb64(sig["sig"].(string))
+		raw[6] ^= 1
+		sig["sig"] = b64(raw)
+		a[0] = wire(e)
+	})
+	neg("G30", "Dropping a parent's earlier expiry caveat widens authority.", "PG6", "grant_not_narrowing", "grant", func(v *Vector) { rootCaveat(v, "2026-01-01T00:00:00Z", "2026-01-01T00:01:30Z") })
+	neg("G31", "Dropping a parent's later start caveat widens authority.", "PG6", "grant_not_narrowing", "grant", func(v *Vector) { rootCaveat(v, "2026-01-01T00:00:30Z", "2026-01-02T00:00:00Z") })
+	neg("G32", "Audience change in any link refuses.", "PG1", "audience_mismatch", "grant", func(v *Vector) { link(v, 0, 1, func(b M) { b["aud"] = "service-b" }) })
+	neg("G33", "Unavailable clock also refuses grants.", "PG1", "time_unavailable", "grant", func(v *Vector) { v.Fixture["time"].(M)["fresh"] = false })
+	neg("G34", "Snapshot without rollback evidence refuses.", "PG1", "revocation_unavailable", "grant", func(v *Vector) { v.Fixture["revocation"].(M)["rollback_safe"] = false })
+	neg("G35", "Future snapshot refuses.", "PG1", "revocation_unavailable", "grant", func(v *Vector) { v.Fixture["revocation"].(M)["issued_at"] = "2026-01-01T00:01:01Z" })
+	neg("G36", "Unknown request action refuses.", "PG1", "action_unregistered", "grant", func(v *Vector) { v.Fixture["request"].(M)["action"] = "unknown.action" })
+	neg("G37", "Registered action with incompatible target kind refuses.", "PG2", "grant_target_invalid", "grant", func(v *Vector) {
+		v.Input["chain"] = chain(1)
+		link(v, 0, 0, func(b M) { b["targets"] = []any{M{"kind": "station", "id": "team/*"}} })
+	})
+	neg("O16", "Unknown act operation has no guessed authority.", "PO1", "act_operation_unknown", "operator", func(v *Vector) { resign(v, 0, func(b M) { b["operation"] = "unknown.operation" }) })
+	neg("O17", "Provider current-presence facts cannot be stale for widening.", "PO3", "act_presence_required", "operator", func(v *Vector) { widen(v, true); v.Fixture["signer_facts"].(M)["current"] = false })
+
+	neg("E41", "Mixed-order Ed25519 public key refuses.", "PE1", "envelope_signature_invalid", "envelope", func(v *Vector) {
+		// Standard base point plus the order-four point encoded as 32 zero bytes.
+		bad := "ed25519:UlLMCn8ggTO2IKy9RTfroqQSO_CowuT5gMOzG7aXZeo"
+		v.Fixture["known_keys"] = []any{bad}
+		edit(v, func(e M) {
+			e["body"].(map[string]any)["author"] = bad
+			e["signatures"].([]any)[0].(map[string]any)["key"] = bad
+			e["id"] = digest(append([]byte("waggle message/1\n"), canonical(e["body"])...))
+		})
+	})
+	neg("O18", "Unavailable operator key policy refuses as unavailable evidence.", "PO1", "signer_unavailable", "operator", func(v *Vector) { v.Fixture["known_keys"] = nil })
+
+	// Positive controls prohibit an implementation that simply rejects everything.
+	add("PE1", "Valid Ed25519 message bytes authenticate; authority is separate.", "", "accept", base("envelope", 0))
+	add("PE2", "Valid compressed P-256 and raw low-S signature authenticate.", "", "accept", base("envelope", 6))
+	v := base("envelope", 0)
+	v.Input["envelope"] = b64(append([]byte(" \n"), unb64(v.Input["envelope"].(string))...))
+	add("PE3", "Noncanonical wire whitespace canonicalizes without changing preimages.", "", "accept", v)
+	v = base("envelope", 0)
+	resign(&v, 0, func(b M) { b["arguments"] = M{"text": "<>&/é", "sequence": []any{2, 1}} })
+	add("PE4", "CCJ preserves Unicode, minimal escapes and array order.", "", "accept", v)
+	add("PG1", "Two-link chain authorizes exact correlated credential tuple.", "", "accept", base("grant", 0))
+	v = base("grant", 0)
+	v.Input["chain"] = chain(1)
+	v.Fixture["request"].(M)["key"] = keys[1].ID
+	add("PG2", "Pinned single-link root is a valid grant.", "", "accept", v)
+	v = base("grant", 0)
+	link(&v, 0, 1, func(b M) { b["caveats"] = M{"lang": "caveats/v1", "not_before": b["iat"], "expires": b["exp"]} })
+	add("PG3", "Time-only caveat inside grant interval authorizes.", "", "accept", v)
+	v = base("grant", 0)
+	v.Input["chain"] = chain(4)
+	v.Fixture["request"].(M)["key"] = keys[4].ID
+	add("PG4", "Four-link chain checks every decreasing edge including leaf.", "", "accept", v)
+	v = base("grant", 0)
+	link(&v, 0, 1, func(b M) { b["targets"] = []any{target("team/member")} })
+	add("PG5", "Exact child target attenuates a prefix parent.", "", "accept", v)
+	add("PO1", "Narrowing persistent revoke permits confirmed=false with valid pin.", "", "accept", base("operator", 0))
+	add("PO2", "Pinned P-256 operator key signs the same narrowing contract.", "", "accept", base("operator", 6))
+	v = base("operator", 0)
+	widen(&v, true)
+	add("PO3", "Widening needs both exact-content assertion and qualified provider.", "", "accept", v)
+	v = base("envelope", 0)
+	extraSignature(&v, false)
+	add("PE5", "Two distinct valid roles sign the same body.", "", "accept", v)
+	v = base("envelope", 0)
+	raw := unb64(v.Input["envelope"].(string))
+	v.Input["envelope"] = b64(append(raw, bytes.Repeat([]byte{' '}, 65536-len(raw))...))
+	add("PE6", "Exactly 65536 received bytes accept.", "", "accept", v)
+	v = base("operator", 0)
+	raw = unb64(v.Input["envelope"].(string))
+	v.Input["envelope"] = b64(append(raw, bytes.Repeat([]byte{' '}, 8192-len(raw))...))
+	add("PO4", "Exactly 8192 received operator bytes accept before embedding.", "", "accept", v)
+	v = base("grant", 0)
+	rootCaveat(&v, "2026-01-01T00:00:00Z", "2026-01-01T00:01:30Z")
+	link(&v, 0, 1, func(b M) {
+		b["caveats"] = M{"lang": "caveats/v1", "not_before": "2026-01-01T00:00:30Z", "expires": "2026-01-01T00:01:20Z"}
+	})
+	add("PG6", "Child effective caveat interval narrows parent caveat.", "", "accept", v)
+	v = base("grant", 0)
+	v.Fixture["revocation"].(M)["issued_at"] = "2026-01-01T00:00:00Z"
+	add("PG7", "Snapshot age of exactly 60 seconds is within the bound.", "", "accept", v)
+
+	files := map[string][]byte{}
+	seeds, pubs := M{}, M{}
+	for i, k := range keys {
+		name := fmt.Sprintf("test-%d", i)
+		seeds[name] = hex.EncodeToString(k.Seed)
+		pubs[name] = k.ID
+	}
+	put := func(path string, v any) {
+		b, e := json.MarshalIndent(v, "", "  ")
+		must(e)
+		files[path] = append(b, '\n')
+	}
+	put("keys/seeds.json", M{"warning": "PUBLIC TEST-ONLY SEEDS; never deploy", "seeds": seeds})
+	put("keys/public-keys.json", pubs)
+	for _, v := range cases {
+		dir := "0-negative"
+		if v.Expected["code"] == "accept" {
+			dir = "1-positive"
+		}
+		put("swarm-envelope-2/"+dir+"/"+v.ID+".json", v)
+	}
+	paths := make([]string, 0, len(files))
+	for p := range files {
+		paths = append(paths, p)
+	}
+	sort.Strings(paths)
+	failures := 0
+	for _, p := range paths {
+		dest := filepath.Join(*out, p)
+		if *check {
+			got, e := os.ReadFile(dest)
+			if e != nil || !bytes.Equal(got, files[p]) {
+				fmt.Fprintln(os.Stderr, "byte mismatch:", p)
+				failures++
+			}
+		} else {
+			must(os.MkdirAll(filepath.Dir(dest), 0755))
+			must(os.WriteFile(dest, files[p], 0644))
+		}
+	}
+	if *check {
+		for _, root := range []string{"swarm-envelope-2", "keys"} {
+			must(filepath.WalkDir(filepath.Join(*out, root), func(p string, d os.DirEntry, e error) error {
+				if e != nil {
+					return e
+				}
+				if !d.IsDir() && strings.HasSuffix(p, ".json") {
+					rel, e := filepath.Rel(*out, p)
+					if e != nil {
+						return e
+					}
+					if _, ok := files[rel]; !ok {
+						fmt.Fprintln(os.Stderr, "unexpected vector:", rel)
+						failures++
+					}
+				}
+				return nil
+			}))
+		}
+	}
+	if failures > 0 {
+		os.Exit(1)
+	}
+	fmt.Printf("%d vectors (%d files), check=%v\n", len(cases), len(files), *check)
+}
+func widen(v *Vector, confirmed bool) {
+	v.Fixture["binding"].(M)["operation"] = "grant.issue"
+	v.Fixture["binding"].(M)["target"] = M{"kind": "account", "id": "account-1"}
+	v.Fixture["binding"].(M)["arguments"] = M{"account": "account-1"}
+	resign(v, 0, func(b M) {
+		b["operation"] = "grant.issue"
+		b["target"] = M{"kind": "account", "id": "account-1"}
+		b["arguments_digest"] = digest(canonical(v.Fixture["binding"].(M)["arguments"]))
+		b["confirmed"] = confirmed
+	})
+}
+
+func rootCaveat(v *Vector, start, end string) {
+	link(v, 1, 0, func(b M) { b["caveats"] = M{"lang": "caveats/v1", "not_before": start, "expires": end} })
+	parent := decode(v.Input["chain"].([]any)[1].(string))["id"]
+	link(v, 0, 1, func(b M) { b["parent"] = parent })
+}
+func extraSignature(v *Vector, bad bool) {
+	b := body(*v)
+	p := sigPre(b, "approver", keys[1].ID, "message/1")
+	sig := sign(keys[1], p)
+	if bad {
+		sig[4] ^= 1
+	}
+	edit(v, func(e M) {
+		e["signatures"] = append(e["signatures"].([]any), M{"role": "approver", "key": keys[1].ID, "sig": b64(sig)})
+	})
+}

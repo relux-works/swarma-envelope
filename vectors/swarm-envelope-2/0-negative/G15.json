@@ -1,0 +1,76 @@
+{
+  "id": "G15",
+  "claim": "Unregistered action refuses even on pinned root.",
+  "positive_control": "PG2",
+  "mode": "grant",
+  "input": {
+    "chain": [
+      "eyJib2R5Ijp7ImFjdGlvbnMiOlsidW5rbm93bi5hY3Rpb24iXSwiYXVkIjoic2VydmljZS1hIiwiY2F2ZWF0cyI6bnVsbCwiZGVwdGgiOjMsImV4cCI6IjIwMjYtMDEtMDJUMDA6MDA6MDBaIiwiZXhwaXJlcyI6IjIwMjYtMDEtMDJUMDA6MDA6MDBaIiwiaWF0IjoiMjAyNS0xMi0zMVQwMDowMDowMFoiLCJpc3N1ZXIiOiJlZDI1NTE5Ond1ZTJ0MUdKZUxaVHF6WXVka3pSSWh5WTExbEF6eVBYRGpzVFhnWG9JcmsiLCJub25jZSI6IkJ3Y0hCd2NIQndjSEJ3Y0hCd2NIQnciLCJub3RfYmVmb3JlIjoiMjAyNS0xMi0zMVQwMDowMDowMFoiLCJwYXJlbnQiOm51bGwsInN1YmplY3QiOiJlZDI1NTE5OmExWXNtNDBsZ3RaVHJrU0tCUEQyMG40Z0pXU1lKa3dJdzJmSllnaTg4MzQiLCJ0YXJnZXRzIjpbeyJoYXJuZXNzIjoibW9kZWwtY2xpIiwiaWQiOiJ0ZWFtLyoiLCJraW5kIjoiY3JlZGVudGlhbCIsInByb2ZpbGUiOiJkZXYifV0sInR5cGUiOiJncmFudC8xIn0sImlkIjoic2hhMjU2OjZiNmVhZmM5ZmE1OTAzMDUwM2ZkMDNhMzc3ZTQ3YjAwM2NjNjU1NDFkNWVmMTI3MWRkNTkyYzQxY2RlNjhiNTciLCJzaWduYXR1cmVzIjpbeyJrZXkiOiJlZDI1NTE5Ond1ZTJ0MUdKZUxaVHF6WXVka3pSSWh5WTExbEF6eVBYRGpzVFhnWG9JcmsiLCJyb2xlIjoiYXV0aG9yIiwic2lnIjoibTlLU1hXMTZYVURHMXJSa1pvbTV6dndmSFByWVNELU9FUGg5Snh2NEk3MjR6VW42bUVJMkRuck9OUlhpbGpWS1NyNGJOZFRNbDZRbkRUSkJCcFA1QmcifV0sInZlcnNpb24iOiJzd2FybS1lbnZlbG9wZS8yIn0"
+    ]
+  },
+  "fixture": {
+    "audience": "service-a",
+    "binding": {
+      "arguments": {
+        "mode": "operator",
+        "registration_number": 1
+      },
+      "epoch": "epoch-1",
+      "operation": "revoke",
+      "owner": "owner-a",
+      "target": {
+        "id": 1,
+        "kind": "registration"
+      }
+    },
+    "id_journal_available": true,
+    "known_keys": [
+      "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+      "ed25519:a1Ysm40lgtZTrkSKBPD20n4gJWSYJkwIw2fJYgi8834",
+      "ed25519:9DNPnft6cVUIqapzh9MRne66FsSoh49u5jwz_2x0hPM",
+      "p256:AtvuKbwrlJKTmC1cFKDUv9lAx4xolphryoTXkRZN0Ayl"
+    ],
+    "now": "2026-01-01T00:01:00Z",
+    "replay_available": true,
+    "request": {
+      "action": "credential.lease",
+      "key": "ed25519:a1Ysm40lgtZTrkSKBPD20n4gJWSYJkwIw2fJYgi8834",
+      "target": {
+        "harness": "model-cli",
+        "id": "team/member",
+        "kind": "credential",
+        "profile": "dev"
+      }
+    },
+    "required_roles": [
+      "author"
+    ],
+    "revocation": {
+      "complete": true,
+      "issued_at": "2026-01-01T00:01:00Z",
+      "max_age": 60,
+      "revoked_ids": [],
+      "revoked_keys": [],
+      "rollback_safe": true,
+      "verdict": "not_revoked"
+    },
+    "root": "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+    "seen": {},
+    "signer_facts": {
+      "current": true,
+      "presence": true
+    },
+    "time": {
+      "authority_until": "2026-01-01T00:06:00Z",
+      "fresh": true,
+      "trusted": true
+    },
+    "used_actions": [],
+    "watermark": "2026-01-01T00:01:00Z",
+    "watermark_available": true
+  },
+  "expected": {
+    "code": "action_unregistered",
+    "plan": {}
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "id": "E27",
+  "claim": "High-S P-256 twin refuses.",
+  "positive_control": "PE2",
+  "mode": "envelope",
+  "input": {
+    "envelope": "eyJib2R5Ijp7ImFjdGlvbiI6Im1lc3NhZ2UuZGVsaXZlciIsImFyZ3VtZW50cyI6eyJ0ZXh0IjoiaGVsbG8ifSwiYXVkIjoic2VydmljZS1hIiwiYXV0aG9yIjoicDI1NjpBdHZ1S2J3cmxKS1RtQzFjRktEVXY5bEF4NHhvbHBocnlvVFhrUlpOMEF5bCIsImV4cCI6IjIwMjYtMDEtMDFUMDA6MDI6MDBaIiwiaWF0IjoiMjAyNi0wMS0wMVQwMDowMDowMFoiLCJub25jZSI6IkJ3Y0hCd2NIQndjSEJ3Y0hCd2NIQnciLCJ0YXJnZXQiOnsiaWQiOiJ0ZWFtL21lbWJlciIsImtpbmQiOiJzdGF0aW9uIn0sInR5cGUiOiJtZXNzYWdlLzEifSwiaWQiOiJzaGEyNTY6ZTg1MjY0NWY1NDU4MDc3NDk2MDgyYTFiY2ZiNDRlMjQwNDFmZjI5ZTZmNTMwMDZkODZmMWFhNzc2Zjc2NWU2YSIsInNpZ25hdHVyZXMiOlt7ImtleSI6InAyNTY6QXR2dUtid3JsSktUbUMxY0ZLRFV2OWxBeDR4b2xwaHJ5b1RYa1JaTjBBeWwiLCJyb2xlIjoiYXV0aG9yIiwic2lnIjoidVhRc3E0U3JSN1hPSWhCQ0ZfZkFNTXgwMDdHMFZ5dkpyR2p3MnNiNmdvV3hQWW5NVksteGRfZkR1OFlEcU5WQlRFc2dVTmlUZHBmV2VUZGI0NWQwcmcifV0sInZlcnNpb24iOiJzd2FybS1lbnZlbG9wZS8yIn0"
+  },
+  "fixture": {
+    "audience": "service-a",
+    "binding": {
+      "arguments": {
+        "mode": "operator",
+        "registration_number": 1
+      },
+      "epoch": "epoch-1",
+      "operation": "revoke",
+      "owner": "owner-a",
+      "target": {
+        "id": 1,
+        "kind": "registration"
+      }
+    },
+    "id_journal_available": true,
+    "known_keys": [
+      "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+      "ed25519:a1Ysm40lgtZTrkSKBPD20n4gJWSYJkwIw2fJYgi8834",
+      "ed25519:9DNPnft6cVUIqapzh9MRne66FsSoh49u5jwz_2x0hPM",
+      "p256:AtvuKbwrlJKTmC1cFKDUv9lAx4xolphryoTXkRZN0Ayl"
+    ],
+    "now": "2026-01-01T00:01:00Z",
+    "replay_available": true,
+    "request": {
+      "action": "credential.lease",
+      "key": "ed25519:9DNPnft6cVUIqapzh9MRne66FsSoh49u5jwz_2x0hPM",
+      "target": {
+        "harness": "model-cli",
+        "id": "team/member",
+        "kind": "credential",
+        "profile": "dev"
+      }
+    },
+    "required_roles": [
+      "author"
+    ],
+    "revocation": {
+      "complete": true,
+      "issued_at": "2026-01-01T00:01:00Z",
+      "max_age": 60,
+      "revoked_ids": [],
+      "revoked_keys": [],
+      "rollback_safe": true,
+      "verdict": "not_revoked"
+    },
+    "root": "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+    "seen": {},
+    "signer_facts": {
+      "current": true,
+      "presence": true
+    },
+    "time": {
+      "authority_until": "2026-01-01T00:06:00Z",
+      "fresh": true,
+      "trusted": true
+    },
+    "used_actions": [],
+    "watermark": "2026-01-01T00:01:00Z",
+    "watermark_available": true
+  },
+  "expected": {
+    "code": "signature_high_s",
+    "plan": {}
+  }
+}

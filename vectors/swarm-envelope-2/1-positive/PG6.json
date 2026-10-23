@@ -1,0 +1,83 @@
+{
+  "id": "PG6",
+  "claim": "Child effective caveat interval narrows parent caveat.",
+  "positive_control": "",
+  "mode": "grant",
+  "input": {
+    "chain": [
+      "eyJib2R5Ijp7ImFjdGlvbnMiOlsiY3JlZGVudGlhbC5sZWFzZSJdLCJhdWQiOiJzZXJ2aWNlLWEiLCJjYXZlYXRzIjp7ImV4cGlyZXMiOiIyMDI2LTAxLTAxVDAwOjAxOjIwWiIsImxhbmciOiJjYXZlYXRzL3YxIiwibm90X2JlZm9yZSI6IjIwMjYtMDEtMDFUMDA6MDA6MzBaIn0sImRlcHRoIjoyLCJleHAiOiIyMDI2LTAxLTAxVDAwOjAyOjAwWiIsImV4cGlyZXMiOiIyMDI2LTAxLTAxVDAwOjAyOjAwWiIsImlhdCI6IjIwMjYtMDEtMDFUMDA6MDA6MDBaIiwiaXNzdWVyIjoiZWQyNTUxOTphMVlzbTQwbGd0WlRya1NLQlBEMjBuNGdKV1NZSmt3SXcyZkpZZ2k4ODM0Iiwibm9uY2UiOiJCd2NIQndjSEJ3Y0hCd2NIQndjSEJ3Iiwibm90X2JlZm9yZSI6IjIwMjYtMDEtMDFUMDA6MDA6MDBaIiwicGFyZW50Ijoic2hhMjU2OjRmMzE4ZmQ1NmUxOWU1N2UxZWU0OTYwMmI2ZjNmYTFkY2ZiODQ0NDA4ZTYzYTFkZTMwNTAxZDJlODZlOTBmOTUiLCJzdWJqZWN0IjoiZWQyNTUxOTo5RE5QbmZ0NmNWVUlxYXB6aDlNUm5lNjZGc1NvaDQ5dTVqd3pfMngwaFBNIiwidGFyZ2V0cyI6W3siaGFybmVzcyI6Im1vZGVsLWNsaSIsImlkIjoidGVhbS8qIiwia2luZCI6ImNyZWRlbnRpYWwiLCJwcm9maWxlIjoiZGV2In1dLCJ0eXBlIjoiZ3JhbnQvMSJ9LCJpZCI6InNoYTI1NjozZTE1YmE4YWRkMmJlODdmODVlMGQ4ZGVjZTk3MzZlYzBjMTQ1NTBiMjRkNGI5NDVhNjg5NGU2ZTlmMmZiMDI1Iiwic2lnbmF0dXJlcyI6W3sia2V5IjoiZWQyNTUxOTphMVlzbTQwbGd0WlRya1NLQlBEMjBuNGdKV1NZSmt3SXcyZkpZZ2k4ODM0Iiwicm9sZSI6ImF1dGhvciIsInNpZyI6Ik5iczNOOGxDMHpnYldSSFZtZXdmZG81cjg0R2FFQmE3ZzR0b1hGc1lRYzg0RjNZMzBHM05nUVdLTFlqWHF5VXQxQllLNXBQbTJUTkdJcjNFcHQxd0F3In1dLCJ2ZXJzaW9uIjoic3dhcm0tZW52ZWxvcGUvMiJ9",
+      "eyJib2R5Ijp7ImFjdGlvbnMiOlsiY3JlZGVudGlhbC5sZWFzZSJdLCJhdWQiOiJzZXJ2aWNlLWEiLCJjYXZlYXRzIjp7ImV4cGlyZXMiOiIyMDI2LTAxLTAxVDAwOjAxOjMwWiIsImxhbmciOiJjYXZlYXRzL3YxIiwibm90X2JlZm9yZSI6IjIwMjYtMDEtMDFUMDA6MDA6MDBaIn0sImRlcHRoIjozLCJleHAiOiIyMDI2LTAxLTAyVDAwOjAwOjAwWiIsImV4cGlyZXMiOiIyMDI2LTAxLTAyVDAwOjAwOjAwWiIsImlhdCI6IjIwMjUtMTItMzFUMDA6MDA6MDBaIiwiaXNzdWVyIjoiZWQyNTUxOTp3dWUydDFHSmVMWlRxell1ZGt6UkloeVkxMWxBenlQWERqc1RYZ1hvSXJrIiwibm9uY2UiOiJCd2NIQndjSEJ3Y0hCd2NIQndjSEJ3Iiwibm90X2JlZm9yZSI6IjIwMjUtMTItMzFUMDA6MDA6MDBaIiwicGFyZW50IjpudWxsLCJzdWJqZWN0IjoiZWQyNTUxOTphMVlzbTQwbGd0WlRya1NLQlBEMjBuNGdKV1NZSmt3SXcyZkpZZ2k4ODM0IiwidGFyZ2V0cyI6W3siaGFybmVzcyI6Im1vZGVsLWNsaSIsImlkIjoidGVhbS8qIiwia2luZCI6ImNyZWRlbnRpYWwiLCJwcm9maWxlIjoiZGV2In1dLCJ0eXBlIjoiZ3JhbnQvMSJ9LCJpZCI6InNoYTI1Njo0ZjMxOGZkNTZlMTllNTdlMWVlNDk2MDJiNmYzZmExZGNmYjg0NDQwOGU2M2ExZGUzMDUwMWQyZTg2ZTkwZjk1Iiwic2lnbmF0dXJlcyI6W3sia2V5IjoiZWQyNTUxOTp3dWUydDFHSmVMWlRxell1ZGt6UkloeVkxMWxBenlQWERqc1RYZ1hvSXJrIiwicm9sZSI6ImF1dGhvciIsInNpZyI6IjVSNGpRYnJCc2ZXSkFFWEF6cU9LUHlMQ0dQV1ZqdzRJck9LYXNKaTgtY2NsYlJKeXhkbzZRZ1MwOFVhSDlYZnd4TGV4UWZJb2hlU2Q4Q044VTdwY0NBIn1dLCJ2ZXJzaW9uIjoic3dhcm0tZW52ZWxvcGUvMiJ9"
+    ]
+  },
+  "fixture": {
+    "audience": "service-a",
+    "binding": {
+      "arguments": {
+        "mode": "operator",
+        "registration_number": 1
+      },
+      "epoch": "epoch-1",
+      "operation": "revoke",
+      "owner": "owner-a",
+      "target": {
+        "id": 1,
+        "kind": "registration"
+      }
+    },
+    "id_journal_available": true,
+    "known_keys": [
+      "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+      "ed25519:a1Ysm40lgtZTrkSKBPD20n4gJWSYJkwIw2fJYgi8834",
+      "ed25519:9DNPnft6cVUIqapzh9MRne66FsSoh49u5jwz_2x0hPM",
+      "p256:AtvuKbwrlJKTmC1cFKDUv9lAx4xolphryoTXkRZN0Ayl"
+    ],
+    "now": "2026-01-01T00:01:00Z",
+    "replay_available": true,
+    "request": {
+      "action": "credential.lease",
+      "key": "ed25519:9DNPnft6cVUIqapzh9MRne66FsSoh49u5jwz_2x0hPM",
+      "target": {
+        "harness": "model-cli",
+        "id": "team/member",
+        "kind": "credential",
+        "profile": "dev"
+      }
+    },
+    "required_roles": [
+      "author"
+    ],
+    "revocation": {
+      "complete": true,
+      "issued_at": "2026-01-01T00:01:00Z",
+      "max_age": 60,
+      "revoked_ids": [],
+      "revoked_keys": [],
+      "rollback_safe": true,
+      "verdict": "not_revoked"
+    },
+    "root": "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+    "seen": {},
+    "signer_facts": {
+      "current": true,
+      "presence": true
+    },
+    "time": {
+      "authority_until": "2026-01-01T00:06:00Z",
+      "fresh": true,
+      "trusted": true
+    },
+    "used_actions": [],
+    "watermark": "2026-01-01T00:01:00Z",
+    "watermark_available": true
+  },
+  "expected": {
+    "code": "accept",
+    "plan": {
+      "ids": [
+        "sha256:3e15ba8add2be87f85e0d8dece9736ec0c14550b24d4b945a6894e6e9f2fb025",
+        "sha256:4f318fd56e19e57e1ee49602b6f3fa1dcfb844408e63a1de30501d2e86e90f95"
+      ],
+      "watermark": "2026-01-01T00:01:00Z"
+    }
+  }
+}

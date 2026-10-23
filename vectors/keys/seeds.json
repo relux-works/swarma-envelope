@@ -1,0 +1,12 @@
+{
+  "seeds": {
+    "test-0": "4e26a8fa01b4d5a19b2a3d382b1a5219b9687e94e26441e5d6f72d0ed7470801",
+    "test-1": "bd2e7fcc4f8296c24975068e5e7944e9ffde8b47b6b9da1c7a0274f94f638e76",
+    "test-2": "c8f8ec017536ec57e5b15af48417b5afec5f761900ef53fa2f883bf38c0f3694",
+    "test-3": "6f2b1a6f6115046dfa4a49faf23e976c42e2ee1fc26bdf8b57e07e3e5634739e",
+    "test-4": "2bd6c40a463ead650dc6e11e70ae23ea75a4398a2b631c4ceadeb812db2a3984",
+    "test-5": "4231147bf62c5b47a59e9891d0487f284c9f67c39d0fdc8660c1fab329dc1daf",
+    "test-6": "e6c150e03c43bffdc64e399b0a66276f8416de93ab1668c4d96272e1d7ea9bc6"
+  },
+  "warning": "PUBLIC TEST-ONLY SEEDS; never deploy"
+}
