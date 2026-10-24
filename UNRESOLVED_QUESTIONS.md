@@ -187,3 +187,12 @@ history retention, off-node/witness cross-check and consumer audit compensate
 for lost skipped-segment freshness-fork detection (§7); no revocation or
 authority relaxation. Witness outages fail closed. No live integration is
 implemented or qualified by these offline fixtures.
+
+Open consumer integration decision: the current API cannot compose old-base
+freshness acceptance into `VerifyAttestation` or the other entry points that
+independently require own-snapshot age. `TestFreshnessCompositionBoundary`
+retains the refusal and a genuinely current signed-snapshot positive control.
+An owner decision must select and review an explicit composition API/policy;
+no consumer may fake a younger Context or implement a second verifier. The
+pure recovery and publication fixtures do not resolve or qualify that
+integration. See §7 for the current boundary and cumulative-publication premise.
