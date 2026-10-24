@@ -1,0 +1,18 @@
+{
+  "id": "N-FR-domain-09-11",
+  "claim": "Foreign registered domain does not become freshness by signature math.",
+  "positive_control": "P-FR-domain",
+  "mode": "domain",
+  "input": {
+    "key": "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+    "preimage": "c3dhcm1hLXJlZ2lzdHJ5IGpvdXJuYWwtZW50cnkvMQp7InR5cGUiOiJkb21haW4tbWF0aC1vbmx5In0",
+    "sig": "_o1q9hiaIvJ4NLcdakncaQ3lq-j6YKvi-823qDnCwZRCsfIOipJchVzcYnhqja3XUcssgOIhXkC1tUbI07HnCA"
+  },
+  "fixture": {
+    "expected_tag": "swarma-registry freshness/1"
+  },
+  "expected": {
+    "code": "domain_mismatch",
+    "plan": {}
+  }
+}

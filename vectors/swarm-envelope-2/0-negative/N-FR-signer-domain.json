@@ -1,0 +1,14 @@
+{
+  "id": "N-FR-signer-domain",
+  "claim": "The message signer refuses the exact freshness tag.",
+  "positive_control": "PS1",
+  "mode": "signer",
+  "input": {
+    "preimage": "c3dhcm1hLXJlZ2lzdHJ5IGZyZXNobmVzcy8xCnt9"
+  },
+  "fixture": {},
+  "expected": {
+    "code": "signer_domain_refused",
+    "plan": {}
+  }
+}

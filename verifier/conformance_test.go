@@ -95,7 +95,7 @@ func context(t *testing.T, f map[string]any) verifier.Context {
 	t.Helper()
 	var c verifier.Context
 	slots := map[string]*verifier.Evidence{
-		"service_authority": &c.ServiceAuthority, "service_attestations": &c.ServiceAttestations, "registry_owner": &c.RegistryOwner, "journal_witness": &c.JournalWitness, "commit_signing_key": &c.CommitSigningKey, "enrollment_publisher": &c.EnrollmentPublisher, "audience": &c.Audience, "required_roles": &c.RequiredRoles, "known_keys": &c.AdmittedKeys, "root": &c.GrantRoot, "service_root": &c.ServiceRoot, "agent_revocation_root": &c.AgentRevocationRoot, "operator_root": &c.OperatorRoot, "operator_owner": &c.OperatorOwner, "attestations": &c.Attestations, "agent_attestation_ids": &c.AgentAttestationIDs, "operator_attestations": &c.DeviceAttestations, "active_generations": &c.CurrentGenerations, "revocations": &c.SignedSnapshots, "time": &c.Time, "now": &c.Now, "watermark_available": &c.WatermarkAvailable, "watermark": &c.Watermark, "id_journal_available": &c.IDJournalAvailable, "seen": &c.IDJournal, "replay_available": &c.ReplayAvailable, "used_actions": &c.UsedActions, "signer_facts": &c.SignerFacts, "assurance": &c.Assurance, "delivery": &c.Delivery, "binding": &c.ActBinding}
+		"freshness_anchor": &c.FreshnessAnchor, "witness_read_at": &c.WitnessReadAt, "service_authority": &c.ServiceAuthority, "service_attestations": &c.ServiceAttestations, "registry_owner": &c.RegistryOwner, "journal_witness": &c.JournalWitness, "commit_signing_key": &c.CommitSigningKey, "enrollment_publisher": &c.EnrollmentPublisher, "audience": &c.Audience, "required_roles": &c.RequiredRoles, "known_keys": &c.AdmittedKeys, "root": &c.GrantRoot, "service_root": &c.ServiceRoot, "agent_revocation_root": &c.AgentRevocationRoot, "operator_root": &c.OperatorRoot, "operator_owner": &c.OperatorOwner, "attestations": &c.Attestations, "agent_attestation_ids": &c.AgentAttestationIDs, "operator_attestations": &c.DeviceAttestations, "active_generations": &c.CurrentGenerations, "revocations": &c.SignedSnapshots, "time": &c.Time, "now": &c.Now, "watermark_available": &c.WatermarkAvailable, "watermark": &c.Watermark, "id_journal_available": &c.IDJournalAvailable, "seen": &c.IDJournal, "replay_available": &c.ReplayAvailable, "used_actions": &c.UsedActions, "signer_facts": &c.SignerFacts, "assurance": &c.Assurance, "delivery": &c.Delivery, "binding": &c.ActBinding}
 	// Fixture transport encodes bytes as base64url; production snapshot values
 	// carry raw bytes. Invalid fixture encodings retain a wrong-typed marker so
 	// the library, at the consuming row, produces the required invalid refusal.
@@ -208,7 +208,28 @@ func derive(t *testing.T, v vector) expected {
 	}
 	lib := verifier.New(context(t, f))
 	var r verifier.Result
-	if v.Mode == "journal" {
+	if v.Mode == "freshness" {
+		var chain [][]byte
+		for _, value := range input["chain"].([]any) {
+			raw, e := b64(value)
+			if e != nil {
+				return empty("freshness_malformed")
+			}
+			chain = append(chain, raw)
+		}
+		cp, e := b64(input["checkpoint"])
+		if e != nil {
+			return empty("freshness_malformed")
+		}
+		stringsIn := func(value any) []string {
+			var out []string
+			for _, v := range value.([]any) {
+				out = append(out, v.(string))
+			}
+			return out
+		}
+		r = lib.VerifyFreshness(chain, cp, stringsIn(input["ids"]), stringsIn(input["keys"]))
+	} else if v.Mode == "journal" {
 		values, _ := input["entries"].([]any)
 		raws := make([][]byte, len(values))
 		for i, x := range values {
@@ -311,7 +332,7 @@ func runVectors(t *testing.T, paths []string) {
 // This is the named subset; TestConformance adds the manifest-bound sweeps.
 func TestNamed(t *testing.T) {
 	paths := namedPaths(t, "../vectors")
-	if len(paths) != 797 {
+	if len(paths) != 903 {
 		t.Fatalf("named count %d", len(paths))
 	}
 	runVectors(t, paths)
@@ -393,10 +414,10 @@ func TestConformance(t *testing.T) {
 			t.Fatalf("named corpus bytes mismatch %s", p)
 		}
 	}
-	if count != 1688 || len(paths) != 2485 {
-		t.Fatalf("counts named797 sweeps%d total%d", count, len(paths))
+	if count != 1688 || len(paths) != 2591 {
+		t.Fatalf("counts named903 sweeps%d total%d", count, len(paths))
 	}
-	t.Logf("named=797 generated=%s total=%d", strconv.Itoa(count), len(paths))
+	t.Logf("named=903 generated=%s total=%d", strconv.Itoa(count), len(paths))
 	runVectors(t, paths)
 }
 

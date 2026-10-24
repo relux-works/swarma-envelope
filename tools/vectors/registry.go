@@ -6,6 +6,24 @@ import (
 	"fmt"
 )
 
+// Exact synthetic signed checkpoint bytes are retained for fixture construction;
+// only cases that consume the prior-checkpoint gate attach them as evidence.
+var journalCheckpoints = map[string]string{}
+
+func rememberJournalCheckpoint(e M) string {
+	raw := wire(e)
+	journalCheckpoints[e["id"].(string)] = raw
+	return raw
+}
+func journalPrior(v *Vector) {
+	id := v.Fixture["journal_witness"].(M)["checkpoint_id"].(string)
+	raw, ok := journalCheckpoints[id]
+	if !ok {
+		panic("missing constructed prior checkpoint")
+	}
+	v.Fixture["seen"].(M)[id] = raw
+}
+
 // Registry witnesses are constructed independently of both verifiers. Each
 // negative keeps a nearby accepted control; all signatures are real unless
 // the named claim is specifically the invalid signature.
@@ -16,6 +34,7 @@ func registryVectors() {
 	capacityVectors()
 	registryOrderVectors()
 	registryDomainVectors()
+	journalAnchorVectors()
 	for _, kind := range []string{"journal-entry/1", "checkpoint/1"} {
 		v := Vector{Mode: "signer", Input: M{"preimage": b64(append([]byte(domain(kind)+"\n"), canonical(M{})...))}, Fixture: M{}}
 		add("N-REG-signer-"+kind[:len(kind)-2], "The new exact registry tag never enters the message signer.", "PS1", "signer_domain_refused", v)
@@ -158,7 +177,7 @@ func journalBase() Vector {
 	v.Input["entries"] = []any{wire(a), wire(b)}
 	snap := decode(v.Fixture["revocations"].(M)[keys[7].ID].(M)["snapshot"].(string))["id"]
 	cp := M{"type": "checkpoint/1", "registry": keys[7].ID, "owner": "owner-a", "seq": 2, "head": b["id"], "at": "2026-01-01T00:01:00Z", "snapshot": snap}
-	v.Input["checkpoint"] = wire(envelope(cp, keys[7], "author"))
+	v.Input["checkpoint"] = rememberJournalCheckpoint(envelope(cp, keys[7], "author"))
 	journalAnchor(&v, 1, a["id"], nil)
 	return v
 }
@@ -169,12 +188,13 @@ func journalAnchor(v *Vector, seq int, head, previous any) {
 	b := decode(v.Input["checkpoint"].(string))["body"].(M)
 	b["seq"], b["head"] = seq, head
 	cp := envelope(b, keys[7], "author")
+	rememberJournalCheckpoint(cp)
 	v.Fixture["journal_witness"] = M{"registry_id": keys[7].ID, "owner": "owner-a", "registry_seq": seq, "registry_head": head, "checkpoint_id": cp["id"], "previous_checkpoint_id": previous}
 }
 func journalCheckpoint(v *Vector, edit func(M)) {
 	b := decode(v.Input["checkpoint"].(string))["body"].(M)
 	edit(b)
-	v.Input["checkpoint"] = wire(envelope(b, keys[7], "author"))
+	v.Input["checkpoint"] = rememberJournalCheckpoint(envelope(b, keys[7], "author"))
 }
 func journalEntry(v *Vector, position int, edit func(M)) {
 	a := v.Input["entries"].([]any)
@@ -200,6 +220,7 @@ func journalVectors() {
 		if n == 65 {
 			add("N-JRN-entries65", "65otherwise valid hash-chain entries exceed the bounded suffix count before policy or crypto.", "P-JRN-entries64", "journal_malformed", v)
 		} else {
+			journalPrior(&v)
 			add("P-JRN-entries64", "A fully valid64entry suffix reaches the exact permitted count boundary with a real checkpoint signature.", "", "accept", v)
 		}
 	}
@@ -222,6 +243,9 @@ func journalVectors() {
 		e["id"] = digest(append([]byte(domain("journal-entry/1")+"\n"), canonical(b)...))
 		entries[1] = wire(e)
 		journalCheckpoint(&v, func(b M) { b["head"] = e["id"] })
+		if tc.code == "journal_entry_invalid" || tc.code == "journal_chain_broken" {
+			journalPrior(&v)
+		}
 		add("N-JRN-"+tc.id, tc.claim, "P-JRN-genesis", tc.code, v)
 	}
 
@@ -318,14 +342,23 @@ func journalVectors() {
 	} {
 		v := journalBase()
 		tc.edit(&v)
+		if tc.code == "journal_entry_invalid" || tc.code == "journal_chain_broken" {
+			journalPrior(&v)
+		}
 		add("N-JRN-"+tc.id, tc.claim, "P-JRN-genesis", tc.code, v)
 	}
 	v := journalBase()
+	journalPrior(&v)
 	add("P-JRN-genesis", "An already verified genesis checkpoint fact anchors unsigned entries and a fresh descendant checkpoint without re-signing referenced enrollment.", "", "accept", v)
 	v = journalBase()
 	a := v.Input["entries"].([]any)
-	v.Input["entries"] = []any{a[1]}
-	add("P-JRN-suffix", "A witnessed prior checkpoint anchors a bounded suffix, without replaying the full history.", "", "accept", v)
+	anchor := decode(a[1].(string))
+	journalAnchor(&v, 2, anchor["id"], v.Fixture["journal_witness"].(M)["checkpoint_id"])
+	next := entryRecord(3, anchor["id"], "2026-01-01T00:00:45Z", "add", "grant/1")
+	v.Input["entries"] = []any{wire(anchor), wire(next)}
+	journalCheckpoint(&v, func(b M) { b["seq"], b["head"] = 3, next["id"] })
+	journalPrior(&v)
+	add("P-JRN-suffix", "A required authenticated anchor orders a bounded suffix after a witnessed checkpoint without replaying genesis.", "", "accept", v)
 	v = journalBase()
 	cp := decode(v.Input["checkpoint"].(string))["body"].(M)
 	journalAnchor(&v, 2, cp["head"], v.Fixture["journal_witness"].(M)["checkpoint_id"])
@@ -362,6 +395,9 @@ func reissueVectors() {
 	journalCheckpoint(&v, func(b M) { b["seq"], b["head"] = w["registry_seq"], w["registry_head"] })
 	add("N-JRN-reissue-no-entry", "A reissue cannot rewrite the witnessed checkpoint at the same sequence without a journal advance.", "P-JRN-reissue", "journal_fork", v)
 	v = reissueBase()
+	anchor := journalBase().Input["entries"].([]any)[0]
+	v.Input["entries"] = append([]any{anchor}, v.Input["entries"].([]any)...)
+	journalPrior(&v)
 	add("P-JRN-reissue", "An unchanged revocation set reissued20seconds later has its own signed snapshot id, add entry and descendant checkpoint anchored to the prior verified projection.", "", "accept", v)
 }
 func capacityVectors() {

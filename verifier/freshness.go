@@ -1,0 +1,183 @@
+package verifier
+
+import "github.com/relux-works/waggle/record"
+
+func freshnessWire(raw []byte) map[string]any {
+	return mapped(func() map[string]any {
+		e := exact(must(record.Parse(raw, 8192, 16)), "version body id signatures", "freshness_malformed")
+		need(isString(e["version"]), "freshness_malformed")
+		hashID(e["id"])
+		b := exact(e["body"], "type registry owner publication_seq prev issued_at snapshot registry_seq checkpoint_id", "freshness_malformed")
+		need(isString(b["type"]), "freshness_malformed")
+		key(b["registry"])
+		text(b["owner"], "freshness_malformed")
+		for _, name := range []string{"publication_seq", "registry_seq"} {
+			need(isInt(b[name]) && num(b[name]) >= 1 && num(b[name]) <= 9007199254740991, "freshness_malformed")
+		}
+		need(num(b["publication_seq"]) != 1 || b["prev"] == nil, "freshness_malformed")
+		if b["prev"] != nil {
+			hashID(b["prev"])
+		}
+		stamp(b["issued_at"])
+		hashID(b["snapshot"])
+		hashID(b["checkpoint_id"])
+		sigs, ok := e["signatures"].([]any)
+		need(ok && len(sigs) >= 1 && len(sigs) <= 8, "freshness_malformed")
+		for _, v := range sigs {
+			s := exact(v, "role key sig", "freshness_malformed")
+			need(isString(s["role"]) && isString(s["sig"]), "freshness_malformed")
+			key(s["key"])
+			must(record.DecodeBase64(str(s["sig"]), 64))
+		}
+		return e
+	}, "*", "freshness_malformed")
+}
+func freshnessSignature(e map[string]any, root, owner string) {
+	mapped(func() bool {
+		b := obj(e["body"])
+		sigs := array(e["signatures"])
+		need(len(sigs) == 1, "freshness_signature_invalid")
+		s := obj(sigs[0])
+		need(e["version"] == "swarm-envelope/2" && b["type"] == "freshness/1" && b["registry"] == root && b["owner"] == owner && s["key"] == root && s["role"] == "author", "freshness_signature_invalid")
+		need(e["id"] == must(record.ContentID("freshness/1", b)), "freshness_signature_invalid")
+		sig := must(record.DecodeBase64(str(s["sig"]), 64))
+		need(record.VerifySignature(root, sig, must(record.SigningPreimage("freshness/1", root, "author", b))) == nil, "freshness_signature_invalid")
+		return true
+	}, "*", "freshness_signature_invalid")
+}
+func freshnessAnchor(f facts, root, owner string) map[string]any {
+	need(f["freshness_anchor"] != nil, "freshness_unavailable")
+	return mapped(func() map[string]any {
+		a := exact(f["freshness_anchor"], "registry_id owner publication_seq freshness_id issued_at snapshot registry_seq checkpoint_id", "freshness_state_invalid")
+		need(a["registry_id"] == root && a["owner"] == owner && isInt(a["publication_seq"]) && num(a["publication_seq"]) >= 0 && num(a["publication_seq"]) <= 9007199254740991 && isInt(a["registry_seq"]) && num(a["registry_seq"]) >= 1 && num(a["registry_seq"]) <= 9007199254740991, "freshness_state_invalid")
+		hashID(a["snapshot"])
+		hashID(a["checkpoint_id"])
+		if num(a["publication_seq"]) == 0 {
+			need(a["freshness_id"] == nil && a["issued_at"] == nil, "freshness_state_invalid")
+		} else {
+			hashID(a["freshness_id"])
+			stamp(a["issued_at"])
+		}
+		return a
+	}, "*", "freshness_state_invalid")
+}
+
+// VerifyFreshness checks registry-domain revocation with a complete bounded
+// oldest-first publication proof, exact snapshot/checkpoint binding and fresh
+// authenticated witness facts. Only its tip extends snapshot age; historical
+// proof signatures establish continuity, not historical effect authority.
+// Refusal has a zero plan. Acceptance is only a candidate transaction naming
+// the proof, checkpoint and snapshot; the caller persists state atomically.
+// Existing verification methods retain their snapshot-own-age contract.
+func (v Verifier) VerifyFreshness(chain [][]byte, checkpoint []byte, ids, keys []string) Result {
+	return decide(func() Plan {
+		// F1: absent freshness refuses; all bounded wire parses precede policy.
+		need(len(chain) > 0, "freshness_unavailable")
+		need(len(chain) <= 64, "freshness_malformed")
+		total := len(checkpoint)
+		es := make([]map[string]any, len(chain))
+		for i, raw := range chain {
+			total += len(raw)
+			need(len(raw) <= 8192, "freshness_malformed")
+			es[i] = freshnessWire(raw)
+		}
+		need(total <= 532480, "freshness_malformed")
+		cp := mapped(func() map[string]any { return journalRecord(checkpoint, true) }, "*", "freshness_malformed")
+		f := v.facts()
+		var root, owner string
+		mapped(func() bool {
+			return mapped(func() bool { root, owner = journalPolicy(f); return true }, "journal_invalid", "freshness_invalid")
+		}, "journal_unavailable", "freshness_unavailable")
+		// F3: every publication's root math, then checkpoint root math.
+		for _, e := range es {
+			freshnessSignature(e, root, owner)
+		}
+		checkpointSignature(cp, root, owner)
+		tip := es[len(es)-1]
+		b := obj(tip["body"])
+		cb := obj(cp["body"])
+		issued := stamp(b["issued_at"])
+		// F4: validate the base without age; currency is a later full-profile gate.
+		var maxAge int64
+		snap := mapped(func() map[string]any {
+			return mapped(func() map[string]any { e, age := snapshotBase(f, root); maxAge = age; return e }, "key_binding_invalid", "freshness_snapshot_invalid")
+		}, "key_binding_unavailable", "freshness_unavailable")
+		low, high := times(f)
+		need(stamp(obj(snap["body"])["issued_at"]) <= stamp(cb["at"]) && stamp(cb["at"]) <= low, "freshness_unavailable")
+		// F5: projection verification is external; this is its exact interface.
+		w := mapped(func() map[string]any {
+			return mapped(func() map[string]any { return journalWitness(f, root, owner) }, "journal_witness_invalid", "freshness_witness_invalid")
+		}, "journal_unavailable", "freshness_unavailable")
+		need(f["witness_read_at"] != nil, "freshness_unavailable")
+		read := mapped(func() int64 { return stamp(f["witness_read_at"]) }, "*", "freshness_witness_invalid")
+		// F6: all three exact snapshot/checkpoint references must coincide.
+		need(b["snapshot"] == snap["id"] && b["snapshot"] == cb["snapshot"] && b["registry_seq"] == cb["seq"] && b["checkpoint_id"] == cp["id"], "freshness_binding_mismatch")
+		// F7: unavailable old read, rollback, and same-position equivocation differ.
+		need(num(b["registry_seq"]) <= num(w["registry_seq"]), "freshness_unavailable")
+		need(num(b["registry_seq"]) >= num(w["registry_seq"]), "freshness_rollback")
+		need(cp["id"] == w["checkpoint_id"] && cb["head"] == w["registry_head"], "freshness_fork")
+		// F8: current tip/read currency, then retained complete publication history.
+		need(issued <= low && high-issued <= maxAge && stamp(cb["at"]) <= issued && read >= issued && read <= low && high-read <= maxAge, "freshness_unavailable")
+		a := freshnessAnchor(f, root, owner)
+		seq, prev := num(a["publication_seq"]), a["freshness_id"]
+		at := int64(0)
+		if a["issued_at"] != nil {
+			at = stamp(a["issued_at"])
+		}
+		registrySeq, checkpointID, snapshotID := num(a["registry_seq"]), a["checkpoint_id"], a["snapshot"]
+		for i, e := range es {
+			p := obj(e["body"])
+			n := num(p["publication_seq"])
+			when := stamp(p["issued_at"])
+			need(n >= seq, "freshness_rollback")
+			if n == seq {
+				need(e["id"] == prev, "freshness_fork")
+				need(i == 0 && when == at && num(p["registry_seq"]) == registrySeq && p["checkpoint_id"] == checkpointID && p["snapshot"] == snapshotID, "freshness_state_invalid")
+				continue
+			}
+			need(n == seq+1, "freshness_gap")
+			need(num(p["registry_seq"]) >= registrySeq, "freshness_rollback")
+			sameHead := num(p["registry_seq"]) == registrySeq
+			var expectedPrev any
+			if sameHead {
+				need(p["checkpoint_id"] == checkpointID, "freshness_fork")
+				expectedPrev = prev
+			} else {
+				need(p["checkpoint_id"] != checkpointID, "freshness_binding_mismatch")
+			}
+			need(equal(p["prev"], expectedPrev), "freshness_gap")
+			need(when > at, "freshness_time_invalid")
+			if sameHead {
+				need(p["snapshot"] == snapshotID, "freshness_binding_mismatch")
+			}
+			seq, prev, at = n, e["id"], when
+			registrySeq, checkpointID, snapshotID = num(p["registry_seq"]), p["checkpoint_id"], p["snapshot"]
+		}
+		// F9: query shape, then effective matching after the complete proof.
+		mapped(func() bool {
+			need(len(ids) <= 64 && len(keys) <= 64, "freshness_request_invalid")
+			for _, id := range ids {
+				hashID(id)
+			}
+			for _, id := range keys {
+				key(id)
+			}
+			return true
+		}, "*", "freshness_request_invalid")
+		for _, value := range array(obj(snap["body"])["entries"]) {
+			entry := obj(value)
+			if stamp(entry["from"]) > high {
+				continue
+			}
+			query := ids
+			if entry["kind"] == "key" {
+				query = keys
+			}
+			for _, id := range query {
+				need(entry["id"] != id, "revoked")
+			}
+		}
+		admitted := append(es, cp, snap)
+		return plan(admitted, f)
+	})
+}

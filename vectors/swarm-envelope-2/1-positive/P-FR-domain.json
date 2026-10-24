@@ -1,0 +1,21 @@
+{
+  "id": "P-FR-domain",
+  "claim": "Freshness raw signature-math control is separate from registry authority admission.",
+  "positive_control": "",
+  "mode": "domain",
+  "input": {
+    "key": "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+    "preimage": "c3dhcm1hLXJlZ2lzdHJ5IGZyZXNobmVzcy8xCnsidHlwZSI6ImRvbWFpbi1tYXRoLW9ubHkifQ",
+    "sig": "dEyNWPh6uCYfg-gp9ngfn_i0RT03oj56eE9_pQwMqIIq1wHChDxY-diACjhLYA2dt0zmZygcZ2PeGVmn2rS8Dw"
+  },
+  "fixture": {
+    "expected_tag": "swarma-registry freshness/1"
+  },
+  "expected": {
+    "code": "accept",
+    "plan": {
+      "key": "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+      "tag": "swarma-registry freshness/1"
+    }
+  }
+}

@@ -4,7 +4,7 @@ A secure agent coordination and communication protocol: signed messages between 
 
 ## Status
 
-**Draft design with a pure Go verifier and offline conformance tooling.** The platform slice specifies `swarm-envelope/2`, general `grant/1`, `operator-act/1`, root-signed `attestation/1`, shared `revocation/1`, unsigned identity-journal entries and registry checkpoints. Its 2485 vectors (2371 negative, 114 positive) have a Go generator and independent Python checker. The tree retains 797 named semantic vectors; 1688 mechanical sweep cases are represented by a checked SHA-256 manifest and materialized on demand. The public `record` and `verifier` packages implement the pure v0 verification pipelines; service-key delegation and journal/checkpoint verification are offline format support; no registry service, witness protocol, consumer integration or activation is implemented. Broker v0 retains static R1 admission; Keymaker persistent revoke remains gated on verifier integration. Attested agent messages provide A1 provenance; widening is inactive because v0 has no qualified A3 provider.
+**Draft design with a pure Go verifier and offline conformance tooling.** The platform slice specifies `swarm-envelope/2`, general `grant/1`, `operator-act/1`, root-signed `attestation/1`, shared `revocation/1`, unsigned identity-journal entries, registry checkpoints and registry-signed `freshness/1`. Its 2591 vectors (2467 negative, 124 positive) have a Go generator and independent Python checker. The tree retains 903 named semantic vectors; 1688 mechanical sweep cases are represented by a checked SHA-256 manifest and materialized on demand. The public `record` and `verifier` packages implement the pure v0 verification pipelines; service-key delegation, journal/checkpoint verification and signed freshness are offline format support; no registry service, witness protocol, consumer integration or activation is implemented. Broker v0 retains static R1 admission; Keymaker persistent revoke remains gated on verifier integration. Attested agent messages provide A1 provenance; widening is inactive because v0 has no qualified A3 provider.
 
 ## Layout
 
@@ -42,8 +42,8 @@ Python 3.14.4 and the already present cryptography 46.0.5 for P-256.
 | --- | --- | --- |
 | Go generator | `GOMAXPROCS=2 "$CURATOR_GO" run ./tools/vectors` | Writes named JSON, sweep manifest/digest and public keys under `vectors/` |
 | Go inventory check | `GOMAXPROCS=2 "$CURATOR_GO" run ./tools/vectors -check` | Regenerates all cases; compares named JSON and sweep manifest/digest without writing |
-| Independent Python checker | `python3 -B tools/vectorcheck/check.py` | Checks supplied cases (797 named by default); nonzero failure or PENDING |
-| Library conformance | `CURATOR_GO="$CURATOR_GO" GOMAXPROCS=2 "$CURATOR_GO" test ./verifier -run '^TestConformance$' -count=1 -v` | Generates a temporary full corpus; checks committed manifest hashes and all 2485 exact code/plan results |
+| Independent Python checker | `python3 -B tools/vectorcheck/check.py` | Checks supplied cases (903 named by default); nonzero failure or PENDING |
+| Library conformance | `CURATOR_GO="$CURATOR_GO" GOMAXPROCS=2 "$CURATOR_GO" test ./verifier -run '^TestConformance$' -count=1 -v` | Generates a temporary full corpus; checks committed manifest hashes and all 2591 exact code/plan results |
 | Library tests and API inventories | `CURATOR_GO="$CURATOR_GO" GOMAXPROCS=2 "$CURATOR_GO" test ./... -p 1 -count=1` | Package examples, API name gates, conformance and extra negative controls |
 | Concurrent verifier race check | `GOMAXPROCS=2 "$CURATOR_GO" test -race ./verifier -run '^TestConcurrentVerifier$' -count=1` | Race detection on concurrent immutable-verifier use |
 | Parser fuzz smoke | `GOMAXPROCS=2 "$CURATOR_GO" test ./record -run '^$' -fuzz '^FuzzParse$' -fuzztime=5s -parallel=2` | Bounded no-panic parser fuzzing; Go fuzz cache and failure corpus if any |

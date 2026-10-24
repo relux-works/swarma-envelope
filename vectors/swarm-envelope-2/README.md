@@ -45,9 +45,9 @@ cryptography reports PENDING and exits 2; it never reports full conformance.
 No network is used by the checker. Go module resolution may download the pinned
 public registrar dependency. Neither tool imports the future production verifier.
 
-Only 797 named cases are tracked. All 1688 T/B/Z/U cases remain in the generator
+Only 903 named cases are tracked. All 1688 T/B/Z/U cases remain in the generator
 and committed `sweeps.tsv` / `sweeps.sha256`; `-sweeps` materializes them for the
-complete 2485-case check. See the [manifest format](../../tools/vectors/README.md).
+complete 2591-case check. See the [manifest format](../../tools/vectors/README.md).
 Commands must run sequentially through any host-required resource runner.
 
 Generator `-out DIR` writes named cases and the manifest; adding `-sweeps`
@@ -194,7 +194,35 @@ fixtures prove offline verdicts and candidate plans only; paging direction,
 bootstrap, external continuity and deployment require separate qualification.
 
 `P-JRN-reissue` and `N-JRN-reissue-old-snapshot`/`N-JRN-reissue-no-entry`
-exercise D38 A's20-second unchanged-set reissue: actual new signed snapshot id,
-its add entry and own checkpoint; old snapshot references and same-sequence
-checkpoint replacement refuse. These do not qualify a publication scheduler,
+retain generic format coverage for a20-second reissue with an actual new
+signed snapshot id, add entry and checkpoint. They do not select the rejected
+option A publication policy; old references and checkpoint replacement refuse. These do not qualify a publication scheduler,
 witness intent/commit or publication-history completeness.
+
+The freshness mode independently checks decided D38 B. `N-FR-*` and
+`P-FR-*` cover registry-only signatures, exact snapshot/checkpoint/witness
+bindings, missing/stale/future evidence, publication rollback/fork/gap/time,
+complete history, count bounds, effective revocation and old-snapshot acceptance
+only with current freshness. `N-ORD-FR-*` fixes F1–F9 precedence. Twenty-two new
+directed domain mismatches complete132pairs among12tags; the message signer
+refuses the new exact literal. Historical proof records are continuity evidence,
+not historical admission; live publication completeness still requires issuer
+and consumer integration. Inherited reissue journal fixtures remain generic
+format controls for valid signed references, not the rejected option A policy.
+
+Advancing journal suffixes also require the exact prior checkpoint bytes from
+the protected id journal and the authenticated prior-head entry as the first
+of at most64 entries. N-JRN-prior-* cover missing/unavailable/malformed/signature,
+foreign registry/owner, witness seq/head mismatch and backward checkpoint time;
+P-JRN-prior-time-equal and P-JRN-prior-aged show equal times and old prior
+checkpoint evidence accepting. N-JRN-anchor-required refuses omitted entry
+anchors; N-JRN-anchor-hash rejects changed bytes under a claimed retained id.
+N-FR-fork-binding isolates a changed snapshot/checkpoint at the retained
+publication sequence. N-ORD-FR-witness-currency and binding-currency fix base
+validation before current-age admission; N-JRN-prior-before-anchor and
+anchor-before-entry fix the added J5a/J6 precedence.
+The twelve inherited input repairs are listed in D39; no inherited verdict
+changes after those required input repairs. The unchanged historical twelve
+inputs now refuse journal_unavailable at the prior-evidence gate (including
+four former accepts); D39 records this compatibility change. These fixtures
+qualify offline formats, not live publication policy.

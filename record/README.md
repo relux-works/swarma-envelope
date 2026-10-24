@@ -19,7 +19,7 @@ before registrar parsing. `Canonical` is the generic registrar CCJ-1 encoder,
 not receiver schema admission. `KeyBytes` checks spelling/encoding/length;
 `ValidateKey` additionally checks strict curve points. `VerifySignature` checks
 raw signature math, not a type/role/authority profile. `CheckDomain` covers the
-closed eleven-tag registry, including domains whose schemas are external; it
+closed twelve-tag registry, including domains whose schemas are external; it
 does not implement their admission. Use `verifier` for platform semantics.
 
 Errors have a stable `Error.Code`; error messages contain no received bytes.
@@ -34,3 +34,7 @@ The closed registry also contains `swarma-registry journal-entry/1` and
 entry or confer registry/commit-signer authority. Both tags remain refused by
 `AdmitSigner`. Run the new domain controls with
 `GOMAXPROCS=2 "$CURATOR_GO" test ./record -run '^TestRegistryDomains$' -count=1`.
+
+`freshness/1` registers exactly `swarma-registry freshness/1`; the message
+signer refuses it. Mathematical signature/domain verification supplies no
+registry role, checkpoint binding, snapshot currency or publication continuity.

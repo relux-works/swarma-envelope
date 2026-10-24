@@ -22,7 +22,7 @@ activation decisions. The normative details are in
 | D14 — carrier | Completed bytes carried unchanged; no transport-specific authority. | Transport owner must publish actual Matrix event budget and authenticated bounded pointer form if needed. No pointer wire schema is invented here. |
 | D15 — size and retention | 65,536 bytes/envelope, 8,192/operator record, depth 16, chain 4; message signing preimage <=24,576 bytes and signed-record depth <=12. Consumed ids survive admissible replay/restore horizons. | Consumers must publish/qualify retention horizons and the complete native request budget. Time expiry alone cannot erase recovery evidence. |
 | D16 — key types and roles | Settled: agent keys Ed25519, operator device keys P-256 low-S. Agent author only; delegate has no v0 profile. Optional message approvers use P-256 device keys attested by the pinned operator root, never agent keys. | Review optional message-approver policy; it does not replace an operator act or automatically establish A3. |
-| D17 — exact tag registry | Eleven pairwise distinct published literal tags (including the two D34 registry-format defaults); generic witness placeholder assigns no tag. Exact first-LF comparison, ASCII 0x20–0x7e, length 1–96; prefix uniqueness is not required. | Signing service publishes its witness tag by a later reviewed registry change. No other tag is admitted to the message signer. |
+| D17 — exact tag registry | Twelve pairwise distinct published literal tags (including the D34 registry formats and decided D38 freshness); generic witness placeholder assigns no tag. Exact first-LF comparison, ASCII 0x20–0x7e, length 1–96; prefix uniqueness is not required. | Signing service publishes its witness tag by a later reviewed registry change. No other tag is admitted to the message signer. |
 | D18 — message signer budget | Provider checks length, exact message tag and canonical CCJ-1 remainder (including codec bounds), with the permitted caller-identity narrowing in D22, then signs original bytes. Base64url + <=4096 bytes metadata leaves a total frame <=36,868 bytes with header. | Native owner must publish the actual request grammar and enforce metadata/depth budgets; no field names or Keymaker implementation are invented here. |
 | D19 — superseded by R3 | S0 now defines and verifies root-signed CCJ-1 attestation/1 and shared revocation/1. No caller attestation-valid flag or direct device pin. Missing/null remains unavailable; wrong types remain invalid. Root provenance wins in every grant position. | Issuer publication/custody, protected active-generation evidence, snapshot continuity and consumer integration remain external activation gates. |
 
@@ -69,7 +69,7 @@ These decisions are DECIDED and supersede conflicting earlier defaults.
 | D29 | DECIDED — owner decision, 2026-10-24: revocation completes only after a defined set of durable barriers and acknowledgements, or proven expiry of all previously admitted authority. Before completion only bounded propagation lag is permitted (snapshot bound S+A, or max(S+A,from)); after completion no admission window for the revoked right remains. Critical effects selected by consumer policy require an online authority-owner check immediately before the effect; unavailable refuses. | S0 defines the requirement and abstract OnlineAuthority.Check interface only. Concrete barrier/acknowledgement set, expiry proof, protocol and network mechanism remain activation gates; no completion latency or live guarantee is qualified offline. |
 | D30 | DECIDED: purpose-5 service, registry-owner revocation, operator and grant-owner root roles use pairwise distinct keys. The operator root attesting devices and signing its snapshots is one role. D33/D37 extend the explicit role table with grant-service subjects, offline publisher and repository commit signer; no cross-role overlap is allowed; reject before signed evidence intake at K1/O2 (key_binding_invalid), or G7 (revocation_invalid). | Protected root provisioning and rotation must preserve distinct roles; no existing consumer exception is required by this slice. |
 | D31 | DECIDED — owner decision, 2026-10-24: separately held, pre-attested recovery means can only replace or revoke the operator root. Next form: two of three custodians. | S0 defines no recovery record/tag; v0 refuses root replacement/recovery authority claims. A future reviewed type/tag and policy must support a threshold form; neither the up-to-eight-signature envelope nor root policy may assume a single recovery signer. Custody, attestation and recovery activation remain separate qualification. |
-| D32 | DECIDED — owner decision, 2026-10-24: owner registry and rollback witness share a separately administered trust node outside the agent platform's administrative domain; no platform administrative access or agent root access. Registry exclusively stores, orders and publishes keys, attestations, grants, revocations and identity journals without re-signing content. Its D30 key signs only revocation/1 and future identity-journal checkpoints; original content roots stay distinct. Registrar enrollment/1 retains its offline publisher Ed25519 key; registry stores/serves but does not sign it online without a separate registrar decision. Signed snapshots remain no older than 60 seconds, subject to stricter age/continuity policy. | Until deployment, pinned roots and caller-supplied snapshots remain unchanged; unavailable required evidence refuses. Registry-key compromise alone cannot mint grants or attestations, but may withhold/delay visibility subject to the snapshot bound and continuity rules, with no pre-publication guarantee. Future emergency stop must work without registry availability/fresh snapshots; restart needs separate current authority. The D34/D35 registry-format defaults define the CCJ-1 types/tags, hash chain and registry-signed checkpoint/witness-fact interface; witness wire/server format and deployment remain external. Git is storage/transport, never chain authority. Registry and witness on one node are one failure domain: separate processes, accounts and streams, no registry-writer append access to witness streams, trusted witness checkpoint outside the node, and node loss fails consumers closed. Deployment, continuity, emergency-stop and journal qualification remain external. |
+| D32 | DECIDED — owner decision, 2026-10-24: owner registry and rollback witness share a separately administered trust node outside the agent platform's administrative domain; no platform administrative access or agent root access. Registry exclusively stores, orders and publishes keys, attestations, grants, revocations and identity journals without re-signing content. Its D30 key signs only revocation/1, identity-journal checkpoints and freshness/1; original content roots stay distinct. Registrar enrollment/1 retains its offline publisher Ed25519 key; registry stores/serves but does not sign it online without a separate registrar decision. Admissible currency remains within60seconds, subject to stricter policy: legacy own-snapshot issuance, or full decided D38 B signed freshness plus fresh authenticated head read for an unchanged base. | Until deployment, pinned roots and caller-supplied snapshots remain unchanged; unavailable required evidence refuses. Registry-key compromise alone cannot mint grants or attestations, but may withhold/delay visibility subject to the snapshot bound and continuity rules, with no pre-publication guarantee. Future emergency stop must work without registry availability/fresh snapshots; restart needs separate current authority. The D34/D35 registry-format defaults define the CCJ-1 types/tags, hash chain and registry-signed checkpoint/witness-fact interface; witness wire/server format and deployment remain external. Git is storage/transport, never chain authority. Registry and witness on one node are one failure domain: separate processes, accounts and streams, no registry-writer append access to witness streams, trusted witness checkpoint outside the node, and node loss fails consumers closed. Deployment, continuity, emergency-stop and journal qualification remain external. |
 
 
 ## Registry-format defaults for content review
@@ -86,39 +86,84 @@ expressly described grant-service and checkpoint languages.
 | D36 — snapshot capacity | Choose future paging under one complete signed head; implement only the direction plus fail-closed current count/byte bounds in this slice. Never truncate cumulative history or silently repartition. Existing single-snapshot domains remain unchanged. | Review page/head format, completeness, cumulative retention, issued_at/freshness/rollback bindings before any paging implementation; Merkle proofs and narrower-domain migration deferred. |
 | D37 — commit signer separation | Separate protected commit-signing role, distinct from all protocol roles and enrollment publisher; publisher also distinct from registry. No record admission by commit signatures. Compare present roles before evidence; unused new roles need not be configured for inherited intake. | Approve stricter all-record-role separation, provision distinct keys and qualify repository custody; git layout remains informative. |
 
-### D38 — snapshot reissue and publication volume (UNRESOLVED)
+### D38 — DECIDED B: separate signed freshness
 
-The owner must rule between A and B. Recommendation for this slice: **A**,
-because the existing closed revocation/1 and checkpoint/1 formats suffice;
-changing revocation/1 is forbidden. No live publication implementation or
-freshness-record format is activated by this recommendation.
+Owner decision, 2026-10-24: B is the selected protocol (§2.9), with a separate
+registry-owner-signed freshness/1, not revocation/2 and not an optional
+revocation/1 member. Its closed body is
+`{type,registry,owner,publication_seq,prev,issued_at,snapshot,registry_seq,checkpoint_id}`.
+The exact new tag is `swarma-registry freshness/1`. Unchanged snapshot bytes
+retain their id; only the complete current signed freshness + exact checkpoint
+binding + fresh authenticated witness-head read can extend their age. A changed
+snapshot needs a new journal entry/checkpoint and matching freshness; old
+freshness cannot renew it. Missing/stale evidence refuses; same publication seq
+with different binding/id is fork. Cumulative entries, completeness and
+publication-sequence continuity remain mandatory. See F1–F9 for exact codes.
 
-| Option | Exact proposed contract | Cost and remaining qualification |
-| --- | --- | --- |
-| A — recommended | Every reissue is a newly signed revocation/1 with strictly increasing issued_at and cumulative complete entries. Append exactly one add/revocation/1 journal entry referring to its content id, issue its own checkpoint referring to that entry and the same snapshot id, then qualify witness intent, durable local commit and matching committed resolution before publication. Every entry, not only a content change, has its own checkpoint. Consumers require fresh complete snapshots, freshly verified witness heads, complete published ancestry and the existing rollback/gap/fork refusals. | At a 20-second cadence: at least4320 entries/checkpoints and8640 witness intent/commit positions per day per registry (including unchanged revocation sets); lower-bound floor at 60seconds is1440/day. Existing record formats suffice; batching reads may reduce transport, never omit ancestry. Scheduler, transaction/publication sequence completeness and fresh witness reads need the registry/witness integration delta. |
-| B — separate signed freshness record, not revocation/2 | Keep unchanged revocation/1 bytes and their content id stable. Proposed future freshness envelope body is closed `{type,registry,owner,publication_seq,prev,issued_at,snapshot,registry_seq,checkpoint_id}`: type freshness/1, positive safe publication_seq increasing exactly+1, prev the preceding freshness content id (null only authorized genesis), exact §2.1 issued_at strictly increasing, snapshot the unchanged revocation/1 content id, registry_seq and checkpoint_id the current witnessed checkpoint reference. One registry-author signature under a separately reviewed exact tag. Any changed cumulative revocation set first requires a new revocation/1, journal entry and checkpoint; subsequent unchanged reissues only advance freshness. | Still4320 signed freshness records/day, but removes unchanged reissues from journal/checkpoint/witness intent/commit history. Consumer freshness would require freshness.issued_at within protected max_age<=60s **and a fresh authenticated witness head read**; base snapshot remains strictly verified for signature, scope, completeness and cumulative entries. In this future profile the freshness timestamp, rather than unchanged base snapshot issued_at, supplies the age check. Never relax current revocation/1 admission or add an optional member to its body. |
+| Option | Disposition and cost |
+| --- | --- |
+| B — DECIDED | Separate freshness record per unchanged reissue. At20s:4320 signed freshness positions/day, without unchanged-set journal/checkpoint/witness intent/commit growth. Globally increasing publication_seq, same-head predecessor (null only first after head) and strictly increasing issued_at, exact snapshot/current checkpoint references, protected max_age and fresh authenticated witness read are mandatory. Changed revocation state still advances the identity journal/checkpoint. Publication availability/completeness and effect serialization need live qualification. |
+| A — rejected alternative | Each unchanged reissue would create its own journal entry/checkpoint and witness intent/commit:>=4320 journal/checkpoint positions and8640 witness positions/day at20s (1440/day at60s). Retained only as comparison, not current publication policy. Generic inherited journal fixtures remain valid record-format controls. |
 
-B's consumer must authenticate the exact snapshot and checkpoint references,
-retain monotonic publication_seq/issued_at and registry_seq/checkpoint_id,
-verify every freshness predecessor or refuse a gap, refuse rollback, and
-refuse same publication_seq with different content id or witnessed registry
-seq with different head/checkpoint id. Publishing all qualified freshness
-positions remains mandatory: neither signatures nor a fresh witness read
-alone proves publication-sequence completeness or pre-publication visibility.
-A separately qualified publication-history mechanism must establish that
-completeness; withholding or a missing required read fails closed. Freshness
-records do not mint authority or qualify changed revocation state.
+### D39 — required journal anchor and prior checkpoint (decided by default; review)
 
-B is a **format proposal only**: freshness/1 has no registered tag, API, vectors
-or implementation in this delta. The alternative revocation/2 would version
-all base-snapshot parsers and re-sign the cumulative set on each reissue; the
-separate record is preferred for B to preserve stable base bytes and minimize
-that parser migration. Both require a reviewed new protocol and qualified
-publication integration; neither is a permissible optional revocation/1 member.
+The six-field witness fact has neither prior entry nor prior checkpoint time.
+Earlier optional-anchor suffixes could not order the first new entry against
+its predecessor, and prior checkpoint time was not checked. The default now
+requires the authenticated prior-head entry for EVERY advancing suffix,
+counting it within64 places, plus exact signed prior checkpoint bytes from
+the protected id journal under witness.checkpoint_id. Verify prior id/root/
+scope/owner and seq/head against the witness, without current-age admission;
+then compare candidate.at>=prior.at. These two distinct prior records prove
+the two time relations. No timestamp member is added to the witness fact.
 
-This delta implements A's existing-format verification primitives (unsigned
-entry references, checkpoint/current-snapshot binding, anchored continuity and
-fork/rollback refusals), with vectors. It defers A's live cadence, per-entry
-checkpoint issuance, witness intent/commit and publication completeness to the
-next integration delta; offline acceptance is not proof those transactions
-occurred. The choice remains UNRESOLVED for the owner despite the recommendation.
+| Consumer requiring global entry-time order | Required input/check before acceptance |
+| --- | --- |
+| Registry intake | Supply the exact authenticated prior-head entry and id-journal prior checkpoint; compare first new entry.at to anchor.at and candidate checkpoint.at to prior checkpoint.at. |
+| Witness bridge | Supply both authenticated prior records in its registry proof before intent/resolution; the six-field projection alone is insufficient. |
+| Any consumer comparing journal entry times | Obtain both exact authenticated prior records before advancing; missing evidence refuses, never substitutes an unverified timestamp or extra projection member. |
+
+J5a refuses missing prior bytes as journal_unavailable, invalid/mismatched bytes
+as checkpoint_invalid, and backward checkpoint time as journal_rollback. J6
+adds journal_anchor_required before per-entry validation. Non-advancing exact
+witnessed checkpoint retransmission requires no prior bytes. Checkpoint.at is
+still exact §2.1 time copied verbatim externally. No live witness wire or
+consumer implementation is added. The spec owner reviews this narrowed default.
+
+Twelve inherited fixture inputs change to supply the required evidence; all
+inherited verdicts stay unchanged: N-JRN-entry-id,seq-gap,time-backward,
+time-after-checkpoint,entry-owner,entry-registry,chain-prev,final-head and
+P-JRN-genesis,entries64,suffix,reissue (each suffix is its full prefixed id).
+The suffix/reissue positives now include their required entry anchor; the
+suffix still omits genesis and demonstrates bounded continuation; its accepted
+plan names the resulting new checkpoint id. No other inherited plan changes.
+Replaying the unmodified twelve historical inputs now returns
+journal_unavailable because they omit the newly required prior checkpoint:
+the four old positives previously accepted; the eight old negatives previously
+reached their specific entry/chain refusal. This intended contract narrowing is
+separate from preserving the repaired canonical fixtures' expected codes.
+Adding prior checkpoint bytes alone still leaves the old anchor-less suffix
+and reissue forms refused at journal_anchor_required.
+
+### D40 — freshness verification interface defaults for review
+
+Use one new `VerifyFreshness(chain,checkpoint,ids,keys)` entry point returning
+exact code/zero-refusal plan, rather than weakening legacy `CheckRevocation`
+age checks. New protected Context values are FreshnessAnchor (exact eight-field
+last-accepted publication projection) and WitnessReadAt (fresh authenticated
+read timestamp). Existing JournalWitness stays the exact verified six-field
+head fact. Explicit scoped publication-genesis provisioning may use anchor
+publication_seq0/null id/null time but still pins the positive authenticated
+registry checkpoint and snapshot; absence never initializes state.
+
+Proofs are oldest-first, <=64 signed records plus one checkpoint,8192bytes each,
+depth16,532480bytes total. Every historical proof signature/link/time/reference
+transition is checked; only the tip supplies current freshness. References do
+not re-admit historical checkpoint/snapshot bodies. Caller must establish the
+current head's verified ancestry and cumulative snapshot publication; unavailable
+history refuses, not gap-skipping. Positive retransmission is byte-identical.
+A successful plan names proof ids followed by checkpoint/snapshot and watermark;
+caller atomically commits exact bytes and final anchor before effect admission.
+These bounds, explicit genesis provisioning and exact projected-state/read-time
+interface need content review; live storage/read/consumer integration is not
+implemented or qualified by offline format tests.

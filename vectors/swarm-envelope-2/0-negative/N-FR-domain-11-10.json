@@ -1,0 +1,18 @@
+{
+  "id": "N-FR-domain-11-10",
+  "claim": "Freshness domain does not become any other registered profile.",
+  "positive_control": "P-REG-domain-checkpoint",
+  "mode": "domain",
+  "input": {
+    "key": "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+    "preimage": "c3dhcm1hLXJlZ2lzdHJ5IGZyZXNobmVzcy8xCnsidHlwZSI6ImRvbWFpbi1tYXRoLW9ubHkifQ",
+    "sig": "dEyNWPh6uCYfg-gp9ngfn_i0RT03oj56eE9_pQwMqIIq1wHChDxY-diACjhLYA2dt0zmZygcZ2PeGVmn2rS8Dw"
+  },
+  "fixture": {
+    "expected_tag": "swarma-registry checkpoint/1"
+  },
+  "expected": {
+    "code": "domain_mismatch",
+    "plan": {}
+  }
+}

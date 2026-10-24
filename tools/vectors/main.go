@@ -78,6 +78,8 @@ func domain(t string) string {
 		return "swarma-registry journal-entry/1"
 	case "checkpoint/1":
 		return "swarma-registry checkpoint/1"
+	case "freshness/1":
+		return "swarma-registry freshness/1"
 	default:
 		panic("unregistered type")
 	}
@@ -244,7 +246,14 @@ func add(id, claim, pair, code string, v Vector) {
 		v.Expected["plan"] = M{"tag": v.Fixture["expected_tag"], "key": v.Input["key"]}
 	} else if code == "accept" {
 		ids := []any{}
-		if v.Mode == "journal" {
+		if v.Mode == "freshness" {
+			for _, raw := range v.Input["chain"].([]any) {
+				ids = append(ids, decode(raw.(string))["id"])
+			}
+			ids = append(ids, decode(v.Input["checkpoint"].(string))["id"])
+			root := v.Fixture["agent_revocation_root"].(M)["key"].(string)
+			ids = append(ids, decode(v.Fixture["revocations"].(M)[root].(M)["snapshot"].(string))["id"])
+		} else if v.Mode == "journal" {
 			ids = append(ids, decode(v.Input["checkpoint"].(string))["id"])
 		} else if v.Mode == "grant" {
 			for _, raw := range v.Input["chain"].([]any) {
@@ -633,6 +642,7 @@ func main() {
 	signerBindingVectors()
 	e6OrderVectors()
 	registryVectors()
+	freshnessVectors()
 	seeds, pubs := M{}, M{}
 	for i, k := range keys {
 		name := fmt.Sprintf("test-%d", i)

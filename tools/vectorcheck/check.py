@@ -308,7 +308,8 @@ OWN_TAGS = {"message/1": "swarma-msg/2", "grant/1": "swarma-waggle grant/1",
             "attestation/1": "swarma-attestation attestation/1",
             "revocation/1": "swarma-attestation revocation/1",
             "journal-entry/1": "swarma-registry journal-entry/1",
-            "checkpoint/1": "swarma-registry checkpoint/1"}
+            "checkpoint/1": "swarma-registry checkpoint/1",
+            "freshness/1": "swarma-registry freshness/1"}
 REGISTERED_TAGS = set(OWN_TAGS.values()) | {
     "swarma-registrar registration/1", "swarma-registrar enrollment/1",
     "swarma-credential-broker grant/1", "swarma-credential-broker revocation/1"}
@@ -456,7 +457,7 @@ def root_role_separation(f):
                     and not (type(devices) is dict and f[role] in devices), "key_binding_invalid")
 
 
-def signed_snapshot(f, root, ids, keys):
+def snapshot_header(f, root):
     root_role_separation(f)
     records = evidence_object(f.get("revocations"))
     record = evidence_object(records.get(root), ("availability", "max_age", "rollback_safe", "snapshot"))
@@ -473,8 +474,11 @@ def signed_snapshot(f, root, ids, keys):
     except Refusal:
         raise Refusal("key_binding_invalid") from None
     low, high = time_values(f)
-    require(b["complete"] and record["rollback_safe"] and issued <= low
-            and high-issued <= record["max_age"], "key_binding_unavailable")
+    require(b["complete"] and record["rollback_safe"] and issued <= low, "key_binding_unavailable")
+    return b, issued, high, record["max_age"]
+
+
+def snapshot_entries(b, high, ids, keys):
     effective_entries = []
     for entry in b["entries"]:
         evidence_exact(entry, "kind id from")
@@ -492,7 +496,18 @@ def signed_snapshot(f, root, ids, keys):
     require(not any(when <= high and item in (keys if kind == "key" else ids)
                     for kind, item, when in effective_entries), "revoked")
 
+
+def signed_snapshot(f, root, ids, keys):
+    b, issued, high, max_age = snapshot_header(f, root)
+    require(high-issued <= max_age, "key_binding_unavailable")
+    snapshot_entries(b, high, ids, keys)
     return b
+
+
+def snapshot_base(f, root):
+    b, issued, high, max_age = snapshot_header(f, root)
+    snapshot_entries(b, high, [], [])
+    return b, max_age
 
 
 def verify_attestation(key, f, device=False, check_revocation=True, reference=None):
@@ -943,7 +958,7 @@ def journal_policy(f):
         raise Refusal("journal_unavailable" if str(error) == "key_binding_unavailable" else "journal_invalid") from None
 
 
-def current_checkpoint(e, root, owner, f):
+def checkpoint_signature(e, root, owner):
     b = e["body"]
     try:
         require(len(e["signatures"]) == 1, "checkpoint_invalid")
@@ -955,6 +970,11 @@ def current_checkpoint(e, root, owner, f):
         verify_signature(root, unb64(s["sig"], 64), signing_preimage(b, root, "author", "checkpoint/1"))
     except Refusal:
         raise Refusal("checkpoint_invalid") from None
+
+
+def current_checkpoint(e, root, owner, f):
+    checkpoint_signature(e, root, owner)
+    b = e["body"]
     low, high = time_values(f)
     at = timestamp(b["at"])
     require(at <= low and high-at <= 60, "journal_unavailable")
@@ -987,6 +1007,22 @@ def journal_witness(f, root, owner):
         raise Refusal("journal_witness_invalid") from None
 
 
+def prior_checkpoint(f, w, root, owner):
+    require(f.get("id_journal_available") is True and f.get("seen") is not None, "journal_unavailable")
+    require(type(f["seen"]) is dict, "checkpoint_invalid")
+    value = f["seen"].get(w["checkpoint_id"])
+    require(value is not None, "journal_unavailable")
+    try:
+        prior = journal_wire(unb64(value), True)
+        checkpoint_signature(prior, root, owner)
+        require(prior["id"] == w["checkpoint_id"]
+                and prior["body"]["seq"] == w["registry_seq"]
+                and prior["body"]["head"] == w["registry_head"], "checkpoint_invalid")
+        return prior
+    except Refusal:
+        raise Refusal("checkpoint_invalid") from None
+
+
 def identity_journal(inp, f):
     # J1 parses the entire bounded suffix and both checkpoint structures before
     # J2 policy; J3 authenticates both before J4 witness/J5 fork comparison.
@@ -1011,6 +1047,11 @@ def identity_journal(inp, f):
         require(other["body"]["seq"] != b["seq"] or (other["body"]["head"] == b["head"] and other["id"] == cp["id"]), "journal_fork")
     require(w["registry_seq"] != b["seq"] or (w["registry_head"] == b["head"] and w["checkpoint_id"] == cp["id"]), "journal_fork")
     require(b["seq"] >= w["registry_seq"], "journal_rollback")
+    if b["seq"] > w["registry_seq"]:
+        prior = prior_checkpoint(f, w, root, owner)
+        require(timestamp(b["at"]) >= timestamp(prior["body"]["at"]), "journal_rollback")
+        require(bool(entries) and entries[0]["body"]["seq"] == w["registry_seq"]
+                and entries[0]["id"] == w["registry_head"], "journal_anchor_required")
     seq, head, at = w["registry_seq"], w["registry_head"], 0
     for index, e in enumerate(entries):
         entry = e["body"]
@@ -1028,6 +1069,161 @@ def identity_journal(inp, f):
     return [cp]
 
 
+def freshness_wire(raw):
+    try:
+        require(len(raw) <= 8192, "freshness_malformed")
+        e = parse(raw)
+        require(type(e) is dict and set(e) == {"version", "body", "id", "signatures"}, "freshness_malformed")
+        require(type(e["version"]) is str, "freshness_malformed")
+        hash_id(e["id"])
+        b = e["body"]
+        require(type(b) is dict and set(b) == {"type", "registry", "owner", "publication_seq", "prev", "issued_at", "snapshot", "registry_seq", "checkpoint_id"}, "freshness_malformed")
+        require(type(b["type"]) is str, "freshness_malformed")
+        key_bytes(b["registry"])
+        bounded_text(b["owner"])
+        for field in ("publication_seq", "registry_seq"):
+            require(type(b[field]) is int and 1 <= b[field] <= 9007199254740991, "freshness_malformed")
+        require(b["publication_seq"] != 1 or b["prev"] is None, "freshness_malformed")
+        if b["prev"] is not None:
+            hash_id(b["prev"])
+        timestamp(b["issued_at"])
+        hash_id(b["snapshot"])
+        hash_id(b["checkpoint_id"])
+        require(type(e["signatures"]) is list and 1 <= len(e["signatures"]) <= 8, "freshness_malformed")
+        for sig in e["signatures"]:
+            require(type(sig) is dict and set(sig) == {"role", "key", "sig"}, "freshness_malformed")
+            require(type(sig["role"]) is str, "freshness_malformed")
+            key_bytes(sig["key"])
+            unb64(sig["sig"], 64)
+        return e
+    except Refusal:
+        raise Refusal("freshness_malformed") from None
+
+
+def freshness_signature(e, root, owner):
+    try:
+        b = e["body"]
+        require(len(e["signatures"]) == 1, "freshness_signature_invalid")
+        sig = e["signatures"][0]
+        require(e["version"] == "swarm-envelope/2" and b["type"] == "freshness/1"
+                and b["registry"] == root and b["owner"] == owner
+                and sig["key"] == root and sig["role"] == "author", "freshness_signature_invalid")
+        require(e["id"] == digest((OWN_TAGS["freshness/1"]+"\n").encode("ascii")+ccj(b)), "freshness_signature_invalid")
+        verify_signature(root, unb64(sig["sig"], 64), signing_preimage(b, root, "author", "freshness/1"))
+    except Refusal:
+        raise Refusal("freshness_signature_invalid") from None
+
+
+def publication_anchor(f, root, owner):
+    require(f.get("freshness_anchor") is not None, "freshness_unavailable")
+    try:
+        a = f["freshness_anchor"]
+        require(type(a) is dict and set(a) == {"registry_id", "owner", "publication_seq", "freshness_id", "issued_at", "snapshot", "registry_seq", "checkpoint_id"}, "freshness_state_invalid")
+        require(a["registry_id"] == root and a["owner"] == owner
+                and type(a["publication_seq"]) is int and 0 <= a["publication_seq"] <= 9007199254740991
+                and type(a["registry_seq"]) is int and 1 <= a["registry_seq"] <= 9007199254740991, "freshness_state_invalid")
+        hash_id(a["snapshot"])
+        hash_id(a["checkpoint_id"])
+        if a["publication_seq"] == 0:
+            require(a["freshness_id"] is None and a["issued_at"] is None, "freshness_state_invalid")
+        else:
+            hash_id(a["freshness_id"])
+            timestamp(a["issued_at"])
+        return a
+    except Refusal:
+        raise Refusal("freshness_state_invalid") from None
+
+
+def fresh_revocation(inp, f):
+    # Parse every proof record and current checkpoint before policy or crypto.
+    require(type(inp["chain"]) is list, "freshness_malformed")
+    require(bool(inp["chain"]), "freshness_unavailable")
+    require(len(inp["chain"]) <= 64, "freshness_malformed")
+    try:
+        raws = [unb64(value) for value in inp["chain"]]
+        checkpoint_raw = unb64(inp["checkpoint"])
+        require(sum(map(len, raws))+len(checkpoint_raw) <= 532480, "freshness_malformed")
+        proof = [freshness_wire(raw) for raw in raws]
+        cp = journal_wire(checkpoint_raw, True)
+    except Refusal:
+        raise Refusal("freshness_malformed") from None
+    try:
+        root, owner = journal_policy(f)
+    except Refusal as error:
+        raise Refusal("freshness_unavailable" if str(error) == "journal_unavailable" else "freshness_invalid") from None
+    for publication in proof:
+        freshness_signature(publication, root, owner)
+    checkpoint_signature(cp, root, owner)
+    tip = proof[-1]["body"]
+    issued = timestamp(tip["issued_at"])
+    try:
+        snapshot, max_age = snapshot_base(f, root)
+    except Refusal as error:
+        if str(error) in {"time_unavailable", "watermark_unavailable"}:
+            raise
+        raise Refusal("freshness_unavailable" if str(error) == "key_binding_unavailable" else "freshness_snapshot_invalid") from None
+    low, high = time_values(f)
+    require(timestamp(snapshot["issued_at"]) <= timestamp(cp["body"]["at"]) <= low, "freshness_unavailable")
+    try:
+        witness = journal_witness(f, root, owner)
+    except Refusal as error:
+        raise Refusal("freshness_unavailable" if str(error) == "journal_unavailable" else "freshness_witness_invalid") from None
+    require(f.get("witness_read_at") is not None, "freshness_unavailable")
+    try:
+        read_at = timestamp(f["witness_read_at"])
+    except Refusal:
+        raise Refusal("freshness_witness_invalid") from None
+    snapshot_id = digest((OWN_TAGS["revocation/1"]+"\n").encode("ascii")+ccj(snapshot))
+    require(tip["snapshot"] == snapshot_id == cp["body"]["snapshot"]
+            and tip["registry_seq"] == cp["body"]["seq"]
+            and tip["checkpoint_id"] == cp["id"], "freshness_binding_mismatch")
+    require(tip["registry_seq"] <= witness["registry_seq"], "freshness_unavailable")
+    require(tip["registry_seq"] >= witness["registry_seq"], "freshness_rollback")
+    require(cp["id"] == witness["checkpoint_id"] and cp["body"]["head"] == witness["registry_head"], "freshness_fork")
+    require(issued <= low and high-issued <= max_age and timestamp(cp["body"]["at"]) <= issued
+            and issued <= read_at <= low and high-read_at <= max_age, "freshness_unavailable")
+    anchor = publication_anchor(f, root, owner)
+    seq, previous = anchor["publication_seq"], anchor["freshness_id"]
+    at = timestamp(anchor["issued_at"]) if anchor["issued_at"] is not None else 0
+    registry_seq, checkpoint_id, snapshot_ref = anchor["registry_seq"], anchor["checkpoint_id"], anchor["snapshot"]
+    for index, publication in enumerate(proof):
+        b = publication["body"]
+        n, when = b["publication_seq"], timestamp(b["issued_at"])
+        require(n >= seq, "freshness_rollback")
+        if n == seq:
+            require(publication["id"] == previous, "freshness_fork")
+            require(index == 0 and when == at and b["registry_seq"] == registry_seq
+                    and b["checkpoint_id"] == checkpoint_id and b["snapshot"] == snapshot_ref, "freshness_state_invalid")
+            continue
+        require(n == seq+1, "freshness_gap")
+        require(b["registry_seq"] >= registry_seq, "freshness_rollback")
+        same_head = b["registry_seq"] == registry_seq
+        if same_head:
+            require(b["checkpoint_id"] == checkpoint_id, "freshness_fork")
+            expected_prev = previous
+        else:
+            require(b["checkpoint_id"] != checkpoint_id, "freshness_binding_mismatch")
+            expected_prev = None
+        require(b["prev"] == expected_prev, "freshness_gap")
+        require(when > at, "freshness_time_invalid")
+        if same_head:
+            require(b["snapshot"] == snapshot_ref, "freshness_binding_mismatch")
+        seq, previous, at = n, publication["id"], when
+        registry_seq, checkpoint_id, snapshot_ref = b["registry_seq"], b["checkpoint_id"], b["snapshot"]
+    try:
+        require(type(inp["ids"]) is list and type(inp["keys"]) is list
+                and len(inp["ids"]) <= 64 and len(inp["keys"]) <= 64, "freshness_request_invalid")
+        for content_id in inp["ids"]:
+            hash_id(content_id)
+        for key_id in inp["keys"]:
+            key_bytes(key_id)
+    except Refusal:
+        raise Refusal("freshness_request_invalid") from None
+    require(not any(timestamp(e["from"]) <= high and e["id"] in inp["keys" if e["kind"] == "key" else "ids"]
+                    for e in snapshot["entries"]), "revoked")
+    return proof + [cp, {"id": snapshot_id}]
+
+
 def verdict(vector):
     f, inp, mode = vector["fixture"], vector["input"], vector["mode"]
     try:
@@ -1035,7 +1231,9 @@ def verdict(vector):
             return {"code": "accept", "plan": signer_admission(unb64(inp["preimage"]), f)}
         if mode == "domain":
             return {"code": "accept", "plan": check_domain(inp, f)}
-        if mode == "journal":
+        if mode == "freshness":
+            es = fresh_revocation(inp, f)
+        elif mode == "journal":
             es = identity_journal(inp, f)
         elif mode == "grant":
             es = grants(inp["chain"], f)

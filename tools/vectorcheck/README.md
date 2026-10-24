@@ -11,8 +11,8 @@ and exit status is 2, rather than success. It prints per-row mismatches and exit
 This is a conformance oracle for fixed offline inputs, not an importable public
 verifier API. It does not consult the generator or generated verdict code.
 Use the Go byte inventory check in addition to it to detect case removal and
-format drift. Default input contains 797 named semantic cases only. The complete
-2485-case gate must generate the 1688 T/B/Z/U sweeps first:
+format drift. Default input contains 903 named semantic cases only. The complete
+2591-case gate must generate the 1688 T/B/Z/U sweeps first:
 
 ```sh
 GOMAXPROCS=2 "$CURATOR_GO" run ./tools/vectors -check
@@ -134,3 +134,21 @@ inherited manifest bytes intact. New tag math remains separate from authority;
 the message signer refuses both. No live witness, enrollment or paging protocol
 is implemented. Over-capacity current domains keep the existing fail-closed
 count/byte rules rather than accepting truncated snapshots.
+
+The freshness mode independently checks decided D38 B. `N-FR-*` and
+`P-FR-*` cover registry-only signatures, exact snapshot/checkpoint/witness
+bindings, missing/stale/future evidence, publication rollback/fork/gap/time,
+complete history, count bounds, effective revocation and old-snapshot acceptance
+only with current freshness. `N-ORD-FR-*` fixes F1–F9 precedence. Twenty-two new
+directed domain mismatches complete132pairs among12tags; the message signer
+refuses the new exact literal. Historical proof records are continuity evidence,
+not historical admission; live publication completeness still requires issuer
+and consumer integration. Inherited reissue journal fixtures remain generic
+format controls for valid signed references, not the rejected option A policy.
+
+Advancing journal proofs require the authenticated prior-head entry within the
+64entry bound and exact prior checkpoint bytes in the protected id journal.
+J5a verifies prior checkpoint id/root/scope/owner/seq/head without age and
+compares checkpoint times; J6 requires the anchor before checking entry links.
+Non-advancing exact witnessed checkpoint retransmission needs no prior bytes.
+N-JRN-prior-* and N-JRN-anchor-* pin the refusals with accepted neighbors.

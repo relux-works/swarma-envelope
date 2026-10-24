@@ -105,6 +105,8 @@ func freeze(value any, d int, budget *int) (any, error) {
 // in this package's README; these are in-process snapshot values, not a new wire
 // or native request grammar. No field is inferred from a received signature.
 type Context struct {
+	FreshnessAnchor     Evidence
+	WitnessReadAt       Evidence
 	ServiceAuthority    Evidence
 	ServiceAttestations Evidence
 	RegistryOwner       Evidence
@@ -162,8 +164,8 @@ func New(context Context) Verifier { return Verifier{context: context} }
 func (v Verifier) facts() facts {
 	c := v.context
 	f := facts{}
-	names := []string{"audience", "required_roles", "known_keys", "root", "service_root", "agent_revocation_root", "operator_root", "operator_owner", "attestations", "agent_attestation_ids", "operator_attestations", "active_generations", "revocations", "time", "now", "watermark_available", "watermark", "id_journal_available", "seen", "replay_available", "used_actions", "signer_facts", "assurance", "delivery", "binding", "service_authority", "service_attestations", "registry_owner", "journal_witness", "commit_signing_key", "enrollment_publisher"}
-	values := []Evidence{c.Audience, c.RequiredRoles, c.AdmittedKeys, c.GrantRoot, c.ServiceRoot, c.AgentRevocationRoot, c.OperatorRoot, c.OperatorOwner, c.Attestations, c.AgentAttestationIDs, c.DeviceAttestations, c.CurrentGenerations, c.SignedSnapshots, c.Time, c.Now, c.WatermarkAvailable, c.Watermark, c.IDJournalAvailable, c.IDJournal, c.ReplayAvailable, c.UsedActions, c.SignerFacts, c.Assurance, c.Delivery, c.ActBinding, c.ServiceAuthority, c.ServiceAttestations, c.RegistryOwner, c.JournalWitness, c.CommitSigningKey, c.EnrollmentPublisher}
+	names := []string{"audience", "required_roles", "known_keys", "root", "service_root", "agent_revocation_root", "operator_root", "operator_owner", "attestations", "agent_attestation_ids", "operator_attestations", "active_generations", "revocations", "time", "now", "watermark_available", "watermark", "id_journal_available", "seen", "replay_available", "used_actions", "signer_facts", "assurance", "delivery", "binding", "service_authority", "service_attestations", "registry_owner", "journal_witness", "commit_signing_key", "enrollment_publisher", "freshness_anchor", "witness_read_at"}
+	values := []Evidence{c.Audience, c.RequiredRoles, c.AdmittedKeys, c.GrantRoot, c.ServiceRoot, c.AgentRevocationRoot, c.OperatorRoot, c.OperatorOwner, c.Attestations, c.AgentAttestationIDs, c.DeviceAttestations, c.CurrentGenerations, c.SignedSnapshots, c.Time, c.Now, c.WatermarkAvailable, c.Watermark, c.IDJournalAvailable, c.IDJournal, c.ReplayAvailable, c.UsedActions, c.SignerFacts, c.Assurance, c.Delivery, c.ActBinding, c.ServiceAuthority, c.ServiceAttestations, c.RegistryOwner, c.JournalWitness, c.CommitSigningKey, c.EnrollmentPublisher, c.FreshnessAnchor, c.WitnessReadAt}
 	for i, e := range values {
 		if e.available {
 			f[names[i]] = e.value

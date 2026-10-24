@@ -92,7 +92,7 @@ conformance test generates its corpus with the existing generator in a Go test
 temporary directory. `CURATOR_GO` selects that child toolchain explicitly;
 otherwise it uses the runtime toolchain or Go on PATH. `WAGGLE_VECTORS` may
 select an already materialized corpus. The committed sweep digest, entire
-manifest, all 1688 sweep byte hashes, all 797 named bytes and exact 2485
+manifest, all 1688 sweep byte hashes, all 903 named bytes and exact 2591
 code/plan verdicts are checked. Generated sweeps are never committed. Fixture
 base64 transport and legacy field names are adapted only in the test.
 
@@ -128,7 +128,13 @@ Agent keys remain forbidden as grant issuers. Service keys sign only grants.
 `VerifyJournal(entries, checkpoint, conflict)` checks an oldest-first suffix,
 registry-author checkpoint, exact current registry snapshot and external witness
 facts; conflict is nil or one additional fully authenticated current checkpoint.
-It returns exact J1–J6 codes and an empty plan on every refusal. The accepted
+Every advancing suffix starts with the authenticated prior-head entry, within
+its64entry bound. `IDJournal[witness.checkpoint_id]` must provide the exact
+prior checkpoint bytes; `IDJournalAvailable` must be true. The API authenticates
+prior id/root/scope/owner/seq/head without age and compares checkpoint times
+separately from entry times. Exact non-advancing witnessed retransmission needs
+no prior bytes. It returns exact J1–J6 (including J5a) codes and an empty plan on
+every refusal. The accepted
 plan names only the checkpoint id and watermark. Persist those exact verified
 checkpoint bytes and watermark atomically before using the view; witness updates
 follow the external witness owner's contract. This API authenticates references
@@ -142,4 +148,50 @@ Focused checks, with generated artifacts/logs in ignored `.tmp/`:
 ```sh
 GOMAXPROCS=2 "$CURATOR_GO" test ./verifier -run '^Test(Registry|ServiceAttestationAPI|JournalBounds)' -count=1
 GOMAXPROCS=2 "$CURATOR_GO" test ./record -run '^TestRegistryDomains$' -count=1
+```
+
+## Signed snapshot freshness
+
+`VerifyFreshness(chain, checkpoint, ids, keys)` is the separate D38 B registry
+revocation entry point. The bounded chain is oldest-first raw signed freshness
+bytes; checkpoint is exact raw signed checkpoint bytes. `SignedSnapshots`
+provides the current registry snapshot and maximum age. The full F1–F9 pipeline
+checks every proof signature/link, the current tip, exact three-way snapshot
+binding, checkpoint signature, protected witness currency and query matches.
+Only accept with a candidate plan permits further caller processing; revoked
+and every refusal have zero plans. No method performs an effect or persistence.
+
+Two additional protected Context values are required:
+
+| Evidence | Exact available value |
+| --- | --- |
+| FreshnessAnchor | `{registry_id,owner,publication_seq,freshness_id,issued_at,snapshot,registry_seq,checkpoint_id}` from the caller's last accepted durable publication. All sequences int64; registry_seq positive. Explicit authorized publication genesis uses publication_seq0 and null freshness_id/issued_at, still pins an authenticated positive registry checkpoint and snapshot. Absence never bootstraps. |
+| WitnessReadAt | Exact protected §2.1 time of the fresh authenticated head read; >=current tip.issued_at, <=min(now,W), no older than the configured snapshot max_age<=60s. It is not a self-asserted field copied from received bytes. |
+
+`JournalWitness` retains its exact six-field verified projection. The current
+checkpoint may be old, but must match this freshly authenticated head exactly.
+The snapshot must equal both checkpoint.snapshot and tip.snapshot; its own age
+may exceed max_age only in this full API, whose current signed tip supplies the
+age clock. Signature, completeness, cumulative retention, future-entry rules,
+rollback continuity and strict increasing snapshot issuance are unchanged.
+
+The proof has at most64 records and one checkpoint,8192bytes each,depth16,
+532480bytes total. Old intermediate publications only prove complete global sequence and
+same-head predecessor continuity (prev null on head change); they do not confer historical authority. The tip alone supplies
+current freshness. Gap/rollback/fork refuses without advancing anchor state.
+Returned ids name all supplied proof records, checkpoint and snapshot. Persist
+the exact bytes, final anchor and watermark atomically before use. Refresh the
+witness head at the caller's admission/effect boundary. An over-bound proof refuses. Long-outage history recovery needs separately
+qualified history/anchor integration; never skip a gap or silently reset.
+
+Legacy `CheckRevocation`, message/grant/act and `VerifyJournal` methods keep
+own-snapshot/checkpoint-age rules. This API does not produce a weaker Context
+for them or convert its candidate plan into their effect authority. Consumers
+must explicitly adopt this full registry-revocation contract; existing platform
+consumer integration remains separate. Non-registry revocation domains keep
+their current profiles. Run focused tests with artifacts in ignored `.tmp/`:
+
+```sh
+GOMAXPROCS=2 "$CURATOR_GO" test ./verifier -run '^TestFreshness' -count=1
+GOMAXPROCS=2 "$CURATOR_GO" test ./record -run '^TestFreshnessDomain$' -count=1
 ```

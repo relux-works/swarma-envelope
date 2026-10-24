@@ -96,7 +96,16 @@ func snapshotPolicy(f facts, root any) {
 	need(f["operator_root"] != nil && f["root"] != nil, "key_binding_unavailable")
 	need(false, "key_binding_invalid")
 }
-func snapshot(f facts, root any, ids, keys []string) map[string]any {
+
+type snapshotProof struct {
+	envelope             map[string]any
+	entries              []any
+	issued, high, maxAge int64
+}
+
+// Header admission is shared, but age policy remains in the consuming profile.
+// Legacy intake checks own age BEFORE entry validation, preserving its order.
+func snapshotHeader(f facts, root any) snapshotProof {
 	snapshotPolicy(f, root)
 	records := evidence(f["revocations"], "")
 	need(isString(root), "key_binding_invalid")
@@ -111,13 +120,16 @@ func snapshot(f facts, root any, ids, keys []string) map[string]any {
 	need(isBool(b["complete"]) && ok, "key_binding_invalid")
 	issued := mapped(func() int64 { return stamp(b["issued_at"]) }, "*", "key_binding_invalid")
 	low, high := times(f)
-	need(b["complete"] == true && r["rollback_safe"] == true && issued <= low && high-issued <= num(r["max_age"]), "key_binding_unavailable")
+	need(b["complete"] == true && r["rollback_safe"] == true && issued <= low, "key_binding_unavailable")
+	return snapshotProof{verified, entries, issued, high, num(r["max_age"])}
+}
+func snapshotEntries(p snapshotProof, ids, keys []string) {
 	type entry struct {
 		kind, id string
 		from     int64
 	}
-	valid := make([]entry, 0, len(entries))
-	for _, v := range entries {
+	valid := make([]entry, 0, len(p.entries))
+	for _, v := range p.entries {
 		m := evidenceExact(v, "kind id from")
 		need(m["kind"] == "key" || m["kind"] == "record", "key_binding_invalid")
 		when := mapped(func() int64 {
@@ -132,7 +144,7 @@ func snapshot(f facts, root any, ids, keys []string) map[string]any {
 		valid = append(valid, entry{str(m["kind"]), str(m["id"]), when})
 	}
 	for _, e := range valid {
-		if e.from > high {
+		if e.from > p.high {
 			continue
 		}
 		set := ids
@@ -143,8 +155,22 @@ func snapshot(f facts, root any, ids, keys []string) map[string]any {
 			need(e.id != s, "revoked")
 		}
 	}
-	return verified
 }
+func snapshot(f facts, root any, ids, keys []string) map[string]any {
+	p := snapshotHeader(f, root)
+	need(p.high-p.issued <= p.maxAge, "key_binding_unavailable")
+	snapshotEntries(p, ids, keys)
+	return p.envelope
+}
+
+// Base proof admission deliberately performs no current-age check. Only the
+// full freshness entry point may combine it with the current signed tip.
+func snapshotBase(f facts, root any) (map[string]any, int64) {
+	p := snapshotHeader(f, root)
+	snapshotEntries(p, nil, nil)
+	return p.envelope, p.maxAge
+}
+
 func attestation(keyID, reference string, device, revocations, message bool, f facts) map[string]any {
 	distinct(f)
 	collection := "attestations"

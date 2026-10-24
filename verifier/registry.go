@@ -61,7 +61,7 @@ func journalPolicy(f facts) (root, owner string) {
 	}, "key_binding_unavailable", "journal_unavailable")
 	return
 }
-func checkpointAdmission(e map[string]any, root, owner string, f facts) {
+func checkpointSignature(e map[string]any, root, owner string) {
 	b := obj(e["body"])
 	mapped(func() bool {
 		sigs := array(e["signatures"])
@@ -73,6 +73,10 @@ func checkpointAdmission(e map[string]any, root, owner string, f facts) {
 		need(record.VerifySignature(root, signature, must(record.SigningPreimage("checkpoint/1", root, "author", b))) == nil, "checkpoint_invalid")
 		return true
 	}, "*", "checkpoint_invalid")
+}
+func checkpointAdmission(e map[string]any, root, owner string, f facts) {
+	checkpointSignature(e, root, owner)
+	b := obj(e["body"])
 	low, high := times(f)
 	at := stamp(b["at"])
 	need(at <= low && high-at <= 60, "journal_unavailable")
@@ -96,6 +100,23 @@ func journalWitness(f facts, root, owner string) map[string]any {
 		}
 		return w
 	}, "*", "journal_witness_invalid")
+}
+
+// Advancing calls retain the exact witnessed checkpoint in the protected id
+// journal. Its authenticated time is distinct from the anchor entry's time.
+func journalPriorCheckpoint(f facts, w map[string]any, root, owner string) map[string]any {
+	need(f["id_journal_available"] == true && f["seen"] != nil, "journal_unavailable")
+	seen, ok := f["seen"].(map[string]any)
+	need(ok, "checkpoint_invalid")
+	value := seen[str(w["checkpoint_id"])]
+	need(value != nil, "journal_unavailable")
+	raw, ok := value.([]byte)
+	need(ok, "checkpoint_invalid")
+	prior := mapped(func() map[string]any { return journalRecord(raw, true) }, "*", "checkpoint_invalid")
+	checkpointSignature(prior, root, owner)
+	b := obj(prior["body"])
+	need(prior["id"] == w["checkpoint_id"] && equal(b["seq"], w["registry_seq"]) && b["head"] == w["registry_head"], "checkpoint_invalid")
+	return prior
 }
 
 // VerifyJournal verifies a bounded oldest-first suffix and current checkpoint
@@ -135,12 +156,18 @@ func (v Verifier) VerifyJournal(entries [][]byte, checkpoint, conflict []byte) R
 		}
 		need(!equal(b["seq"], w["registry_seq"]) || (equal(b["head"], w["registry_head"]) && cp["id"] == w["checkpoint_id"]), "journal_fork")
 		need(num(b["seq"]) >= num(w["registry_seq"]), "journal_rollback")
+		advancing := num(b["seq"]) > num(w["registry_seq"])
+		if advancing {
+			prior := journalPriorCheckpoint(f, w, root, owner)
+			need(stamp(b["at"]) >= stamp(obj(prior["body"])["at"]), "journal_rollback")
+			need(len(es) > 0 && num(obj(es[0]["body"])["seq"]) == num(w["registry_seq"]) && es[0]["id"] == w["registry_head"], "journal_anchor_required")
+		}
 		seq, head, at := num(w["registry_seq"]), w["registry_head"], int64(0)
 		for i, e := range es {
 			entry := obj(e["body"])
 			need(e["version"] == "swarm-envelope/2" && entry["type"] == "journal-entry/1" && entry["registry"] == root && entry["owner"] == owner && e["id"] == must(record.ContentID("journal-entry/1", entry)), "journal_entry_invalid")
 			when := stamp(entry["at"])
-			// An optional authenticated anchor entry supplies its timestamp without
+			// The required advancing anchor entry supplies its timestamp without
 			// requiring a timestamp member in the caller's witness projection.
 			if i == 0 && num(entry["seq"]) == seq {
 				need(equal(e["id"], head) && when <= stamp(b["at"]), "journal_chain_broken")

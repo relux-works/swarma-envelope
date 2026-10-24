@@ -29,8 +29,10 @@ administrative domain. The platform has no administrative access there;
 agents have no root access. The registry is the only authoritative writer of
 keys, attestations, grants, revocations and identity journals: it stores, orders
 and publishes records, preserving their original signers as specified in §2.6.
-Consumers receive signed snapshots no older than 60 seconds, with the existing
-stricter protected age and continuity requirements. Until this node exists,
+Consumers require currency within 60 seconds, with stricter protected age
+and continuity policy: snapshot-own issuance under §2.6, or the complete
+§2.9 signed freshness and fresh authenticated witness read for an unchanged
+base. No old base alone supplies currency. Until this node exists,
 the current mode remains pinned roots and caller-supplied snapshots. This
 slice specifies that deployment boundary; it deploys no registry or witness.
 
@@ -211,9 +213,10 @@ closed table; caller configuration cannot register an alias.
 | `swarma-credential-broker revocation/1` | Broker's revocation; broker §6.4 | Refused |
 | `swarma-registry journal-entry/1` | Unsigned identity-journal content id; §2.7 | Refused |
 | `swarma-registry checkpoint/1` | Registry-signed checkpoint; §2.7 | Refused |
+| `swarma-registry freshness/1` | Registry-owner signed snapshot freshness (§2.9) | Refused |
 | Unpublished signing-service witness domain (no literal assigned here) | Signing service owns publication; placeholder is NOT a registered tag | Refused until separately published; never implicitly admitted |
 
-All eleven published literals above MUST be pairwise distinct. Prefix uniqueness
+All twelve published literals above MUST be pairwise distinct. Prefix uniqueness
 is not required: even if one tag is a prefix of another, at the shorter tag's
 end one preimage has LF while the other has a non-LF tag byte. Exact tag plus
 LF already separates them. In particular `swarma-msg/20` is not accepted merely
@@ -393,7 +396,7 @@ that the protected configuration makes present.
 | D30 role | Protected source | Admitted record language |
 | --- | --- | --- |
 | Purpose-5 signing-service root | service root key/purpose5 | Agent attestation/1 only |
-| Registry-owner root | registry-revocation root/purpose/scope | Scoped revocation/1 and §2.7 checkpoint/1 only |
+| Registry-owner root | registry-revocation root/purpose/scope | Scoped revocation/1, §2.7 checkpoint/1 and §2.9 freshness/1 only |
 | Operator root | operator pin | Operator-device attestations and its own snapshots |
 | Grant-owner root | grant pin; explicit grant-service purpose/owner for attestations | Grant/1, own revocation/1, explicitly configured service attestations |
 | Grant-service subject | Exact service-attestation collection and §2.6 profile | Parent-authorized grant/1 only |
@@ -408,7 +411,8 @@ original grant-authority signatures. Registrar `enrollment/1` records retain the
 publisher Ed25519 key; the registry service stores and serves them but MUST NOT
 sign them online. Online enrollment signing would require a separate registrar
 decision; this reference adds no S0 record profile or tag. The registry key
-signs only `revocation/1` snapshots and §2.7 identity-journal checkpoints. Operator-device
+signs only `revocation/1` snapshots, §2.7 identity-journal checkpoints and
+§2.9 freshness/1. Operator-device
 snapshots retain their existing operator-root signature rule; the registry
 may store and publish them without substituting its signature. D30's distinct
 keys remain mandatory even when roles are hosted on the same node. Neither
@@ -691,22 +695,36 @@ The external witness must preserve checkpoint.at verbatim: both journal and
 checkpoint `at` use exactly §2.1's timestamp form, with no translation or
 fractional precision. No timestamp is added to this six-field interface.
 
-The suffix begins at registry_seq+1 and registry_head. It may optionally
-include the authenticated anchor entry first (seq=registry_seq, id=registry_head)
-to check its timestamp against the following entries; recompute its id and
-scope before accepting it. Require every subsequent seq exactly previous+1,
-`prev` equal to the previous id, and `at` non-decreasing within the supplied
-chain, never after checkpoint.at. Without the anchor entry, its timestamp is
-not supplied or reverified by this interface. The caller's verified ancestry
-remains required; this method does not invent a missing timestamp fact.
-Recompute every id and bind registry/owner. Final seq/id MUST equal
-checkpoint.seq/head. Zero entries is permitted only for exact witnessed
-seq/head/checkpoint-id retransmission. Candidate checkpoint and current snapshot are no
-older than protected max_age<=60 seconds, neither issued in the future under
-min(now,W), and snapshot.issued_at<=checkpoint.at. The existing complete,
-cumulative, unique issued_at, freshness and rollback-continuity snapshot rules
-apply unchanged. A stale/missing/discontinuous snapshot or required witness
-refuses; there is no default empty revocation set.
+Every suffix advancing beyond registry_seq MUST start with the authenticated
+prior-head entry (seq=registry_seq, id=registry_head). It occupies one of the64
+entry places. Recompute its id and verify scope before using its timestamp.
+Every subsequent seq is exactly previous+1, `prev` equals the previous id,
+and `at` is non-decreasing from the anchor onward, never after checkpoint.at.
+The anchor proves prior ENTRY time, not prior CHECKPOINT time.
+
+For advancing calls, the protected id journal MUST also resolve exact prior
+checkpoint bytes under witness.checkpoint_id. Authenticate their bounded
+schema, id, registry root signature, scope and owner, then require their seq
+and head equal the verified witness's registry_seq/registry_head. No current-age
+rule applies to this prior evidence. Require candidate.at>=prior.at separately;
+a missing/unavailable prior checkpoint refuses `journal_unavailable`, invalid
+or mismatched bytes refuse `checkpoint_invalid`, backward checkpoint time
+refuses `journal_rollback`. This is J5a after fork/sequence rollback and before
+entry-anchor admission. Missing/wrong-position anchor refuses
+`journal_anchor_required` at J6 before per-entry validation. No timestamp is
+added to JournalWitness. Registry intake, witness bridges and other consumers
+comparing entry times must supply both authenticated prior records; the
+six-field projection alone supplies neither timestamp.
+
+Recompute every entry id and bind registry/owner. Final seq/id MUST equal
+checkpoint.seq/head. Non-advancing exact witnessed seq/head/checkpoint-id
+retransmission needs no prior checkpoint bytes and may supply zero entries.
+Candidate checkpoint and current snapshot are no older than protected
+max_age<=60 seconds, neither issued in the future under min(now,W), and
+snapshot.issued_at<=checkpoint.at. The existing complete, cumulative, unique
+issued_at, freshness and rollback-continuity snapshot rules apply unchanged.
+A stale/missing/discontinuous snapshot or required witness refuses; there is
+no default empty revocation set.
 
 Two fully admitted current checkpoints for the same registry/owner and seq
 but different heads OR checkpoint content ids are fork evidence: return
@@ -724,14 +742,13 @@ persists those exact verified checkpoint bytes and monotonic watermark before
 using its journal view, and separately applies the witness owner's update
 contract. Journal acceptance replaces neither id-binding nor replay journals.
 
-Snapshot reissue/publication is the unresolved D38 fork, not an optional
-extension of revocation/1. The recommended A format associates each reissued
-snapshot with an add/revocation/1 entry and its own checkpoint, bound to that
-snapshot id; the publication integrator must qualify one checkpoint per entry,
-witness intent/commit and complete history. This library checks supplied
-references/ancestry, not that publication transaction or a 20-second scheduler.
-Alternative B needs a separately versioned freshness format; it is specified
-for owner review in D38 and is not registered or implemented here.
+Snapshot reissue uses decided D38 option B (§2.9): unchanged revocation/1
+bytes stay outside the journal while a separate signed freshness record binds
+them to the current checkpoint. A changed cumulative snapshot still requires
+its new journal entry/checkpoint. The former option A (each unchanged reissue
+gets its own journal entry/checkpoint and witness intent/commit) is rejected.
+Inherited journal vectors remain generic format witnesses, not a publication
+policy recommendation. Live publication transactions remain unqualified.
 
 ### 2.8 Snapshot capacity decision
 
@@ -760,6 +777,108 @@ tag or partial-page acceptance is implemented. A later reviewed profile must
 bind the full page set, monotonic issued_at, cumulative/future-effective
 entries, current max-age and rollback witness to ONE atomic complete head;
 missing/mixed pages fail closed. Existing domains that fit are byte-unchanged.
+
+### 2.9 Signed snapshot freshness (D38 B)
+
+Owner decision, 2026-10-24: unchanged revocation/1 bytes remain outside the
+journal. A separate registry-owner-signed freshness/1 names that unchanged
+snapshot and the current witnessed checkpoint. Only this D30 role may sign it;
+service, grant-owner, operator, purpose-5, offline publisher and commit keys
+cannot supply freshness. A changed cumulative snapshot still needs a new
+journal entry/checkpoint before a freshness record may extend it. No optional
+member is added to the closed revocation/1 body.
+
+The four-member envelope uses `swarm-envelope/2`, exact tag
+`swarma-registry freshness/1`, normal content-id/signing construction and exactly
+one registry `author` signature. Its closed body is:
+
+| Member | Rule |
+| --- | --- |
+| `type` | Exactly `freshness/1` |
+| `registry`, `owner` | Exact protected registry-owner root key id and §2.6 owner |
+| `publication_seq` | Positive safe integer, exactly previous+1 |
+| `prev` | Mandatory predecessor: previous freshness id for the SAME checkpoint head; null only for the first publication after that head (and publication_seq=1). Global publication_seq and issued_at still strictly increase across head changes |
+| `issued_at` | Exact §2.1 timestamp, strictly increasing across publications |
+| `snapshot` | Exact unchanged signed revocation/1 content id, equal to checkpoint.snapshot |
+| `registry_seq`, `checkpoint_id` | Positive safe registry seq and content id of the exact current checkpoint |
+
+A revocation consumer supplies a bounded oldest-first publication proof, current
+signed checkpoint and signed snapshot, the already verified six-field witness
+projection (§2.7), protected authenticated head-read time and retained publication
+anchor. Verify every publication's exact root, signature, id and body, every
+global sequence position and same-head predecessor link, strict issued_at
+increase and monotonic registry reference. After a head advance prev MUST be
+null; the global sequence still increments exactly+1, so a head change cannot
+hide a missing publication. Within the same head, a missing predecessor is a gap.
+At equal registry seq a different checkpoint id is a fork; at equal checkpoint
+reference a different snapshot is invalid binding. A changed registry seq
+requires a different checkpoint id. Same publication seq with a different
+content id/binding is a fork, lower seq is rollback, missing intervening
+positions or a wrong predecessor is a gap. Exact identical retransmission is
+permitted, never an absence default. Full first-failure order is F1–F9 (§6).
+
+Current tip.snapshot MUST equal the verified snapshot id AND checkpoint.snapshot;
+its registry_seq/checkpoint_id MUST equal checkpoint.seq/id. Checkpoint root
+signature and snapshot signature/schema/completeness are still mandatory.
+Snapshot.issued_at<=checkpoint.at<=tip.issued_at. The current checkpoint may be
+older than max_age only in this full freshness pipeline, provided a fresh
+authenticated witness head read exactly matches its seq/head/id. A witness
+behind the named checkpoint is unavailable; a candidate behind the current
+witness is rollback; equal seq with another head/id is fork. No witness format
+is parsed here and no freshness statement alone proves the current head.
+
+§2.6's age rule is restated **only for this complete profile** as
+`tip.issued_at <= min(now,W)` and `max(now,W)-tip.issued_at <= max_age`, with the
+same protected positive integer max_age<=60s. The snapshot's own issued_at may
+then be older than max_age; it MUST still be no later than the admitted
+checkpoint and tip. A protected authenticated head-read timestamp MUST be
+>=tip.issued_at and <=min(now,W), and its age at max(now,W) MUST be <=max_age. This protected timestamp MUST
+belong to that exact authenticated registry/head/checkpoint projection read,
+not an unrelated clock sample or a self-declared received value.
+Missing, stale or future freshness/read evidence refuses unavailable. Provider
+trust/freshness, durable watermark, complete cumulative snapshots, structural
+validation before matching, future-effective entries, increasing unique
+snapshot issuance and rollback-safe continuity all remain mandatory. A fresh
+signature cannot clear cumulative entries or renew a changed snapshot that
+fails the head binding. The §2.6 S+A bound concerns publication of changed
+revocation state, not the age of an unchanged base renewed by this profile;
+withholding before publication remains unbounded and D29 completion still
+requires its durable barriers/acknowledgements or proven expiry.
+
+The retained protected anchor is exactly
+`{registry_id,owner,publication_seq,freshness_id,issued_at,snapshot,registry_seq,checkpoint_id}`.
+It derives from the last accepted durable publication and its exact scoped
+references. Missing anchor refuses; malformed anchor refuses invalid. Explicit
+externally authorized publication-genesis provisioning alone may use
+publication_seq0, freshness_id null and issued_at null, while still pinning an
+authenticated positive registry_seq/checkpoint_id and snapshot. This is not a
+seq0 witness projection or automatic cold-store bootstrap. Other anchor seqs
+are positive safe integers with content ids and exact timestamp. The caller
+qualifies anchor authenticity/continuity outside the registry failure domain.
+
+At most64 publication records plus one checkpoint, each <=8192 received bytes,
+depth16, <=532480 received bytes total, and at most64 queried ids/keys each.
+Verify the entire bounded proof before any revocation match. Intermediate
+records may be old: they prove complete signed hash-linked publication positions,
+not historical authority; only the current tip supplies age. Historical
+checkpoint/snapshot bodies are not re-admitted by proof references alone.
+Current head ancestry/validity must already be established by the external
+witness verifier, and changed snapshots must obey cumulative publication rules.
+Missing history, unavailable continuity or an over-bound proof refuses; no
+truncation, gap-skipping, automatic new anchor or fail-open resynchronization.
+
+Successful `VerifyFreshness` returns a candidate plan naming every supplied
+publication, then checkpoint and snapshot ids, with the monotonic watermark.
+Caller atomically persists exact bytes, final anchor and watermark before using
+not-revoked evidence and serializes authority currency with its effect gate.
+A revocation match returns revoked with zero plan. No entry point commits or
+performs effects. Consumers explicitly adopting B use this full subpipeline;
+legacy snapshot APIs keep their own-issued_at age rule and cannot consume a
+partial success or fabricated refreshed snapshot. Registry publication must
+make all qualified publication positions available; signed hash continuity
+proves completeness only from the supplied retained anchor through the tip,
+not non-withholding before publication or a malicious issuer's unpublished tail.
+Live publication/effect integration and witness authentication remain separate.
 
 ## 3. General grant/1
 
@@ -1203,11 +1322,31 @@ Journal intake has its own ordered table:
 | J3 | Candidate then optional checkpoint: exact pin/id/author signature; complete typed body, time; full current snapshot admission, exact snapshot id and stricter snapshot/checkpoint time relation | `checkpoint_invalid` / `time_unavailable` / `watermark_unavailable` / `journal_unavailable` / `checkpoint_snapshot_invalid` |
 | J4 | Protected witness availability, exact six-field typed/scope-bound projection | `journal_unavailable` / `journal_witness_invalid` |
 | J5 | Same-seq different-head/checkpoint-id fork, then candidate seq rollback | `journal_fork` / `journal_rollback` |
-| J6 | Each entry id/scope, seq/prev/non-decreasing time, then final checkpoint head/seq | `journal_entry_invalid` / `journal_chain_broken` |
+| J5a | Advancing only: protected id-journal prior checkpoint available; authenticate exact id/root/scope/owner/seq/head without age; candidate.at>=prior.at | `journal_unavailable` / `checkpoint_invalid` / `journal_rollback` |
+| J6 | Advancing only: first entry is witnessed seq/id anchor; then every entry id/scope, seq/prev/non-decreasing time, final checkpoint head/seq | `journal_anchor_required` / `journal_entry_invalid` / `journal_chain_broken` |
+
+Freshness revocation intake (§2.9) is a separate ordered pipeline:
+
+| Step | Check | Refusal |
+| --- | --- | --- |
+| F1 | Absent chain, then count/bytes/depth and complete closed wire parsing (publications oldest first, then checkpoint) | `freshness_unavailable`; `freshness_malformed` |
+| F2 | Protected registry owner, root purpose/scope and D30 role separation | `freshness_unavailable` / `freshness_invalid` |
+| F3 | Each publication's exact pin/version/type/id/one-author signature and crypto; then checkpoint signature admission | `freshness_signature_invalid`; existing `checkpoint_invalid` |
+| F4 | Signed complete cumulative snapshot and protected age policy without base-age admission; all entry structures before matching; snapshot.issued_at<=checkpoint.at<=min(now,W) | `time_unavailable` / `watermark_unavailable` / `freshness_unavailable` / `freshness_snapshot_invalid` |
+| F5 | Exact authenticated witness projection, then protected read timestamp presence and syntax; currency follows at F8 | `freshness_unavailable` / `freshness_witness_invalid` |
+| F6 | Exact tip.snapshot=verified snapshot id=checkpoint.snapshot; tip.registry_seq/checkpoint_id equal checkpoint seq/id | `freshness_binding_mismatch` |
+| F7 | Tip registry seq above witness (older evidence), below witness (rollback), then equal seq different checkpoint id/head | `freshness_unavailable` / `freshness_rollback` / `freshness_fork` |
+| F8 | Current tip/read currency (including checkpoint.at<=tip.issued_at), then retained publication anchor available/typed/scoped; each publication: lower seq, same-seq different id, exact retransmission fields, global gap, registry rollback/equal-seq checkpoint fork, checkpoint transition, same-head prev or null-on-advance, strictly increasing issued_at, snapshot binding | `freshness_unavailable` / `freshness_state_invalid`; `freshness_rollback` / `freshness_fork` / `freshness_state_invalid` / `freshness_gap` / `freshness_rollback` / `freshness_fork` / `freshness_binding_mismatch` / `freshness_gap` / `freshness_time_invalid` / `freshness_binding_mismatch` |
+| F9 | Bounded valid content-id/key queries, then effective snapshot matches after ALL proof checks | `freshness_request_invalid`; existing `revoked` |
+
+All F refusals have a zero plan, including revoked. F rows do not alter legacy
+E/G/O/J ordering or own-snapshot freshness. Named N-ORD-FR compounds extend the
+U precedence coverage without changing inherited mechanical sweep bytes.
 
 Journal J rows are a separate entry point; they do not precede E/G/O rows on
 message/grant/act intake. Within J3 authenticate candidate before optional
-fork evidence, each fully before witness comparison; J6 entries are oldest
+fork evidence, each fully before witness comparison; J5a authenticates prior
+checkpoint evidence before comparing checkpoint times; J6 entries are oldest
 first. All refusals have an empty plan. K1's new service profile follows the
 same evidence-signature-before-typed-body order as existing attestations.
 
@@ -1345,3 +1484,10 @@ signatures do not make untrusted prose instructions, guarantee handler safety,
 or authorize effects not named in a registered action. Offline vectors qualify
 neither durable storage/concurrency nor a presence provider, clock collector,
 phone application, Matrix carrier, consumer deployment or live migration.
+
+Historical publication-proof re-verification is outside v0. A stored proof
+records "verified at acceptance time"; it is not a permanent current-authority
+permit or a historical-verifier API. Any new admission requires a current tip,
+fresh authenticated head read, current policy and retained-state continuity.
+Old signed intermediates may establish hash-linked completeness for that new
+admission; they are not re-admitted as historical effects or authority.

@@ -16,6 +16,7 @@ field Context.CurrentGenerations
 field Context.Delivery
 field Context.DeviceAttestations
 field Context.EnrollmentPublisher
+field Context.FreshnessAnchor
 field Context.GrantRoot
 field Context.IDJournal
 field Context.IDJournalAvailable
@@ -35,6 +36,7 @@ field Context.Time
 field Context.UsedActions
 field Context.Watermark
 field Context.WatermarkAvailable
+field Context.WitnessReadAt
 field Plan.ActionID
 field Plan.IDs
 field Plan.Watermark
@@ -48,6 +50,7 @@ method Verifier.Authorize
 method Verifier.CheckRevocation
 method Verifier.VerifyAttestation
 method Verifier.VerifyEnvelope
+method Verifier.VerifyFreshness
 method Verifier.VerifyJournal
 method Verifier.VerifyMessage
 method Verifier.VerifyOperator
