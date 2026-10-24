@@ -17,9 +17,9 @@ GOMAXPROCS=2 "$CURATOR_GO" vet ./tools/vectors
 
 Run commands sequentially through the host's required resource runner where
 applicable. Logs and generated copies belong in ignored `.tmp/`. The default
-write command (`go run ./tools/vectors`) writes 597 named cases, the public keys
+write command (`go run ./tools/vectors`) writes 665 named cases, the public keys
 and sweep manifest/digest under `vectors/`; it does not materialize T/B/Z/U JSON.
-`-sweeps` adds those 1688 cases (2285 total: 2183 negative, 102 positive).
+`-sweeps` adds those 1688 cases (2353 total: 2251 negative, 102 positive).
 The inventory check also rejects unexpected JSON under both managed trees,
 including accidentally materialized sweeps when `-sweeps` is absent. Generation
 does not remove obsolete files; remove only reviewed stale paths explicitly.
@@ -182,3 +182,16 @@ at G7, whose invalid-policy code is revocation_invalid. M01–M06 retain their
 missing-provenance refusal with an unused distinct fallback root. No inherited
 verdict changes. Final message reference equality follows ALL approver evidence
 and precedes E8; grant subject derivation retains its earlier position.
+
+## Protected context availability
+
+`context.go` adds Y-context-* missing/null/malformed neighbors for every
+previously unhandled protected-context access: grant root, role policy, known
+keys, id journal availability/state, grant request, replay availability/state,
+signer-fact containers and widening presence, and configured domain probes.
+Existing named controls are reused. Q06 has valid presence evidence but reaches
+the closed O5 gate; PO1 remains its accepted narrowing neighbor. Eight order
+compounds keep the context checks at their required rows. Mutations occur after
+signed evidence construction, so construction cannot refill an absent input.
+Availability-only interfaces refuse unusable state with their existing
+unavailable code; missing/null is never a permissive empty set or default pin.

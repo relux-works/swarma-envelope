@@ -370,6 +370,18 @@ have integer key purpose 5. The caller MUST NOT promote a subject to a root.
 Issuers MUST validate the same body/profile/time bounds before signing that
 verifiers enforce; offline fixtures do not qualify the live issuer.
 
+Owner decision, 2026-10-24: operator-root recovery requires a separately held,
+pre-attested recovery means whose ONLY power is replacing or revoking the
+operator root. The next form is a threshold of two of three custodians. S0
+specifies no recovery record and registers no recovery tag; v0 verifiers MUST
+refuse root replacement or recovery claims as authority. Existing agent/device
+attestations do not confer that power. A future recovery record MUST have its
+own reviewed type/tag and qualified recovery policy. Neither the generic
+envelope/signature list nor the root-policy model may assume a single recovery
+signer: the existing limit of eight signatures with unique `(role,key)` pairs
+leaves room for the threshold form. Single-signature restrictions on existing
+attestation, grant and act profiles do not constrain that future type.
+
 An attestation body has exactly these required members:
 
 | Member | Constraint |
@@ -839,6 +851,14 @@ A3 additionally requires a qualified exact-content, presence-enforcing provider
 and the operator act path. No provider is qualified in v0; §4's widening gate
 is closed. Narrowing persistent revoke remains supported without claiming A3.
 Software signatures or a claimed confirmation/presence flag do not prove A3.
+Owner decision, 2026-10-24: A3 qualification requires a qualified signer app
+and platform provider with a written threat model, plus hardware/provider
+attestation where the platform provides it. The first profile to qualify is
+one phone secure-enclave P-256 key using iOS Secure Enclave. This is the selected
+qualification target, not a qualified provider. Until that review is satisfied,
+widening remains closed under §4; no supplied boolean or software signature
+activates it. S0 defines no enrollment or platform-attestation mechanism.
+
 This document provides no confidentiality or device/app enrollment protocol.
 
 A Matrix adapter MUST carry the completed envelope under the exact event-content
@@ -887,6 +907,8 @@ SignedSnapshots.Lookup(issuer) -> exact signed revocation/1 + continuity + max_a
 EstablishedAssurance.Lookup(exact_request) -> level + presence | unavailable
 DeliveryContext.Lookup -> actual room + full recipient + exact text bytes | unavailable
 Commit(plan) -> atomic reserve + durable watermark + id binding | conflict | unavailable
+OnlineAuthority.Check(exact_request) -> current | revoked | unavailable
+  (application adapter contacts the authority owner immediately before a critical effect)
 ```
 
 All errors and absent required evidence MUST become explicit decisions; absence
@@ -894,6 +916,15 @@ is not false or an empty set. These are interface requirements, not storage or
 network implementations. An accept from the pure core MUST NOT be exposed as
 an effect permit until Commit succeeds and current time/revocation/binding
 checks are repeated at the consumer's serialized effect boundary.
+
+Owner decision, 2026-10-24: for effects selected as critical by protected
+consumer policy, the application adapter MUST perform `OnlineAuthority.Check`
+with the authority owner for the exact request immediately before the effect,
+at its serialized effect boundary. Only `current` may proceed; `revoked` or
+`unavailable` MUST refuse. Consumer policy selects critical effects; the sender
+cannot select the class. This is an abstract interface and consumer obligation,
+not network I/O inside the pure verifier or an implemented protocol. §7 lists
+its activation gates; offline candidate plans cannot qualify this boundary.
 
 The first failing row wins. Within a row evaluate envelopes leaf first and
 fields in the order stated. Envelope structure precedes semantic crypto; nested
@@ -905,7 +936,7 @@ entries are checked in array order. Codes are distinct per listed substep:
 | E1 | Received size / depth and CCJ-1 lexical parsing | `envelope_too_large` / `envelope_malformed` |
 | E2 | Closed envelope/body/nested schema and encoding/interval shape | `envelope_malformed` |
 | E3 | Fixed version, then expected type | `envelope_version_unsupported` / `envelope_type_mismatch` |
-| E4 | Reserved/missing required role, duplicate pair, or grant/act role cardinality | `envelope_role_invalid` |
+| E4 | Available required-role policy, then reserved/missing required role, duplicate pair, or grant/act role cardinality | `signer_unavailable` / `envelope_role_invalid` |
 | E5 | Recomputed id | `envelope_id_mismatch` |
 | E6 | Available agent-admission policy, issuer/author match, then allowed profile, message preimage size/depth, then strict crypto | `signer_unavailable` / `signer_unknown` / `signature_profile_invalid` / `signature_preimage_too_large` / `signature_preimage_invalid` / `signature_high_s` / `envelope_signature_invalid` |
 | E7 | Exact protected audience | `audience_mismatch` |
@@ -930,6 +961,12 @@ entries are checked in array order. Codes are distinct per listed substep:
 | O4 | Available durable replay journal, unused action id | `replay_unavailable` / `act_replay` |
 | O5 | Widening activation; unconditionally closed in v0 | `act_a3_inactive` |
 | C1 | Adapter Commit conflict/unavailability | `act_replay` / `state_unavailable` |
+
+For message/act intake, absent/null required-role policy is `signer_unavailable`
+at E4; malformed role policy is `envelope_role_invalid`. It MUST NOT default
+to an empty role set. Grant intake has its fixed single-author policy.
+At E6, absent/null agent-admission key lists are `signer_unavailable`; malformed lists are
+`signer_unknown`, before signer membership comparison.
 
 For grant intake G1 precedes G2; G2 performs E/T/K1 checks per link, then G3–G9.
 K1 runs after T2 and before E8. Message approvers additionally require current
@@ -986,16 +1023,43 @@ Dispatcher support and generation-to-key binding are activation dependencies.
 
 The signed author-attestation reference prevents receiver cross-generation or
 cross-registration substitution of a stable key. The three-path signer check
-prevents a caller from signing for another attestation. Neither proves actual
-creation time beyond the admissible message window; a signed `iat` is still a
+prevents a caller from signing for another attestation. Owner decision,
+2026-10-24: receiver binding is fixed first; any additional signer-side
+generation check is a separate later change. This slice specifies exactly the
+three paths in §2.5 and no further signer generation interpretation. Neither
+check proves actual creation time beyond the admissible message window; a signed `iat` is still a
 claim, and historical verification remains outside v0.
 
 The v0 revocation guarantee is only §2.6's signed-snapshot bound: no later than
 first-containing-snapshot issued_at + configured maximum age (at most 60 s)
 for an effective entry, never before `from`, hence max(issued_at+age,from) for
 future entries. It promises nothing before the issuer signs that snapshot.
-The platform meaning of "revocation complete" is OPEN, owner decision required;
-no end-to-end default or completion latency is claimed here.
+Owner decision, 2026-10-24: "revocation complete" means completion ONLY after a
+defined set of durable barriers and acknowledgements, OR proven expiry of ALL
+previously admitted authority. Before completion, only bounded propagation lag
+is permitted; the snapshot admission bound remains `S+A`, or `max(S+A,from)`
+for future-effective entries, where S is the first-containing signed snapshot
+issuance and A its configured maximum age. After completion, NO admission
+window for the revoked right may remain. Critical effects additionally require
+§6's online check with the authority owner immediately before the effect;
+unavailability refuses.
+
+S0 defines the completion requirement and abstract online interface only. The
+concrete barrier/acknowledgement set, expiry proof, acknowledgement protocol,
+network mechanism, publication/propagation integration and consumer selection
+of critical effects MUST be specified and qualified before activation. No
+completion latency, acknowledgement set or network protocol is invented here.
+The offline checker returns candidate plans before Commit and models neither
+these barriers/acknowledgements nor the serialized effect boundary, so it cannot
+provide effect-boundary vectors or qualify revocation completion/online checks.
+
+Operator-root recovery also remains an activation gate: separately held,
+pre-attested replacement/revocation-only recovery means now, then two-of-three
+custodians. A future recovery record's own type/tag, attestation, custody and
+threshold policy require separate review and qualification. No v0 record may
+perform recovery. The generic signature-list and root-policy contracts must
+preserve that extension path; current type-specific cardinalities are not a
+single-recovery-signer assumption.
 
 Threats left open: compromised pinned roots/devices/providers, dishonest
 confirmation rendering, malicious consumers, stolen live credentials, denial of

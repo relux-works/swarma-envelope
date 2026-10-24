@@ -356,8 +356,8 @@ def signer_admission(raw, f):
 
 
 def check_domain(inp, f):
-    expected = f["expected_tag"]
-    require(expected in REGISTERED_TAGS, "domain_unknown")
+    expected = f.get("expected_tag")
+    require(type(expected) is str and expected in REGISTERED_TAGS, "domain_unknown")
     raw = unb64(inp["preimage"])
     tag, payload = split_tag(raw, "domain_tag_malformed")
     require(tag == expected.encode("ascii"), "domain_mismatch")
@@ -575,9 +575,19 @@ def agent_binding(key, f, reference=None):
     return verify_attestation(key, f, reference=reference)
 
 
+def grant_root(f):
+    root = f.get("root")
+    require(root is not None, "key_binding_unavailable")
+    try:
+        key_bytes(root)
+    except Refusal:
+        raise Refusal("key_binding_invalid") from None
+    return root
+
+
 def grant_key_binding(key, f, issuer=False):
     # Protected authority-root provenance is independent of algorithm/position.
-    if key == f["root"]:
+    if key == grant_root(f):
         return
     devices = evidence_object(f.get("operator_attestations"))
     if key in devices:
@@ -618,8 +628,14 @@ def envelope(raw, expected, f):
     b, sigs = e["body"], e["signatures"]
     require(b["type"] == expected, "envelope_type_mismatch")
     pairs_seen = [(s["role"], s["key"]) for s in sigs]
-    required = (["author"] + f["required_roles"] if expected == "message/1"
-                else ["author"] if expected == "grant/1" else ["approver"] + f["required_roles"])
+    roles = []
+    if expected != "grant/1":
+        roles = f.get("required_roles")
+        require(roles is not None, "signer_unavailable")
+        require(type(roles) is list and all(type(role) is str and role in {"author", "approver", "delegate"}
+                                          for role in roles), "envelope_role_invalid")
+    required = (["author"] + roles if expected == "message/1"
+                else ["author"] if expected == "grant/1" else ["approver"] + roles)
     require(all(s["role"] in {"author", "approver", "delegate"} for s in sigs)
             and len(set(pairs_seen)) == len(sigs)
             and set(required) <= {s["role"] for s in sigs}, "envelope_role_invalid")
@@ -640,8 +656,10 @@ def envelope(raw, expected, f):
         if expected == "grant/1":
             require(s["key"] == b["issuer"], "signer_unknown")
         elif expected == "message/1" and s["role"] == "author":
-            require(f["known_keys"] is not None, "signer_unavailable")
-            require(s["key"] in f["known_keys"] and s["key"] == b["author"], "signer_unknown")
+            known = f.get("known_keys")
+            require(known is not None, "signer_unavailable")
+            require(type(known) is list and all(type(key) is str for key in known), "signer_unknown")
+            require(s["key"] in known and s["key"] == b["author"], "signer_unknown")
         alg, _ = key_bytes(s["key"])
         allowed = ((expected == "message/1" and (s["role"], alg) in {("author", "ed25519"), ("approver", "p256")})
                    or (expected == "operator-act/1" and (s["role"], alg) == ("approver", "p256"))
@@ -678,8 +696,10 @@ def envelope(raw, expected, f):
     elif expected == "grant/1":
         grant_key_binding(b["issuer"], f, issuer=True)
         grant_key_binding(b["subject"], f)
-    require(f["id_journal_available"], "id_journal_unavailable")
-    require(e["id"] not in f["seen"] or unb64(f["seen"][e["id"]]) == raw, "envelope_conflict")
+    require(f.get("id_journal_available") is True, "id_journal_unavailable")
+    seen = f.get("seen")
+    require(type(seen) is dict, "id_journal_unavailable")
+    require(e["id"] not in seen or unb64(seen[e["id"]]) == raw, "envelope_conflict")
     return e
 
 
@@ -705,7 +725,7 @@ def effective(b):
 
 def revocation(f, ids, keys, root=None):
     try:
-        signed_snapshot(f, f["root"] if root is None else root, ids, keys)
+        signed_snapshot(f, grant_root(f) if root is None else root, ids, keys)
     except Refusal as error:
         if str(error) == "key_binding_unavailable":
             raise Refusal("revocation_unavailable") from None
@@ -721,7 +741,7 @@ def grants(raw_chain, f):
     # G1 duplicate IDs require only bounded lexical parse, before envelope crypto.
     ids = [parse(r).get("id") if isinstance(parse(r), dict) else None for r in raw]
     require(all(isinstance(i, str) for i in ids) and len(set(ids)) == len(ids), "grant_chain_malformed")
-    req = f["request"]
+    req = f.get("request")
     require(isinstance(req, dict) and set(req) == {"key", "action", "target"}, "grant_chain_malformed")
     # G1 checks request field types before later set/dict/containment operations.
     try:
@@ -737,7 +757,7 @@ def grants(raw_chain, f):
     bs = [e["body"] for e in es]
     for child, parent, pe in zip(bs, bs[1:], es[1:]):
         require(child["parent"] == pe["id"] and child["issuer"] == parent["subject"], "grant_chain_broken")
-    require(bs[-1]["parent"] is None and bs[-1]["issuer"] == f["root"], "grant_root_unknown")
+    require(bs[-1]["parent"] is None and bs[-1]["issuer"] == grant_root(f), "grant_root_unknown")
     for child, parent in zip(bs, bs[1:]):
         cs, ce = effective(child)
         ps, pe = effective(parent)
@@ -773,7 +793,8 @@ def grants(raw_chain, f):
 
 
 def operator_key_current(f):
-    current = f.get("signer_facts", {}).get("current")
+    facts = evidence_object(f.get("signer_facts"))
+    current = facts.get("current")
     require(type(current) is bool, "key_binding_unavailable")
     require(current, "key_binding_invalid")
 
@@ -800,9 +821,11 @@ def operator(e, f):
     revocation(f, [e["id"], attestation["id"]], [s["key"] for s in e["signatures"]], root=f["operator_root"])
     if widening:
         require(b["confirmed"], "act_confirmation_required")
-        require(f["signer_facts"]["presence"] is True and f["signer_facts"].get("presence_current") is True, "act_presence_required")
-    require(f["replay_available"], "replay_unavailable")
-    require(b["action_id"] not in f["used_actions"], "act_replay")
+        require(f["signer_facts"].get("presence") is True and f["signer_facts"].get("presence_current") is True, "act_presence_required")
+    require(f.get("replay_available") is True, "replay_unavailable")
+    used = f.get("used_actions")
+    require(type(used) is list and all(type(action) is str for action in used), "replay_unavailable")
+    require(b["action_id"] not in used, "act_replay")
     if widening:
         raise Refusal("act_a3_inactive")
 

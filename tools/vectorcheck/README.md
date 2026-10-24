@@ -11,8 +11,8 @@ and exit status is 2, rather than success. It prints per-row mismatches and exit
 This is a conformance oracle for fixed offline inputs, not an importable public
 verifier API. It does not consult the generator or generated verdict code.
 Use the Go byte inventory check in addition to it to detect case removal and
-format drift. Default input contains 597 named semantic cases only. The complete
-2285-case gate must generate the 1688 T/B/Z/U sweeps first:
+format drift. Default input contains 665 named semantic cases only. The complete
+2353-case gate must generate the 1688 T/B/Z/U sweeps first:
 
 ```sh
 GOMAXPROCS=2 "$CURATOR_GO" run ./tools/vectors -check
@@ -106,3 +106,13 @@ refusal. Purpose-5 and registry-root cross-signing both refuse at K1.
 W-grant-subject-record / W-grant-subject-before-revocation retain the earlier
 subject-key derivation refusal in grants; the late author/reference mismatch
 code is message-specific.
+
+
+Y-context-* cases qualify explicit refusal of absent protected members. Context
+is checked at consumption: G1 request, E4 role policy, E6 known keys, K1 grant
+root and signer facts, E8 id journal, O3 presence and O4 replay state. Unknown
+configured tags remain domain_unknown in domain-only probes. Null decisions
+already defined by earlier cases remain unchanged; missing members never leak
+Python lookup/attribute exceptions. The fixture runner metadata (mode, input,
+expected result and positive-control id) is the harness schema, separate from
+protected context. This oracle does not implement live provider or journal I/O.

@@ -1,0 +1,18 @@
+{
+  "id": "Y-context-configured-domain-malformed",
+  "claim": "Protected configured-domain malformed refuses at its own consumption step with an empty plan.",
+  "positive_control": "PD7",
+  "mode": "domain",
+  "input": {
+    "key": "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+    "preimage": "c3dhcm1hLWNyZWRlbnRpYWwtYnJva2VyIHJldm9jYXRpb24vMQp7ImJvZHkiOnsiYXVkIjoic2VydmljZS1hIiwiZXhwIjoiMjAyNi0wMS0wMVQwMDowMjowMFoiLCJpYXQiOiIyMDI2LTAxLTAxVDAwOjAwOjAwWiIsIm5vbmNlIjoiQndjSEJ3Y0hCd2NIQndjSEJ3Y0hCdyIsInR5cGUiOiJtZXNzYWdlLzEifSwia2V5IjoiZWQyNTUxOTp3dWUydDFHSmVMWlRxell1ZGt6UkloeVkxMWxBenlQWERqc1RYZ1hvSXJrIiwicm9sZSI6ImF1dGhvciIsInZlcnNpb24iOiJzd2FybS1lbnZlbG9wZS8yIn0",
+    "sig": "u3mFs8lBOjIRPeU7XLS-P4fPIGgra31975xTyft1DV2KG_px2Sl5C-m6AgSDBfzACgJ6RDyrg2QLB8Xo0jynBQ"
+  },
+  "fixture": {
+    "expected_tag": []
+  },
+  "expected": {
+    "code": "domain_unknown",
+    "plan": {}
+  }
+}
