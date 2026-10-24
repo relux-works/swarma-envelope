@@ -385,8 +385,12 @@ The registry-owner revocation root in D30 is the registry's signing key on
 §1's separate trust node. Its authoritative-writer role does not re-sign
 content: agent `attestation/1` retains the purpose-5 service signature, device
 attestations retain the operator-root signature, and grants retain the
-grant-owner signature. The registry key signs only `revocation/1` snapshots
-and, in a later reviewed profile, identity-journal checkpoints. Operator-device
+grant-owner signature. Registrar `enrollment/1` records retain their offline
+publisher Ed25519 key; the registry service stores and serves them but MUST NOT
+sign them online. Online enrollment signing would require a separate registrar
+decision; this reference adds no S0 record profile or tag. The registry key
+signs only `revocation/1` snapshots and, in a later reviewed profile,
+identity-journal checkpoints. Operator-device
 snapshots retain their existing operator-root signature rule; the registry
 may store and publish them without substituting its signature. D30's distinct
 keys remain mandatory even when roles are hosted on the same node. Neither
@@ -1098,10 +1102,13 @@ within the v0 snapshot bound and continuity rules; it cannot mint grants or
 attestations, whose original signing roots remain distinct. This bound starts
 only with the first-containing signed snapshot (§2.6); nothing here bounds
 withholding before publication or proves honest publication by a compromised
-registry. The co-located witness does not itself establish an independent
-administrative failure domain. Until deployment, pinned roots and
-caller-supplied snapshots remain unchanged; unavailable required evidence
-refuses under §6.
+registry. The registry and rollback witness on one node are one failure domain.
+They MUST use separate processes, accounts and streams; the registry writer
+MUST NOT be able to append to witness streams. The trusted witness checkpoint
+MUST be held outside that node. Loss of the node MUST cause consumers to fail
+closed. These isolation and checkpoint requirements need deployment
+qualification. Until deployment, pinned roots and caller-supplied snapshots
+remain unchanged; unavailable required evidence refuses under §6.
 
 S0 defines no emergency-stop record. A future emergency stop MUST NOT depend
 on a fresh registry snapshot or on registry availability. Restart MUST require
