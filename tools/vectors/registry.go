@@ -31,6 +31,7 @@ func registryVectors() {
 	serviceVectors()
 	journalVectors()
 	reissueVectors()
+	journalPublishVectors()
 	capacityVectors()
 	registryOrderVectors()
 	registryDomainVectors()

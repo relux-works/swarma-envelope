@@ -246,7 +246,7 @@ func add(id, claim, pair, code string, v Vector) {
 		v.Expected["plan"] = M{"tag": v.Fixture["expected_tag"], "key": v.Input["key"]}
 	} else if code == "accept" {
 		ids := []any{}
-		if v.Mode == "freshness" {
+		if v.Mode == "freshness" || v.Mode == "freshness-reanchor" {
 			for _, raw := range v.Input["chain"].([]any) {
 				ids = append(ids, decode(raw.(string))["id"])
 			}
@@ -265,6 +265,14 @@ func add(id, claim, pair, code string, v Vector) {
 		p := M{"watermark": v.Fixture["now"], "ids": ids}
 		if v.Fixture["watermark"].(string) > v.Fixture["now"].(string) {
 			p["watermark"] = v.Fixture["watermark"]
+		}
+		if v.Mode == "freshness-reanchor" {
+			a := v.Fixture["freshness_anchor"].(M)
+			tip := decode(v.Input["chain"].([]any)[0].(string))
+			b := tip["body"].(M)
+			p["reanchor"] = M{"reanchored": true, "skipped_publications": freshnessInteger(b["publication_seq"]) - freshnessInteger(a["publication_seq"]) - 1,
+				"old_freshness_id": a["freshness_id"], "new_freshness_id": tip["id"],
+				"old_checkpoint_id": a["checkpoint_id"], "new_checkpoint_id": b["checkpoint_id"]}
 		}
 		if v.Mode == "operator" {
 			p["action_id"] = body(v)["action_id"]

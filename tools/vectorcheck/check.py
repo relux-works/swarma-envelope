@@ -1134,11 +1134,11 @@ def publication_anchor(f, root, owner):
         raise Refusal("freshness_state_invalid") from None
 
 
-def fresh_revocation(inp, f):
+def fresh_revocation(inp, f, reanchor=False):
     # Parse every proof record and current checkpoint before policy or crypto.
     require(type(inp["chain"]) is list, "freshness_malformed")
     require(bool(inp["chain"]), "freshness_unavailable")
-    require(len(inp["chain"]) <= 64, "freshness_malformed")
+    require(len(inp["chain"]) <= 64 and (not reanchor or len(inp["chain"]) == 1), "freshness_malformed")
     try:
         raws = [unb64(value) for value in inp["chain"]]
         checkpoint_raw = unb64(inp["checkpoint"])
@@ -1186,30 +1186,41 @@ def fresh_revocation(inp, f):
     seq, previous = anchor["publication_seq"], anchor["freshness_id"]
     at = timestamp(anchor["issued_at"]) if anchor["issued_at"] is not None else None
     registry_seq, checkpoint_id, snapshot_ref = anchor["registry_seq"], anchor["checkpoint_id"], anchor["snapshot"]
-    for index, publication in enumerate(proof):
-        b = publication["body"]
-        n, when = b["publication_seq"], timestamp(b["issued_at"])
-        require(n >= seq, "freshness_rollback")
-        if n == seq:
-            require(publication["id"] == previous, "freshness_fork")
-            require(index == 0 and at is not None and when == at and b["registry_seq"] == registry_seq
-                    and b["checkpoint_id"] == checkpoint_id and b["snapshot"] == snapshot_ref, "freshness_state_invalid")
-            continue
-        require(n == seq+1, "freshness_gap")
-        require(b["registry_seq"] >= registry_seq, "freshness_rollback")
-        same_head = b["registry_seq"] == registry_seq
-        if same_head:
-            require(b["checkpoint_id"] == checkpoint_id, "freshness_fork")
-            expected_prev = previous
+    if reanchor:
+        require(seq > 0 and at is not None, "freshness_state_invalid")
+        require(tip["registry_seq"] >= registry_seq, "freshness_rollback")
+        if tip["registry_seq"] == registry_seq:
+            require(tip["checkpoint_id"] == checkpoint_id, "freshness_fork")
+            require(tip["snapshot"] == snapshot_ref, "freshness_binding_mismatch")
         else:
-            require(b["checkpoint_id"] != checkpoint_id, "freshness_binding_mismatch")
-            expected_prev = None
-        require(b["prev"] == expected_prev, "freshness_gap")
-        require(at is None or when > at, "freshness_time_invalid")
-        if same_head:
-            require(b["snapshot"] == snapshot_ref, "freshness_binding_mismatch")
-        seq, previous, at = n, publication["id"], when
-        registry_seq, checkpoint_id, snapshot_ref = b["registry_seq"], b["checkpoint_id"], b["snapshot"]
+            require(tip["checkpoint_id"] != checkpoint_id, "freshness_binding_mismatch")
+        require(tip["publication_seq"] > seq, "freshness_rollback")
+        require(issued > at, "freshness_rollback")
+    else:
+        for index, publication in enumerate(proof):
+            b = publication["body"]
+            n, when = b["publication_seq"], timestamp(b["issued_at"])
+            require(n >= seq, "freshness_rollback")
+            if n == seq:
+                require(publication["id"] == previous, "freshness_fork")
+                require(index == 0 and at is not None and when == at and b["registry_seq"] == registry_seq
+                        and b["checkpoint_id"] == checkpoint_id and b["snapshot"] == snapshot_ref, "freshness_state_invalid")
+                continue
+            require(n == seq+1, "freshness_gap")
+            require(b["registry_seq"] >= registry_seq, "freshness_rollback")
+            same_head = b["registry_seq"] == registry_seq
+            if same_head:
+                require(b["checkpoint_id"] == checkpoint_id, "freshness_fork")
+                expected_prev = previous
+            else:
+                require(b["checkpoint_id"] != checkpoint_id, "freshness_binding_mismatch")
+                expected_prev = None
+            require(b["prev"] == expected_prev, "freshness_gap")
+            require(at is None or when > at, "freshness_time_invalid")
+            if same_head:
+                require(b["snapshot"] == snapshot_ref, "freshness_binding_mismatch")
+            seq, previous, at = n, publication["id"], when
+            registry_seq, checkpoint_id, snapshot_ref = b["registry_seq"], b["checkpoint_id"], b["snapshot"]
     try:
         require(type(inp["ids"]) is list and type(inp["keys"]) is list
                 and len(inp["ids"]) <= 64 and len(inp["keys"]) <= 64, "freshness_request_invalid")
@@ -1231,8 +1242,8 @@ def verdict(vector):
             return {"code": "accept", "plan": signer_admission(unb64(inp["preimage"]), f)}
         if mode == "domain":
             return {"code": "accept", "plan": check_domain(inp, f)}
-        if mode == "freshness":
-            es = fresh_revocation(inp, f)
+        if mode in ("freshness", "freshness-reanchor"):
+            es = fresh_revocation(inp, f, mode == "freshness-reanchor")
         elif mode == "journal":
             es = identity_journal(inp, f)
         elif mode == "grant":
@@ -1242,6 +1253,14 @@ def verdict(vector):
             if mode == "operator":
                 operator(es[0], f)
         plan = {"ids": [e["id"] for e in es], "watermark": max(f["now"], f["watermark"])}
+        if mode == "freshness-reanchor":
+            anchor, tip = f["freshness_anchor"], es[0]
+            plan["reanchor"] = {
+                "reanchored": True,
+                "skipped_publications": tip["body"]["publication_seq"] - anchor["publication_seq"] - 1,
+                "old_freshness_id": anchor["freshness_id"], "new_freshness_id": tip["id"],
+                "old_checkpoint_id": anchor["checkpoint_id"], "new_checkpoint_id": tip["body"]["checkpoint_id"],
+            }
         if mode == "operator":
             plan["action_id"] = es[0]["body"]["action_id"]
         return {"code": "accept", "plan": plan}

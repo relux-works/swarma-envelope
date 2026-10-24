@@ -140,12 +140,25 @@ type Context struct {
 	ActBinding          Evidence
 }
 
+// FreshnessReanchorPlan records the explicit continuity waiver. SkippedPublications
+// counts positions strictly between the retained anchor and admitted tip.
+// Checkpoint IDs bind the corresponding registry heads by content hash.
+type FreshnessReanchorPlan struct {
+	Reanchored          bool   `json:"reanchored"`
+	SkippedPublications int64  `json:"skipped_publications"`
+	OldFreshnessID      string `json:"old_freshness_id"`
+	NewFreshnessID      string `json:"new_freshness_id"`
+	OldCheckpointID     string `json:"old_checkpoint_id"`
+	NewCheckpointID     string `json:"new_checkpoint_id"`
+}
+
 // Plan is a candidate persistence transaction, not a committed effect permit.
 // Every refusal returns its zero value. IDs retain leaf-first order.
 type Plan struct {
-	IDs       []string `json:"ids,omitempty"`
-	Watermark string   `json:"watermark,omitempty"`
-	ActionID  string   `json:"action_id,omitempty"`
+	Reanchor  *FreshnessReanchorPlan `json:"reanchor,omitempty"`
+	IDs       []string               `json:"ids,omitempty"`
+	Watermark string                 `json:"watermark,omitempty"`
+	ActionID  string                 `json:"action_id,omitempty"`
 }
 
 // Result holds the exact stable refusal code, or accept plus a candidate plan.

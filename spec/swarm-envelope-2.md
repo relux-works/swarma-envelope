@@ -868,8 +868,57 @@ not historical authority; only the current tip supplies age. Historical
 checkpoint/snapshot bodies are not re-admitted by proof references alone.
 Current head ancestry/validity must already be established by the external
 witness verifier, and changed snapshots must obey cumulative publication rules.
-Missing history, unavailable continuity or an over-bound proof refuses; no
-truncation, gap-skipping, automatic new anchor or fail-open resynchronization.
+Missing history or an over-bound proof refuses on the normal chained path.
+Publication continuity may be explicitly waived only by the recovery path below;
+snapshot cumulative continuity and witness availability are never waived.
+
+**Explicit re-anchor recovery (D41).** The default remains `VerifyFreshness`:
+no failure automatically falls back to recovery. A consumer may automatically
+invoke the separate `VerifyFreshnessReanchor(tip,checkpoint,ids,keys)` after
+an outage exceeds its bounded chain, or explicitly choose recovery. This API
+accepts exactly one signed tip and one checkpoint, using the same received-byte,
+depth and query bounds. Its explicit invocation is the trigger, not an inferred
+missing predecessor. It never treats a malformed or invalid supplied normal
+proof as a successful chained proof. Publication genesis uses the normal path;
+recovery requires a retained positive publication with a real timestamp and id.
+
+F1–F7 and tip/read currency at F8 are unchanged: root signatures, current tip,
+fresh authenticated witness read, complete cumulative snapshot, and exact
+snapshot=checkpoint.snapshot=tip.snapshot bindings are mandatory. At F8R,
+validate the retained scoped anchor, then compare the current witnessed registry
+sequence with its registry_seq: lower refuses `freshness_rollback`; equal
+requires the same checkpoint_id (otherwise `freshness_fork`) and snapshot
+(otherwise `freshness_binding_mismatch`). The verified checkpoint content id
+commits its registry head: equality with the retained id also requires the same
+head; F7 separately compares the verified head/id to the fresh witness.
+A higher registry_seq requires a different checkpoint_id. Next require
+`T.publication_seq > A.publication_seq`, then `T.issued_at > A.issued_at`;
+either failure refuses `freshness_rollback`. F9 query and effective revocation
+matching still follow all these gates. No skipped predecessor/link or historical
+signature is claimed verified. Normal F8 checks remain unchanged.
+
+The candidate plan additionally carries `reanchor` with the exact members
+`{reanchored,skipped_publications,old_freshness_id,new_freshness_id,old_checkpoint_id,new_checkpoint_id}`.
+`reanchored` is explicitly true. `skipped_publications` is the integer
+`T.publication_seq - A.publication_seq - 1`, counting positions strictly
+between the two endpoints, not received records or registry journal positions.
+It is emitted even when zero; explicit recovery may choose an adjacent tip.
+The four ids name A and T and their checkpoint-bound heads. Normal plans omit
+`reanchor` entirely. The consumer atomically persists the admitted tip as its
+new anchor and the watermark, and durably logs this skip and both endpoint
+heads via their freshness/checkpoint ids in the same acceptance transaction,
+so later audit can cross-check the complete retained publication history.
+Refusal, including revoked, returns a zero plan and changes no state.
+
+Revocations are carried by the snapshot equal to checkpoint.snapshot, which
+remains cumulative under §2.6; skipping freshness positions therefore cannot
+hide a revocation. For a single head the snapshot and all authority-bearing
+bindings remain identical: publications only advance publication_seq and
+issued_at, with prev mechanically naming the preceding same-head publication.
+The fresh witness attests the current head; rollback and fork against the stored
+anchor still refuse. The publication-completeness cost and compensating issuer
+and audit obligations are stated in §7. Recovery never extends authority or
+cancels a revocation.
 
 Successful `VerifyFreshness` returns a candidate plan naming every supplied
 publication, then checkpoint and snapshot ids, with the monotonic watermark.
@@ -1347,6 +1396,7 @@ Freshness revocation intake (§2.9) is a separate ordered pipeline:
 | F6 | Exact tip.snapshot=verified snapshot id=checkpoint.snapshot; tip.registry_seq/checkpoint_id equal checkpoint seq/id | `freshness_binding_mismatch` |
 | F7 | Tip registry seq above witness (older evidence), below witness (rollback), then equal seq different checkpoint id/head | `freshness_unavailable` / `freshness_rollback` / `freshness_fork` |
 | F8 | Current tip/read currency (including checkpoint.at<=tip.issued_at), then retained publication anchor available/typed/scoped; each publication: lower seq, same-seq different id, exact retransmission fields, global gap, registry rollback/equal-seq checkpoint fork, checkpoint transition, same-head prev or null-on-advance, strictly increasing issued_at, snapshot binding | `freshness_unavailable` / `freshness_state_invalid`; `freshness_rollback` / `freshness_fork` / `freshness_state_invalid` / `freshness_gap` / `freshness_rollback` / `freshness_fork` / `freshness_binding_mismatch` / `freshness_gap` / `freshness_time_invalid` / `freshness_binding_mismatch` |
+| F8R (explicit recovery only, replaces publication loop at F8) | After unchanged tip/read currency and anchor validation: require positive stored publication; current registry seq lower/equal checkpoint fork, same-head snapshot binding or changed checkpoint on advance; strictly greater publication_seq, then strictly greater issued_at | `freshness_state_invalid`; `freshness_rollback` / `freshness_fork` / `freshness_binding_mismatch`; `freshness_rollback`; `freshness_rollback` |
 | F9 | Bounded valid content-id/key queries, then effective snapshot matches after ALL proof checks | `freshness_request_invalid`; existing `revoked` |
 
 All F refusals have a zero plan, including revoked. F rows do not alter legacy
@@ -1501,3 +1551,48 @@ permit or a historical-verifier API. Any new admission requires a current tip,
 fresh authenticated head read, current policy and retained-state continuity.
 Old signed intermediates may establish hash-linked completeness for that new
 admission; they are not re-admitted as historical effects or authority.
+
+Consumers relying on option B must compose freshness revocation admission
+with every other required identity, message, grant and effect check through a
+documented supported API composition. `VerifyAttestation`, `VerifyMessage`,
+`Authorize`, `VerifyOperator`, `CheckRevocation` and `VerifyJournal` retain their
+current own-snapshot age checks; `VerifyFreshness` does not make them tolerant
+of an old snapshot. Consumers MUST NOT fake younger Context timestamps or
+snapshot bytes and MUST NOT implement a second verifier to bypass those gates.
+The current API has no supported way to pass a freshness-verified old snapshot
+as a revocation receipt into these entry points: `VerifyAttestation` still
+rechecks snapshot age, and a candidate Plan is not evidence accepted by Context.
+A composition API/policy requires a separate owner decision and review before
+option B can supply old-snapshot admission through those other methods.
+
+Without re-anchor, the64publication proof bound spans at most64new intervals
+when the stored anchor itself need not be resent, about21minutes20seconds at
+20seconds per interval (64minutes at60seconds). A head change beyond the first
+64positions prevents reaching that head even earlier in recovery: the bounded
+prefix cannot satisfy the freshly witnessed current-head binding. A proof
+requiring the retained anchor itself consumes one position for that anchor.
+The F-proof bound is532480received bytes, independent of any consumer carrier
+or intake limit. A consumer with a smaller intake limit must route this proof
+separately within independently enforced limits; exceeding either limit
+refuses, and splitting does not authorize truncating an authenticated proof.
+
+Explicit re-anchoring (§2.9) does not prove that skipped publication positions
+were mutually consistent. Inside the skipped segment the recovering consumer
+loses the ability to detect a freshness fork: different publication chains
+shown to different consumers (the publication-completeness condition). This
+loss has no revocation effect only under the independently qualified cumulative
+publication premise: the admitted snapshot equals the witnessed
+checkpoint.snapshot and qualified evidence establishes rollback-safe cumulative
+publication. Re-anchor comparisons (nondecreasing registry_seq, equal head/id
+at equal sequence, strictly increasing publication_seq and issued_at) do not
+prove snapshot cumulativity. It MUST NOT be inferred from re-anchor,
+`complete=true`, or a higher registry_seq. Under that required premise recovery
+never extends authority or cancels revocation. As compensating requirements,
+the registry MUST retain the complete freshness history without truncation;
+the witness and off-node retained heads MUST permit a later cross-check; and
+the consumer MUST retain the audit record carrying both endpoint heads via
+freshness and checkpoint ids. These are publisher, deployment and consumer
+integration obligations; offline vectors qualify only the pure admission plan.
+An unavailable witness means every admission requiring current freshness
+refuses. This fail-closed operational consequence applies to both the normal
+and re-anchor paths, including during witness outages.

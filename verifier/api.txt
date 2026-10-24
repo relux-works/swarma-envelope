@@ -37,8 +37,15 @@ field Context.UsedActions
 field Context.Watermark
 field Context.WatermarkAvailable
 field Context.WitnessReadAt
+field FreshnessReanchorPlan.NewCheckpointID
+field FreshnessReanchorPlan.NewFreshnessID
+field FreshnessReanchorPlan.OldCheckpointID
+field FreshnessReanchorPlan.OldFreshnessID
+field FreshnessReanchorPlan.Reanchored
+field FreshnessReanchorPlan.SkippedPublications
 field Plan.ActionID
 field Plan.IDs
+field Plan.Reanchor
 field Plan.Watermark
 field Result.Code
 field Result.Plan
@@ -51,6 +58,7 @@ method Verifier.CheckRevocation
 method Verifier.VerifyAttestation
 method Verifier.VerifyEnvelope
 method Verifier.VerifyFreshness
+method Verifier.VerifyFreshnessReanchor
 method Verifier.VerifyJournal
 method Verifier.VerifyMessage
 method Verifier.VerifyOperator
@@ -58,6 +66,7 @@ method Verifier.VerifyServiceAttestation
 type Attestation
 type Context
 type Evidence
+type FreshnessReanchorPlan
 type Plan
 type Result
 type RevocationState

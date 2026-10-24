@@ -48,6 +48,7 @@ func load(t *testing.T, path string) vector {
 	}
 	v.Input = normalize(v.Input).(map[string]any)
 	v.Fixture = normalize(v.Fixture).(map[string]any)
+	v.Expected.Plan = normalize(v.Expected.Plan).(map[string]any)
 	return v
 }
 func normalize(v any) any {
@@ -208,7 +209,7 @@ func derive(t *testing.T, v vector) expected {
 	}
 	lib := verifier.New(context(t, f))
 	var r verifier.Result
-	if v.Mode == "freshness" {
+	if v.Mode == "freshness" || v.Mode == "freshness-reanchor" {
 		var chain [][]byte
 		for _, value := range input["chain"].([]any) {
 			raw, e := b64(value)
@@ -228,7 +229,14 @@ func derive(t *testing.T, v vector) expected {
 			}
 			return out
 		}
-		r = lib.VerifyFreshness(chain, cp, stringsIn(input["ids"]), stringsIn(input["keys"]))
+		if v.Mode == "freshness-reanchor" {
+			if len(chain) != 1 {
+				return empty("freshness_malformed")
+			}
+			r = lib.VerifyFreshnessReanchor(chain[0], cp, stringsIn(input["ids"]), stringsIn(input["keys"]))
+		} else {
+			r = lib.VerifyFreshness(chain, cp, stringsIn(input["ids"]), stringsIn(input["keys"]))
+		}
 	} else if v.Mode == "journal" {
 		values, _ := input["entries"].([]any)
 		raws := make([][]byte, len(values))
@@ -283,10 +291,12 @@ func derive(t *testing.T, v vector) expected {
 		t.Fatal(e)
 	}
 	var plan map[string]any
-	if e = json.Unmarshal(b, &plan); e != nil {
+	d := json.NewDecoder(bytes.NewReader(b))
+	d.UseNumber()
+	if e = d.Decode(&plan); e != nil {
 		t.Fatal(e)
 	}
-	return expected{r.Code, plan}
+	return expected{r.Code, normalize(plan).(map[string]any)}
 }
 func namedPaths(t *testing.T, root string) []string {
 	t.Helper()
@@ -332,7 +342,7 @@ func runVectors(t *testing.T, paths []string) {
 // This is the named subset; TestConformance adds the manifest-bound sweeps.
 func TestNamed(t *testing.T) {
 	paths := namedPaths(t, "../vectors")
-	if len(paths) != 908 {
+	if len(paths) != 944 {
 		t.Fatalf("named count %d", len(paths))
 	}
 	runVectors(t, paths)
@@ -414,10 +424,10 @@ func TestConformance(t *testing.T) {
 			t.Fatalf("named corpus bytes mismatch %s", p)
 		}
 	}
-	if count != 1688 || len(paths) != 2596 {
-		t.Fatalf("counts named908 sweeps%d total%d", count, len(paths))
+	if count != 1688 || len(paths) != 2632 {
+		t.Fatalf("counts named944 sweeps%d total%d", count, len(paths))
 	}
-	t.Logf("named=908 generated=%s total=%d", strconv.Itoa(count), len(paths))
+	t.Logf("named=944 generated=%s total=%d", strconv.Itoa(count), len(paths))
 	runVectors(t, paths)
 }
 

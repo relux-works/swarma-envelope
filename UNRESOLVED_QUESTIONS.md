@@ -161,9 +161,29 @@ depth16,532480bytes total. Every historical proof signature/link/time/reference
 transition is checked; only the tip supplies current freshness. References do
 not re-admit historical checkpoint/snapshot bodies. Caller must establish the
 current head's verified ancestry and cumulative snapshot publication; unavailable
-history refuses, not gap-skipping. Positive retransmission is byte-identical.
+history refuses on this default path; explicit D41 recovery is separate. Positive retransmission is byte-identical.
 A successful plan names proof ids followed by checkpoint/snapshot and watermark;
 caller atomically commits exact bytes and final anchor before effect admission.
 These bounds, explicit genesis provisioning and exact projected-state/read-time
 interface need content review; live storage/read/consumer integration is not
 implemented or qualified by offline format tests.
+
+### D41 — explicit freshness re-anchor recovery
+
+Use sibling `VerifyFreshnessReanchor(tip,checkpoint,ids,keys)` with a single tip.
+Normal `VerifyFreshness` stays the default and never falls back on failure.
+Consumers may automatically request this sibling after an outage exceeds the
+bounded chain, or explicitly choose it; the distinct call makes the continuity
+waiver reviewable and auditable without silently changing inherited verdicts.
+All current tip/checkpoint/snapshot/signature/witness gates remain mandatory.
+Require a positive retained publication, nondecreasing registry_seq (equal
+requires identical checkpoint-bound head and snapshot), then strictly greater
+publication_seq and issued_at; rollback/fork refuses. Genesis stays normal.
+The optional plan `reanchor` contains explicit true `reanchored`, exact integer
+`skipped_publications=T.publication_seq-A.publication_seq-1` including zero,
+and old/new freshness and checkpoint ids. Persist the new anchor, watermark
+and skip audit atomically. Checkpoint ids bind both endpoint heads. Registry
+history retention, off-node/witness cross-check and consumer audit compensate
+for lost skipped-segment freshness-fork detection (§7); no revocation or
+authority relaxation. Witness outages fail closed. No live integration is
+implemented or qualified by these offline fixtures.

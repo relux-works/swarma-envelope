@@ -1,6 +1,7 @@
 package verifier_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"path/filepath"
 	"reflect"
@@ -41,10 +42,12 @@ func freshExpected(t *testing.T, r verifier.Result) expected {
 		t.Fatal(err)
 	}
 	var p map[string]any
-	if err = json.Unmarshal(raw, &p); err != nil {
+	d := json.NewDecoder(bytes.NewReader(raw))
+	d.UseNumber()
+	if err = d.Decode(&p); err != nil {
 		t.Fatal(err)
 	}
-	return expected{r.Code, p}
+	return expected{r.Code, normalize(p).(map[string]any)}
 }
 
 // The new public API permits an old base only with the full current freshness

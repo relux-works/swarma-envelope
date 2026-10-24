@@ -70,6 +70,20 @@ func freshnessAnchor(f facts, root, owner string) map[string]any {
 // the proof, checkpoint and snapshot; the caller persists state atomically.
 // Existing verification methods retain their snapshot-own-age contract.
 func (v Verifier) VerifyFreshness(chain [][]byte, checkpoint []byte, ids, keys []string) Result {
+	return v.verifyFreshness(chain, checkpoint, ids, keys, false)
+}
+
+// VerifyFreshnessReanchor explicitly skips publication continuity after a gap.
+// It admits one current tip against the retained positive anchor and a fresh
+// authenticated witness, preserving all snapshot, signature and revocation gates.
+// Acceptance includes both endpoints and the exact skipped-position count;
+// the caller must atomically persist the new anchor/watermark and audit the skip.
+// Skipped publication forks cannot be detected by this recovery operation.
+func (v Verifier) VerifyFreshnessReanchor(tip, checkpoint []byte, ids, keys []string) Result {
+	return v.verifyFreshness([][]byte{tip}, checkpoint, ids, keys, true)
+}
+
+func (v Verifier) verifyFreshness(chain [][]byte, checkpoint []byte, ids, keys []string, reanchor bool) Result {
 	return decide(func() Plan {
 		// F1: absent freshness refuses; all bounded wire parses precede policy.
 		need(len(chain) > 0, "freshness_unavailable")
@@ -127,34 +141,57 @@ func (v Verifier) VerifyFreshness(chain [][]byte, checkpoint []byte, ids, keys [
 			at = &when
 		}
 		registrySeq, checkpointID, snapshotID := num(a["registry_seq"]), a["checkpoint_id"], a["snapshot"]
-		for i, e := range es {
-			p := obj(e["body"])
-			n := num(p["publication_seq"])
-			when := stamp(p["issued_at"])
-			need(n >= seq, "freshness_rollback")
-			if n == seq {
-				need(e["id"] == prev, "freshness_fork")
-				need(i == 0 && at != nil && when == *at && num(p["registry_seq"]) == registrySeq && p["checkpoint_id"] == checkpointID && p["snapshot"] == snapshotID, "freshness_state_invalid")
-				continue
-			}
-			need(n == seq+1, "freshness_gap")
-			need(num(p["registry_seq"]) >= registrySeq, "freshness_rollback")
-			sameHead := num(p["registry_seq"]) == registrySeq
-			var expectedPrev any
-			if sameHead {
-				need(p["checkpoint_id"] == checkpointID, "freshness_fork")
-				expectedPrev = prev
+		var audit *FreshnessReanchorPlan
+		if reanchor {
+			// F8R: scoped stored positive state, registry rollback/fork, then strictly
+			// advancing publication sequence and time. The verified checkpoint ID
+			// commits its head; equality with the anchor ID also pins that old head.
+			need(seq > 0 && at != nil, "freshness_state_invalid")
+			need(num(b["registry_seq"]) >= registrySeq, "freshness_rollback")
+			if num(b["registry_seq"]) == registrySeq {
+				need(b["checkpoint_id"] == checkpointID, "freshness_fork")
+				need(b["snapshot"] == snapshotID, "freshness_binding_mismatch")
 			} else {
-				need(p["checkpoint_id"] != checkpointID, "freshness_binding_mismatch")
+				need(b["checkpoint_id"] != checkpointID, "freshness_binding_mismatch")
 			}
-			need(equal(p["prev"], expectedPrev), "freshness_gap")
-			need(at == nil || when > *at, "freshness_time_invalid")
-			if sameHead {
-				need(p["snapshot"] == snapshotID, "freshness_binding_mismatch")
+			need(num(b["publication_seq"]) > seq, "freshness_rollback")
+			need(issued > *at, "freshness_rollback")
+			audit = &FreshnessReanchorPlan{
+				Reanchored:          true,
+				SkippedPublications: num(b["publication_seq"]) - seq - 1,
+				OldFreshnessID:      str(prev), NewFreshnessID: str(tip["id"]),
+				OldCheckpointID: str(checkpointID), NewCheckpointID: str(cp["id"]),
 			}
-			seq, prev = n, e["id"]
-			at = &when
-			registrySeq, checkpointID, snapshotID = num(p["registry_seq"]), p["checkpoint_id"], p["snapshot"]
+		} else {
+			for i, e := range es {
+				p := obj(e["body"])
+				n := num(p["publication_seq"])
+				when := stamp(p["issued_at"])
+				need(n >= seq, "freshness_rollback")
+				if n == seq {
+					need(e["id"] == prev, "freshness_fork")
+					need(i == 0 && at != nil && when == *at && num(p["registry_seq"]) == registrySeq && p["checkpoint_id"] == checkpointID && p["snapshot"] == snapshotID, "freshness_state_invalid")
+					continue
+				}
+				need(n == seq+1, "freshness_gap")
+				need(num(p["registry_seq"]) >= registrySeq, "freshness_rollback")
+				sameHead := num(p["registry_seq"]) == registrySeq
+				var expectedPrev any
+				if sameHead {
+					need(p["checkpoint_id"] == checkpointID, "freshness_fork")
+					expectedPrev = prev
+				} else {
+					need(p["checkpoint_id"] != checkpointID, "freshness_binding_mismatch")
+				}
+				need(equal(p["prev"], expectedPrev), "freshness_gap")
+				need(at == nil || when > *at, "freshness_time_invalid")
+				if sameHead {
+					need(p["snapshot"] == snapshotID, "freshness_binding_mismatch")
+				}
+				seq, prev = n, e["id"]
+				at = &when
+				registrySeq, checkpointID, snapshotID = num(p["registry_seq"]), p["checkpoint_id"], p["snapshot"]
+			}
 		}
 		// F9: query shape, then effective matching after the complete proof.
 		mapped(func() bool {
@@ -181,6 +218,8 @@ func (v Verifier) VerifyFreshness(chain [][]byte, checkpoint []byte, ids, keys [
 			}
 		}
 		admitted := append(es, cp, snap)
-		return plan(admitted, f)
+		p := plan(admitted, f)
+		p.Reanchor = audit
+		return p
 	})
 }

@@ -45,9 +45,9 @@ cryptography reports PENDING and exits 2; it never reports full conformance.
 No network is used by the checker. Go module resolution may download the pinned
 public registrar dependency. Neither tool imports the future production verifier.
 
-Only 908 named cases are tracked. All 1688 T/B/Z/U cases remain in the generator
+Only 944 named cases are tracked. All 1688 T/B/Z/U cases remain in the generator
 and committed `sweeps.tsv` / `sweeps.sha256`; `-sweeps` materializes them for the
-complete 2596-case check. See the [manifest format](../../tools/vectors/README.md).
+complete 2632-case check. See the [manifest format](../../tools/vectors/README.md).
 Commands must run sequentially through any host-required resource runner.
 
 Generator `-out DIR` writes named cases and the manifest; adding `-sweeps`
@@ -232,3 +232,20 @@ zero: P-FR-genesis-epoch and P-FR-genesis-epoch-plus-one accept, while
 N-FR-epoch-equal refuses a new publication at its real predecessor's epoch
 instant. P-FR-epoch-advance and P-FR-epoch-retransmit retain strict advancement
 and exact retransmission, with exact epoch watermark plans checked.
+
+The explicit `freshness-reanchor` fixture mode selects the separate single-tip
+recovery API. `P-FR-RA-*` supplies exact audit plans (same/higher head, zero skip
+and safe-integer maximum); `N-FR-RA-*` preserves rollback, fork, current evidence,
+cumulative snapshot and revocation refusals, paired with accepted controls.
+`N-ORD-FR-RA-*` pins F6/F8 currency/F8R/F9 precedence. Normal freshness mode
+still requires a complete bounded chain and emits no re-anchor member.
+
+`P-JRN-publish-reissue` is the shared publication transaction: anchor E1,
+E2 naming a real agent attestation, E3 naming a strictly later reissue of the
+unchanged cumulative snapshot, checkpoint C3, exact prior C1 bytes and its
+six-field witness projection. `N-JRN-publish-reissue-*` changes one input
+aspect: old checkpoint snapshot (J3 `checkpoint_snapshot_invalid`), omitted
+record/reissue entry (J6 `journal_chain_broken`), missing prior bytes (J5a
+`journal_unavailable`), wrong prior bytes (J5a `checkpoint_invalid`), or
+candidate time before prior time (J5a `journal_rollback`). Record references
+remain publication evidence, not admission of the referenced authority.

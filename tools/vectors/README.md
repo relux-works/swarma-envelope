@@ -17,9 +17,9 @@ GOMAXPROCS=2 "$CURATOR_GO" vet ./tools/vectors
 
 Run commands sequentially through the host's required resource runner where
 applicable. Logs and generated copies belong in ignored `.tmp/`. The default
-write command (`go run ./tools/vectors`) writes 908 named cases, the public keys
+write command (`go run ./tools/vectors`) writes 944 named cases, the public keys
 and sweep manifest/digest under `vectors/`; it does not materialize T/B/Z/U JSON.
-`-sweeps` adds those 1688 cases (2596 total: 2468 negative, 128 positive).
+`-sweeps` adds those 1688 cases (2632 total: 2499 negative, 133 positive).
 The inventory check also rejects unexpected JSON under both managed trees,
 including accidentally materialized sweeps when `-sweeps` is absent. Generation
 does not remove obsolete files; remove only reviewed stale paths explicitly.
@@ -234,3 +234,20 @@ J5a verifies prior checkpoint id/root/scope/owner/seq/head without age and
 compares checkpoint times; J6 requires the anchor before checking entry links.
 Non-advancing exact witnessed checkpoint retransmission needs no prior bytes.
 N-JRN-prior-* and N-JRN-anchor-* pin the refusals with accepted neighbors.
+
+The explicit `freshness-reanchor` fixture mode selects the separate single-tip
+recovery API. `P-FR-RA-*` supplies exact audit plans (same/higher head, zero skip
+and safe-integer maximum); `N-FR-RA-*` preserves rollback, fork, current evidence,
+cumulative snapshot and revocation refusals, paired with accepted controls.
+`N-ORD-FR-RA-*` pins F6/F8 currency/F8R/F9 precedence. Normal freshness mode
+still requires a complete bounded chain and emits no re-anchor member.
+
+`P-JRN-publish-reissue` is the shared publication transaction: anchor E1,
+E2 naming a real agent attestation, E3 naming a strictly later reissue of the
+unchanged cumulative snapshot, checkpoint C3, exact prior C1 bytes and its
+six-field witness projection. `N-JRN-publish-reissue-*` changes one input
+aspect: old checkpoint snapshot (J3 `checkpoint_snapshot_invalid`), omitted
+record/reissue entry (J6 `journal_chain_broken`), missing prior bytes (J5a
+`journal_unavailable`), wrong prior bytes (J5a `checkpoint_invalid`), or
+candidate time before prior time (J5a `journal_rollback`). Record references
+remain publication evidence, not admission of the referenced authority.

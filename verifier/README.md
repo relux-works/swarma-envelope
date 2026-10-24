@@ -92,7 +92,7 @@ conformance test generates its corpus with the existing generator in a Go test
 temporary directory. `CURATOR_GO` selects that child toolchain explicitly;
 otherwise it uses the runtime toolchain or Go on PATH. `WAGGLE_VECTORS` may
 select an already materialized corpus. The committed sweep digest, entire
-manifest, all 1688 sweep byte hashes, all 908 named bytes and exact 2596
+manifest, all 1688 sweep byte hashes, all 944 named bytes and exact 2632
 code/plan verdicts are checked. Generated sweeps are never committed. Fixture
 base64 transport and legacy field names are adapted only in the test.
 
@@ -181,8 +181,32 @@ same-head predecessor continuity (prev null on head change); they do not confer 
 current freshness. Gap/rollback/fork refuses without advancing anchor state.
 Returned ids name all supplied proof records, checkpoint and snapshot. Persist
 the exact bytes, final anchor and watermark atomically before use. Refresh the
-witness head at the caller's admission/effect boundary. An over-bound proof refuses. Long-outage history recovery needs separately
-qualified history/anchor integration; never skip a gap or silently reset.
+witness head at the caller's admission/effect boundary. An over-bound proof refuses on this default path.
+
+For explicit long-outage recovery, call
+`VerifyFreshnessReanchor(tip, checkpoint, ids, keys)` with one raw signed tip.
+No normal refusal automatically falls back. Consumers may explicitly invoke
+this sibling in their automatic recovery flow; it retains F1–F7, current
+witness/tip currency and F9 revocation matching, replacing only publication
+continuity with F8R. The anchor must name a real positive publication; current
+registry_seq must not fall below it. Equal sequence requires identical
+checkpoint id (which cryptographically commits the same head) and snapshot;
+advance requires a different checkpoint. Tip publication_seq and issued_at
+must both strictly advance, otherwise `freshness_rollback`.
+
+On accept, `Plan.Reanchor` points to `FreshnessReanchorPlan`, serialized as
+`reanchor` with `reanchored:true`, integer `skipped_publications` and
+`old_freshness_id`, `new_freshness_id`, `old_checkpoint_id`, `new_checkpoint_id`.
+The count is exactly tip publication_seq minus anchor publication_seq minus1,
+including zero for explicit adjacent recovery. Normal plans omit this member;
+all refusals return a zero plan. Persist new anchor, watermark and audit of
+both endpoint heads via these ids atomically. This API does not verify skipped
+publication consistency; the registry must retain complete untruncated history,
+and witness/off-node heads and the audit record must permit later cross-check.
+Snapshots stay cumulative and bound to checkpoint.snapshot, so recovery cannot
+hide revocation, extend authority or cancel revocation. An unavailable witness
+refuses every admission requiring current freshness. Live recovery integration
+and durable audit/storage remain unqualified by the pure library.
 
 Legacy `CheckRevocation`, message/grant/act and `VerifyJournal` methods keep
 own-snapshot/checkpoint-age rules. This API does not produce a weaker Context
@@ -195,3 +219,15 @@ their current profiles. Run focused tests with artifacts in ignored `.tmp/`:
 GOMAXPROCS=2 "$CURATOR_GO" test ./verifier -run '^TestFreshness' -count=1
 GOMAXPROCS=2 "$CURATOR_GO" test ./record -run '^TestFreshnessDomain$' -count=1
 ```
+
+Current API composition has a specific limit: a successful freshness plan is
+not a revocation receipt accepted by `VerifyAttestation`, `VerifyMessage`,
+`Authorize`, `VerifyOperator`, `CheckRevocation` or `VerifyJournal`. Each keeps
+its own snapshot-age checks, so the natural sequence "freshness verifies an old
+snapshot, then VerifyAttestation consumes that result" is unsupported.
+`TestFreshnessCompositionBoundary` exercises the old-base refusal alongside a
+genuinely current signed-snapshot control. An owner decision is needed for an
+explicit composition API/policy before consumers can use option B for those
+old-base checks. Do not fake a younger Context or implement a second verifier.
+Re-anchor comparisons and `complete=true` do not establish snapshot cumulativity;
+qualified rollback-safe cumulative-publication evidence remains required.
