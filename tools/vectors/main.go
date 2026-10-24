@@ -622,6 +622,7 @@ func main() {
 		indexAttestations(&cases[i])
 	}
 	contentReviewVectors()
+	rootAndApproverVectors()
 	seeds, pubs := M{}, M{}
 	for i, k := range keys {
 		name := fmt.Sprintf("test-%d", i)
@@ -1333,7 +1334,7 @@ func provenanceMatrix() {
 			v = copyVector(valid)
 			switch c.name {
 			case "pinned-authority-ed25519", "pinned-authority-p256":
-				v.Fixture["root"] = keys[5].ID
+				v.Fixture["root"] = keys[1].ID
 				v.Fixture["operator_pins"] = []any{}
 			case "pinned-operator-p256":
 				v.Fixture["operator_pins"] = []any{}

@@ -338,7 +338,22 @@ Both signer and message verifier MUST enforce the preimage budget and depth.
 
 `attestation/1` and `revocation/1` use the four-member envelope and §2.2's
 content-id and signed-record construction with their own exact tags in §2.4.
-They do not use the message/grant common schema. Evidence processing is ordered:
+They do not use the message/grant common schema. Before any signed evidence is
+consumed, protected root pins for the four roles (purpose-5 signing service,
+registry-owner revocation, operator, and grant owner) MUST be pairwise distinct
+key ids. No overlap between these roles is allowed. The operator root signing
+both its device attestations and its snapshots is one role, not an exception
+between roles. Reusing a root key as a subject is governed separately by the
+subject profile and does not create another root role. Compare present protected
+pins before per-record lookup/admission; missing or malformed policy retains its
+purpose-specific unavailable/invalid checks. An overlap refuses
+`key_binding_invalid` at the start of K1, or O2 after O1 and before currency;
+G7 maps it to `revocation_invalid` before snapshot intake if not encountered
+earlier. A grant key admitted directly as its configured authority root consumes
+no attestation at K1; a root-only chain may first consume signed evidence at
+G7. E1–T2 and the E6 direct-signing profile still precede these gates.
+No signed bytes, alternate pins or successful cryptography can widen a root's
+record language. Evidence processing is then ordered:
 required outer fields and duplicate-free bounded parse; required type/issuer and
 single author signature header; expected type/root, content id and strict root
 signature; complete purpose-specific typed body/current binding, profile and
@@ -396,7 +411,9 @@ For a message author, the verifier MUST resolve attestation bytes by the signed
 `author_attestation` content id using §6, never by "the current attestation for
 this key" and never by fallback to a newer record. Fully verify that returned
 attestation through this entire subpipeline, including its own subject key,
-protected current binding, validity and registry-owner revocation. Only then
+protected current binding, validity and registry-owner revocation. Then verify
+current authority, attestation and snapshot evidence for EVERY message approver
+in signature-array order. Only after all that message K1 evidence succeeds,
 require its subject key id = `author` and its content id = `author_attestation`,
 both byte for byte; otherwise refuse `author_attestation_mismatch` at the end
 of K1, after earlier evidence refusals. Missing referenced bytes are unavailable.
@@ -430,7 +447,12 @@ root. Its body is exactly `{type,issuer,issued_at,complete,entries}`:
   content id (attestation, grant or act in this root authority domain). `from`
   is an exact timestamp. An empty list is valid only in a verified complete snapshot.
 
-The purpose-5 signing-service root signs **only attestation/1**. Its key MUST
+The purpose-5 signing-service root signs **only attestation/1 for agent keys**.
+This restriction applies on every intake path: direct signers, attestation
+issuers of either class, and snapshot issuers in every authority domain.
+The pairwise root-role rule above is enforced before consuming any such signed
+evidence; in particular a purpose-5/operator overlap refuses at K1 or O2 with
+`key_binding_invalid`, before device attestation or snapshot verification. Its key MUST
 NOT sign message/grant/act profiles; conflicting additional pins cannot widen
 that language (`signature_profile_invalid` at E6). For agent keys
 and their attestations, revocation/1 MUST instead be signed by a separately
@@ -857,6 +879,8 @@ Attestations.Lookup(content_id) -> exact signed agent attestation/1 bytes | unav
 DeviceAttestations.Lookup(key_id) -> exact signed device attestation/1 bytes | unavailable
 CurrentGeneration.Lookup(key_id) -> typed active binding + current_attestation_id | unavailable
 RootPolicy.Lookup(purpose,owner) -> protected attestation/operator/grant root pin | unavailable
+RootPolicy.CheckDistinctRoles -> distinct | key_binding_invalid
+  (all four present role pins; before any signed evidence intake)
 RootPolicy.AgentRevoker(attestation_root) -> registry-owner key + purpose registry-revocation
   + exact attestation_root scope | unavailable
 SignedSnapshots.Lookup(issuer) -> exact signed revocation/1 + continuity + max_age | unavailable
@@ -889,7 +913,7 @@ entries are checked in array order. Codes are distinct per listed substep:
 | E7b | Delivered text present, valid UTF-8 bytes, exact digest | `message_text_unavailable` / `message_text_invalid` / `message_text_mismatch` |
 | T1 | Trusted/fresh provider authority, watermark availability | `time_unavailable` / `watermark_unavailable` |
 | T2 | Each expiry at max, then start at min | `expired` / `not_yet_valid` |
-| K1 | Required outer evidence/header and root, strict root signature, purpose-specific typed fields/current binding, profile/derivation, validity and scoped signed revocation; finally message author/reference equality or grant agent-issuer profile (§2.6) | `key_binding_unavailable` / `key_binding_invalid` / `revoked` / `author_attestation_mismatch` / `signature_profile_invalid` |
+| K1 | Before required signed evidence intake: distinct protected root roles; then required outer evidence/header and root, strict root signature, purpose-specific typed fields/current binding, profile/derivation, validity and scoped signed revocation; finally message author/reference equality after ALL author/approver evidence, or grant agent-issuer profile (§2.6) | `key_binding_unavailable` / `key_binding_invalid` / `revoked` / `author_attestation_mismatch` / `signature_profile_invalid` |
 | E8 | Id journal availability, then same id other bytes | `id_journal_unavailable` / `envelope_conflict` |
 | G1 | Chain length 1–4, unique ids, closed request/schema | `grant_chain_malformed` |
 | G2 | E1–E8 for every link (before remaining G rows) | envelope/time code above |
@@ -897,11 +921,11 @@ entries are checked in array order. Codes are distinct per listed substep:
 | G4 | Depth, actions, targets, raw/effective lifetime, audience and minimum-assurance attenuation | `grant_not_narrowing` |
 | G5 | Registered actions and applicable target kinds on every link | `action_unregistered` / `grant_target_invalid` |
 | G6 | Every link raw and caveat window (T2 already checks raw) | `expired` / `not_yet_valid` |
-| G7 | Fresh complete revocation for every id/issuer/subject | `revocation_unavailable` / `revocation_invalid` / `revoked` |
+| G7 | Distinct protected root roles if not checked earlier, then fresh complete revocation for every id/issuer/subject | `revocation_unavailable` / `revocation_invalid` / `revoked` |
 | G8 | Concrete target before membership; requesting key/action/target coverage | `request_target_invalid` / `grant_not_authorized` |
 | G9 | Established request assurance/presence available and satisfies leaf minimum | `grant_assurance_unavailable` / `grant_assurance_insufficient` |
 | O1 | Operation profile, exact target/owner/epoch/argument digest | `act_operation_unknown` / `act_binding_mismatch` |
-| O2 | Current owner authority, root-signed device attestation and act/device owner equality, then operator-root snapshot for signer/attestation/act revocation | `key_binding_unavailable` / `key_binding_invalid` / `revocation_unavailable` / `revocation_invalid` / `revoked` |
+| O2 | Distinct protected root roles, then current owner authority, root-signed device attestation and act/device owner equality, then operator-root snapshot for signer/attestation/act revocation | `key_binding_unavailable` / `key_binding_invalid` / `revocation_unavailable` / `revocation_invalid` / `revoked` |
 | O3 | Widening confirmed flag then qualified presence facts | `act_confirmation_required` / `act_presence_required` |
 | O4 | Available durable replay journal, unused action id | `replay_unavailable` / `act_replay` |
 | O5 | Widening activation; unconditionally closed in v0 | `act_a3_inactive` |

@@ -11,8 +11,8 @@ and exit status is 2, rather than success. It prints per-row mismatches and exit
 This is a conformance oracle for fixed offline inputs, not an importable public
 verifier API. It does not consult the generator or generated verdict code.
 Use the Go byte inventory check in addition to it to detect case removal and
-format drift. Default input contains 559 named semantic cases only. The complete
-2219-case gate must generate the 1660 T/B/Z/U sweeps first:
+format drift. Default input contains 597 named semantic cases only. The complete
+2285-case gate must generate the 1688 T/B/Z/U sweeps first:
 
 ```sh
 GOMAXPROCS=2 "$CURATOR_GO" run ./tools/vectors -check
@@ -70,8 +70,10 @@ is required. A29 binds device owner to act/registration owner.
 Signer-mode fixtures may enable `identity_check`; `multi_agent=true` always
 enforces it. `caller_key_id` is the service-resolved attested active-generation
 key id supplied as protected test context, not a new native request member.
-The check reads only exact signed-record `key` and `body.author`, after canonical
-admission, and compares both to that id. I/PI cases pin identity refusal causes
+The check reads exact signed-record `key`, `body.author` and
+`body.author_attestation` after canonical admission. The first two equal that
+key id; the third equals protected `caller_attestation_id`. I/PI cases pin
+identity refusal causes
 and demonstrate that role/action interpretation still belongs to the receiver.
 
 V/PV cases cover device-owner bounds and availability across message approvers,
@@ -85,7 +87,7 @@ provider adapters or unspecified store cardinality limits.
 
 The generated U family checks refusal precedence with independent earlier-only,
 bound-only and accepted-source controls. Run the documented full `-sweeps` gate
-to include all 423 matrix cases. Three committed N-O1-unknown-* cases retain the
+to include all 451 matrix cases. Three committed N-O1-unknown-* cases retain the
 exact O16 signed unknown operation while separately invalidating protected
 owner, epoch or target. They must return act_operation_unknown before any
 act_binding_mismatch. See the [matrix inventory](../vectors/README.md#refusal-order-matrix)

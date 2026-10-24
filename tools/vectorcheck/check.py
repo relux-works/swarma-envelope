@@ -429,7 +429,19 @@ def signed_evidence(value, expected, root):
     return e
 
 
+def root_role_separation(f):
+    # Compare present protected pins before consuming any signed evidence.
+    # Missing/malformed policy retains its purpose-specific availability checks.
+    service, registry = f.get("service_root"), f.get("agent_revocation_root")
+    pins = [service.get("key") if type(service) is dict else None,
+            registry.get("key") if type(registry) is dict else None,
+            f.get("operator_root"), f.get("root")]
+    present = [pin for pin in pins if type(pin) is str]
+    require(len(present) == len(set(present)), "key_binding_invalid")
+
+
 def signed_snapshot(f, root, ids, keys):
+    root_role_separation(f)
     records = evidence_object(f.get("revocations"))
     record = evidence_object(records.get(root), ("availability", "max_age", "rollback_safe", "snapshot"))
     require(type(record["availability"]) is str, "key_binding_invalid")
@@ -466,6 +478,7 @@ def signed_snapshot(f, root, ids, keys):
 
 
 def verify_attestation(key, f, device=False, check_revocation=True, reference=None):
+    root_role_separation(f)
     message_reference = reference is not None
     collection = "operator_attestations" if device else "attestations"
     records = evidence_object(f.get(collection))
@@ -553,14 +566,13 @@ def verify_attestation(key, f, device=False, check_revocation=True, reference=No
                 raise Refusal("key_binding_invalid") from None
             revoker = policy["key"]
         signed_snapshot(f, revoker, [e["id"]], [key])
-    if not device:
-        require(e["id"] == reference and key == requested_key,
-                "author_attestation_mismatch" if message_reference else "key_binding_invalid")
+    if not device and not message_reference:
+        require(e["id"] == reference and key == requested_key, "key_binding_invalid")
     return e
 
 
 def agent_binding(key, f, reference=None):
-    verify_attestation(key, f, reference=reference)
+    return verify_attestation(key, f, reference=reference)
 
 
 def grant_key_binding(key, f, issuer=False):
@@ -654,12 +666,14 @@ def envelope(raw, expected, f):
     low, high = time_values(f)
     window(b["iat"], b["exp"], low, high)
     if expected == "message/1":
-        agent_binding(b["author"], f, reference=b["author_attestation"])
+        author = agent_binding(b["author"], f, reference=b["author_attestation"])
         if any(s["role"] == "approver" for s in sigs):
             operator_key_current(f)
             for sig in sigs:
                 if sig["role"] == "approver":
                     verify_attestation(sig["key"], f, device=True)
+        require(author["id"] == b["author_attestation"]
+                and author["body"]["subject"]["key_id"] == b["author"], "author_attestation_mismatch")
 
     elif expected == "grant/1":
         grant_key_binding(b["issuer"], f, issuer=True)
@@ -779,6 +793,7 @@ def operator(e, f):
             and b["target"]["kind"] == kind and b["owner"] == binding["owner"]
             and b["epoch"] == binding["epoch"]
             and b["arguments_digest"] == digest(ccj(binding["arguments"])), "act_binding_mismatch")
+    root_role_separation(f)
     operator_key_current(f)
     attestation = verify_attestation(e["signatures"][0]["key"], f, device=True, check_revocation=False)
     require(attestation["body"]["binding"]["owner"] == b["owner"], "key_binding_invalid")

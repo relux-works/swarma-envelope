@@ -17,9 +17,9 @@ GOMAXPROCS=2 "$CURATOR_GO" vet ./tools/vectors
 
 Run commands sequentially through the host's required resource runner where
 applicable. Logs and generated copies belong in ignored `.tmp/`. The default
-write command (`go run ./tools/vectors`) writes 559 named cases, the public keys
+write command (`go run ./tools/vectors`) writes 597 named cases, the public keys
 and sweep manifest/digest under `vectors/`; it does not materialize T/B/Z/U JSON.
-`-sweeps` adds those 1660 cases (2219 total: 2122 negative, 97 positive).
+`-sweeps` adds those 1688 cases (2285 total: 2183 negative, 102 positive).
 The inventory check also rejects unexpected JSON under both managed trees,
 including accidentally materialized sweeps when `-sweeps` is absent. Generation
 does not remove obsolete files; remove only reviewed stale paths explicitly.
@@ -79,7 +79,7 @@ by the pipeline in spec/swarm-envelope-2.md, never sampled from the checker.
 Earlier-only and bound-only controls accompany each Cartesian group; the four
 accepted source controls are PE1, PE5, PO1 and PG1.
 
-The 1660 generated cases comprise T628 + B462 + Z147 + U423. U is stored in the
+The 1688 generated cases comprise T628 + B462 + Z147 + U451. U is stored in the
 same byte-checked manifest, materialized by the existing `-sweeps` command, and
 consumable by independent implementations. Three semantic regressions
 N-O1-unknown-owner/epoch/target are committed separately. They preserve the exact
@@ -104,12 +104,17 @@ the known-operation/invalid-binding controls; PO1 accepts.
 | O2-snapshot | 3 | 3 | 9 | 0 | 6 | 15 |
 | G7 | 3 | 2 | 6 | 0 | 5 | 11 |
 | K1-reference (controls reused) | 4 | 5 | 20 | 0 | 0 | 20 |
+| K1-approver/reference (named controls reused) | 4 | 7 | 28 | 0 | 0 | 28 |
 
 The original 14 groups use 70 bound columns and 56 earlier-failure controls to produce
 271 Cartesian cases, six additional within-E7a cases and 126 operand controls:
 403 original U cases. The added U-reference-* group crosses five earlier failures
-with four valid-but-mismatched references (20 compounds): 423 U cases total.
-Of 297 compound cases, 276 distinguish the earlier failure by a
+with four valid-but-mismatched references (20 compounds). U-approver-* crosses
+four such references with seven independent approver failures (28 compounds),
+including missing/revoked evidence for the second distinct approver: 451 U cases
+total. Its R-approver-only-* and R-reference-only-* operands and
+PR-distinct-message/PR-two-approvers accepted controls are named fixtures.
+Of 325 compound cases, 304 distinguish the earlier failure by a
 different refusal code; 21 collide on the same required code and therefore
 establish refusal behavior only, not observable internal order. The latter are
 three T1 provider/authority combinations and 18 K1/O2 signature-vs-bound cases.
@@ -168,3 +173,12 @@ PO1 is the same-key raw-preimage positive control. W-assertion-wrapper tests
 the closed signature-entry schema. Snapshot-bound controls cover age at the
 deadline and both sides of future from. Live publication, cumulative issuance
 and rollback witness continuity remain separate issuer/adapter obligations.
+
+`root_approver.go` checks all six pairs of the four distinct root roles across
+message, act and grant intake (R-overlap-*), with PR-distinct-* controls.
+Correctly signed purpose-5 device attestations and snapshots exercise the
+service/operator overlap. Root-only grant controls reach policy admission first
+at G7, whose invalid-policy code is revocation_invalid. M01–M06 retain their
+missing-provenance refusal with an unused distinct fallback root. No inherited
+verdict changes. Final message reference equality follows ALL approver evidence
+and precedes E8; grant subject derivation retains its earlier position.
