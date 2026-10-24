@@ -4,7 +4,7 @@ A secure agent coordination and communication protocol: signed messages between 
 
 ## Status
 
-**Draft design with offline conformance tooling.** The platform slice specifies `swarm-envelope/2`, general `grant/1`, `operator-act/1`, root-signed `attestation/1` and shared `revocation/1`. Its 1640 vectors (1571 negative, 69 positive) have a Go generator and independent Python checker. No production verifier, consumer integration or activation is implemented. The Go module currently contains tools only; the public library is a later slice. Broker v0 retains static R1 admission; Keymaker persistent revoke remains gated on verifier integration. Attested agent messages provide A1 provenance; widening is inactive because v0 has no qualified A3 provider.
+**Draft design with offline conformance tooling.** The platform slice specifies `swarm-envelope/2`, general `grant/1`, `operator-act/1`, root-signed `attestation/1` and shared `revocation/1`. Its 1737 vectors (1643 negative, 94 positive) have a Go generator and independent Python checker. The tree retains 510 named semantic vectors; 1227 mechanical sweep cases are represented by a checked SHA-256 manifest and materialized on demand. No production verifier, consumer integration or activation is implemented. The Go module currently contains tools only; the public library is a later slice. Broker v0 retains static R1 admission; Keymaker persistent revoke remains gated on verifier integration. Attested agent messages provide A1 provenance; widening is inactive because v0 has no qualified A3 provider.
 
 ## Layout
 
@@ -38,17 +38,29 @@ Python 3.14.4 and the already present cryptography 46.0.5 for P-256.
 
 | Tool | Purpose and exact entry point | Output |
 | --- | --- | --- |
-| Go generator | `GOMAXPROCS=2 "$CURATOR_GO" run ./tools/vectors` | Writes managed JSON under `vectors/swarm-envelope-2/` and `vectors/keys/` |
-| Go inventory check | `GOMAXPROCS=2 "$CURATOR_GO" run ./tools/vectors -check` | Read-only comparison; stdout/stderr and exit status |
-| Independent Python checker | `python3 -B tools/vectorcheck/check.py` | Derived verdict/plan comparisons; stdout/stderr, nonzero failure or PENDING |
+| Go generator | `GOMAXPROCS=2 "$CURATOR_GO" run ./tools/vectors` | Writes named JSON, sweep manifest/digest and public keys under `vectors/` |
+| Go inventory check | `GOMAXPROCS=2 "$CURATOR_GO" run ./tools/vectors -check` | Regenerates all cases; compares named JSON and sweep manifest/digest without writing |
+| Independent Python checker | `python3 -B tools/vectorcheck/check.py` | Checks supplied cases (510 named by default); nonzero failure or PENDING |
 | Go vet | `GOMAXPROCS=2 "$CURATOR_GO" vet ./tools/vectors` | Narrow tool validation; stdout/stderr and exit status |
 | Go formatting | `"$CURATOR_GO" fmt ./tools/vectors` | Formats generator source |
 | Git | `git diff --check`, `git diff --stat` | Whitespace validation and scoped change review |
 
-Use `-out DIR` for a generated scratch copy and `--vectors DIR` for the Python
-checker. Keep logs and planted-vector copies in ignored local scratch outside
-the tracked files. A known signature defect in PE1 must make both checks fail;
-see [the vector contract](vectors/swarm-envelope-2/README.md). No full suite or
+The full conformance gate includes the generated sweeps:
+
+```sh
+GOMAXPROCS=2 "$CURATOR_GO" run ./tools/vectors -check
+GOMAXPROCS=2 "$CURATOR_GO" run ./tools/vectors -sweeps -out .tmp/vectors-all
+GOMAXPROCS=2 "$CURATOR_GO" run ./tools/vectors -sweeps -out .tmp/vectors-all -check
+python3 -B tools/vectorcheck/check.py --vectors .tmp/vectors-all
+```
+
+On a resource-managed host, run each generator/checker command through its
+required serialized resource runner, sequentially. `-out DIR` selects the
+fixture root; `-sweeps` includes all T/B/Z JSON for independent implementations.
+Keep logs and tamper controls in ignored `.tmp/`. The manifest format and
+signature/manifest/byte control procedures are documented in the
+[generator guide](tools/vectors/README.md) and
+[vector contract](vectors/swarm-envelope-2/README.md). No full project suite or
 consumer service is required for this specification-only slice.
 
 ## Consumers

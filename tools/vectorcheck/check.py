@@ -118,7 +118,8 @@ def hash_id(value):
 
 
 def identifier(value, pattern=False, single=False):
-    if not isinstance(value, str) or len(value.encode("utf-8")) > 255:
+    if (not isinstance(value, str) or any(0xD800 <= ord(c) <= 0xDFFF for c in value)
+            or len(value.encode("utf-8")) > 255):
         return False
     if pattern and value.endswith("/*"):
         value = value[:-2]
@@ -281,11 +282,18 @@ def schema(envelope, expected):
 
 
 def time_values(f):
-    t = f["time"]
-    require(t["trusted"] is True and t["fresh"] is True
-            and timestamp(f["now"]) < timestamp(t["authority_until"]), "time_unavailable")
-    require(f["watermark_available"] is True, "watermark_unavailable")
-    now, watermark = timestamp(f["now"]), timestamp(f["watermark"])
+    t = f.get("time")
+    require(type(t) is dict and t.get("trusted") is True and t.get("fresh") is True, "time_unavailable")
+    try:
+        now, authority = timestamp(f.get("now")), timestamp(t.get("authority_until"))
+    except Refusal:
+        raise Refusal("time_unavailable") from None
+    require(now < authority, "time_unavailable")
+    require(f.get("watermark_available") is True, "watermark_unavailable")
+    try:
+        watermark = timestamp(f.get("watermark"))
+    except Refusal:
+        raise Refusal("watermark_unavailable") from None
     return min(now, watermark), max(now, watermark)
 
 
@@ -364,13 +372,18 @@ def evidence_object(value, names=()):
     return value
 
 
+def bounded_text(value, code="key_binding_invalid"):
+    require(type(value) is str and not any(0xD800 <= ord(c) <= 0xDFFF for c in value)
+            and 1 <= len(value.encode("utf-8")) <= 255, code)
+    return value
+
+
 def principal_tuple(value):
     names = ("owner", "path", "generation", "registration_number", "master_epoch", "uid")
     value = evidence_object(value, names)
     require(set(value) <= set(names) | {"active"}, "key_binding_invalid")
-    require(all(type(value[n]) is str and not any(0xD800 <= ord(c) <= 0xDFFF for c in value[n])
-                and 1 <= len(value[n].encode("utf-8")) <= 255
-                for n in ("owner", "path", "generation", "master_epoch")), "key_binding_invalid")
+    for name in ("owner", "path", "generation", "master_epoch"):
+        bounded_text(value[name])
     number, uid = value["registration_number"], value["uid"]
     require(type(number) is int and 1 <= number <= 9007199254740991
             and type(uid) is int and 0 <= uid <= 4294967294, "key_binding_invalid")
@@ -396,9 +409,12 @@ def signed_evidence(value, expected, root):
     b = evidence_object(e["body"], ("type", "issuer"))
     require(type(e["signatures"]) is list and len(e["signatures"]) == 1, "key_binding_invalid")
     sig = evidence_exact(e["signatures"][0], "role key sig")
-    require(e["version"] == "swarm-envelope/2" and b.get("type") == expected
-            and b.get("issuer") == root and sig["key"] == root and sig["role"] == "author", "key_binding_invalid")
     try:
+        for identity in (root, b["issuer"], sig["key"]):
+            key_bytes(identity)
+        hash_id(e["id"])
+        require(e["version"] == "swarm-envelope/2" and b.get("type") == expected
+                and b["issuer"] == root and sig["key"] == root and sig["role"] == "author", "key_binding_invalid")
         require(e["id"] == digest((OWN_TAGS[expected]+"\n").encode("ascii")+ccj(b)), "key_binding_invalid")
         verify_signature(root, unb64(sig["sig"], 64), signing_preimage(b, root, "author", expected))
     except Refusal:
@@ -461,6 +477,7 @@ def verify_attestation(key, f, device=False, check_revocation=True):
             and type(b["roles"]) is list and type(b["actions"]) is list, "key_binding_invalid")
     try:
         alg, public = key_bytes(key)
+        subject_alg, subject_public = key_bytes(subject["key_id"])
         encoded = unb64(subject["public_bytes"], 33 if device else 32)
         start, end = timestamp(b["iat"]), timestamp(b["exp"])
     except Refusal:
@@ -473,15 +490,22 @@ def verify_attestation(key, f, device=False, check_revocation=True):
             ec.EllipticCurvePublicKey.from_encoded_point(ec.SECP256R1(), public)
     except (Refusal, ValueError):
         raise Refusal("key_binding_invalid") from None
-    require(subject["key_id"] == key and encoded == public and 0 < end-start
+    require(subject_alg == alg and subject_public == public
+            and subject["key_id"] == key and encoded == public and 0 < end-start
             and (device or end-start <= 86400), "key_binding_invalid")
     if device:
         require(alg == "p256" and subject["algorithm"] == "P-256"
                 and b["key_class"] == "operator-device" and b["purpose"] == "operator-device"
                 and b["roles"] == ["act", "approver"]
                 and b["actions"] == ["act.sign", "grant.sign", "message.approve"], "key_binding_invalid")
+        # Protected availability/type precedes either owner's bound and equality.
+        owner = f.get("operator_owner")
+        require(owner is not None, "key_binding_unavailable")
+        require(type(owner) is str, "key_binding_invalid")
+        bounded_text(owner)
         binding = evidence_exact(b["binding"], "owner")
-        require(type(binding["owner"]) is str and binding["owner"] == f.get("operator_owner"), "key_binding_invalid")
+        bounded_text(binding["owner"])
+        require(binding["owner"] == owner, "key_binding_invalid")
     else:
         require(alg == "ed25519" and subject["algorithm"] == "Ed25519"
                 and b["key_class"] == "agent" and b["purpose"] == "swarma-msg"
@@ -518,7 +542,8 @@ def grant_key_binding(key, f):
 
 def delivery_binding(b, f):
     d = f.get("delivery")
-    require(type(d) is dict and all(type(d.get(n)) is str for n in ("room", "to")), "message_context_unavailable")
+    require(type(d) is dict and all(type(d.get(n)) is str and re.fullmatch(r"[!-~]{1,255}", d[n])
+                                    for n in ("room", "to")), "message_context_unavailable")
     require(b["room"] == d["room"], "message_room_mismatch")
     require(b["to"] == d["to"], "message_recipient_mismatch")
     require(d.get("text") is not None, "message_text_unavailable")
@@ -582,7 +607,9 @@ def envelope(raw, expected, f):
             except Refusal:
                 raise Refusal("signature_preimage_invalid") from None
         verify_signature(s["key"], unb64(s["sig"], 64), pre)
-    require(b["aud"] == f["audience"], "audience_mismatch")
+    audience = f.get("audience")
+    require(type(audience) is str and re.fullmatch(r"[!-~]{1,255}", audience), "audience_mismatch")
+    require(b["aud"] == audience, "audience_mismatch")
     if expected == "message/1":
         delivery_binding(b, f)
     low, high = time_values(f)
@@ -699,7 +726,12 @@ def operator_key_current(f):
 
 
 def operator(e, f):
-    b, binding = e["body"], f["binding"]
+    b, binding = e["body"], f.get("binding")
+    require(type(binding) is dict and all(n in binding for n in ("operation", "target", "owner", "epoch", "arguments")), "act_binding_mismatch")
+    bounded_text(binding["owner"], "act_binding_mismatch")
+    require(type(binding["epoch"]) is str and re.fullmatch(r"[!-~]{1,255}", binding["epoch"])
+            and type(binding["operation"]) is str and identifier(binding["operation"].replace(".", "/"))
+            and target(binding["target"], operator=True) and type(binding["arguments"]) is dict, "act_binding_mismatch")
     operations = {"revoke": ("registration", False), "grant.issue": ("account", True)}
     require(b["operation"] in operations, "act_operation_unknown")
     kind, widening = operations[b["operation"]]

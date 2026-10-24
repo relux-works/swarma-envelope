@@ -9,7 +9,9 @@ Run from the repository root:
 
 ```sh
 GOMAXPROCS=2 "$CURATOR_GO" run ./tools/vectors -check
-python3 -B tools/vectorcheck/check.py
+GOMAXPROCS=2 "$CURATOR_GO" run ./tools/vectors -sweeps -out .tmp/vectors-all
+GOMAXPROCS=2 "$CURATOR_GO" run ./tools/vectors -sweeps -out .tmp/vectors-all -check
+python3 -B tools/vectorcheck/check.py --vectors .tmp/vectors-all
 GOMAXPROCS=2 "$CURATOR_GO" vet ./tools/vectors
 ```
 
@@ -42,7 +44,13 @@ cryptography reports PENDING and exits 2; it never reports full conformance.
 No network is used by the checker. Go module resolution may download the pinned
 public registrar dependency. Neither tool imports the future production verifier.
 
-Generator `-out DIR` writes a fixture copy; `-out DIR -check` compares every
+Only 510 named cases are tracked. All 1227 T/B/Z cases remain in the generator
+and committed `sweeps.tsv` / `sweeps.sha256`; `-sweeps` materializes them for the
+complete 1737-case check. See the [manifest format](../../tools/vectors/README.md).
+Commands must run sequentially through any host-required resource runner.
+
+Generator `-out DIR` writes named cases and the manifest; adding `-sweeps`
+writes all cases. `-out DIR -check` compares every
 expected JSON byte and refuses missing, changed or extra JSON files under the
 two managed vector/key directories without rewriting. Python `--vectors DIR`
 checks the copy's actual inputs and expectations; it does not import Go verdicts.
@@ -119,3 +127,16 @@ missing device attestation / operator-root policy, so both return
 `key_binding_unavailable`, replacing the old direct-key-list codes. PA6/PA7
 accept root-attested devices with no direct device key list. A29 refuses a
 valid device attested for another owner even when act and registration agree.
+
+| Cases | Additional boundary witnesses |
+| --- | --- |
+| V/PV | Device owner byte-bound, required evidence/type and ordering regressions in message approver, grant device and narrowing act paths. Both inclusive bounds accept. |
+| H/PH | Independent principal text/UID bounds; snapshot integer age, complete/rollback booleans, 0/64/65 entries and invalid nonmatching entries; protected time, delivery identifiers and act binding types/bounds. |
+
+In a generated scratch tree, change one T/B/Z JSON byte without changing its
+manifest, then run the generator with `-sweeps -out DIR -check`: it must report
+the named case's byte mismatch. Restore that one scratch file, alter one
+`sweeps.tsv` line and rerun: it must report `sweeps.tsv` byte mismatch. Changing
+`sweeps.sha256` also fails comparison. The generator regenerates all sweep bytes
+and the whole manifest before comparing; it never trusts a changed manifest to
+supply expected bytes. No fixture file is rewritten by `-check`.

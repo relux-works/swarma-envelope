@@ -354,7 +354,11 @@ For agent keys, the signing service's binding revoke remains authoritative;
 shared records distribute that withdrawal to receivers and do not undo it.
 
 Operator-device binding is exactly `{owner}`: the exact protected owner,
-nonempty UTF-8 <=255 bytes. The operator root attests the device; direct device
+nonempty UTF-8 <=255 bytes. After verified evidence/profile admission, check
+protected-owner availability and type first, independently enforce the 1–255
+UTF-8-byte bound on both signed and protected owners, then compare. Missing/null
+protected owners are unavailable; invalid types, empty or oversized owners are
+invalid, even when both values are equal. The operator root attests the device; direct device
 pins are not an alternative. Device algorithm MUST be P-256, even when its
 root uses Ed25519. Current owner authority remains a separate mandatory fact.
 For an act, the attested owner MUST also equal the act owner and protected registration owner;

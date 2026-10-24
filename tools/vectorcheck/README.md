@@ -11,7 +11,21 @@ and exit status is 2, rather than success. It prints per-row mismatches and exit
 This is a conformance oracle for fixed offline inputs, not an importable public
 verifier API. It does not consult the generator or generated verdict code.
 Use the Go byte inventory check in addition to it to detect case removal and
-format drift. All keys are public synthetic fixtures. Never send real acts or
+format drift. Default input contains 510 named semantic cases only. The complete
+1737-case gate must generate the 1227 T/B/Z sweeps first:
+
+```sh
+GOMAXPROCS=2 "$CURATOR_GO" run ./tools/vectors -check
+GOMAXPROCS=2 "$CURATOR_GO" run ./tools/vectors -sweeps -out .tmp/vectors-all
+GOMAXPROCS=2 "$CURATOR_GO" run ./tools/vectors -sweeps -out .tmp/vectors-all -check
+python3 -B tools/vectorcheck/check.py --vectors .tmp/vectors-all
+```
+
+Run these commands sequentially through any host-required resource runner.
+Materialized sweep cases have the same schema, ids, claims, expected codes and
+positive controls as named cases; another implementation may consume that tree
+directly. The checker derives verdicts from actual inputs, independently of the
+manifest. The [generator guide](../vectors/README.md) defines manifest integrity. All keys are public synthetic fixtures. Never send real acts or
 secrets to a fixture directory.
 
 The `signer` mode checks admissibility of full preimage bytes, with exact tag,
@@ -58,3 +72,12 @@ key id supplied as protected test context, not a new native request member.
 The check reads only exact signed-record `key` and `body.author`, after canonical
 admission, and compares both to that id. I/PI cases pin identity refusal causes
 and demonstrate that role/action interpretation still belongs to the receiver.
+
+V/PV cases cover device-owner bounds and availability across message approvers,
+grant devices and narrowing acts: empty, 1 byte, 255 ASCII bytes, 255 multibyte
+bytes, 256 ASCII bytes, 128 two-byte characters, signed/protected missing/null
+and wrong types. Protected availability precedes signed-owner bounds. H/PH
+cases cover independent principal strings/UIDs, snapshot age/entry bounds,
+nonmatching invalid entries, protected delivery/act bindings and time decisions.
+These cases qualify the oracle's comparison behavior; they do not qualify live
+provider adapters or unspecified store cardinality limits.

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -228,12 +229,16 @@ func materializeEvidence(v *Vector) {
 			subject = keys[6].ID
 		}
 		sr := revs[keys[idx].ID].(M)
-		if x, ok := fault["availability"]; ok {
-			sr["availability"] = x
+		for _, name := range []string{"availability", "max_age", "rollback_safe"} {
+			if x, ok := fault[name]; ok {
+				sr[name] = x
+			}
 		}
 		fields := M{}
-		if x, ok := fault["entries"]; ok {
-			fields["entries"] = x
+		for _, name := range []string{"entries", "issued_at", "complete"} {
+			if x, ok := fault[name]; ok {
+				fields[name] = x
+			}
 		}
 		if fault["revoke_attestation"] == true {
 			fields["entries"] = []any{M{"kind": "record", "id": decode(recordMap[subject].(string))["id"], "from": f["now"]}}
@@ -246,6 +251,12 @@ func materializeEvidence(v *Vector) {
 			f[n] = x
 		}
 		delete(f, "context_edits")
+	}
+	if names, ok := f["context_remove"].([]any); ok {
+		for _, name := range names {
+			delete(f, name.(string))
+		}
+		delete(f, "context_remove")
 	}
 	if role, ok := f["p256_root"].(string); ok {
 		old := keys[5].ID
@@ -312,6 +323,13 @@ func applyRecordMutation(f M, m M) {
 		raw[5] ^= 1
 		s["sig"] = b64(raw)
 		wireValue = wire(e)
+	}
+	if size, ok := m["pad_to"].(int); ok {
+		raw := unb64(wireValue)
+		if size < len(raw) {
+			panic("fixture padding below received length")
+		}
+		wireValue = b64(append(raw, bytes.Repeat([]byte{' '}, size-len(raw))...))
 	}
 	if snapshotMode {
 		collection[key].(M)["snapshot"] = wireValue
