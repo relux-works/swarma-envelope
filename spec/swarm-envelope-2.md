@@ -414,6 +414,9 @@ bindings return `key_binding_unavailable`; wrong types, invalid shape, crypto,
 root, purpose, permissions, key derivation, mismatched/inactive binding or
 validity return `key_binding_invalid`. A parsed record with a missing required
 field returns unavailable; non-CCJ/invalidly encoded bytes return invalid.
+For grant agent subjects, subject-key derivation remains against the requested
+key before current-binding/revocation checks; a mismatch is key_binding_invalid.
+The late author_attestation_mismatch code is specific to message authors.
 Only complete cryptographically verified records proceed. Absence MUST NOT
 compare equal to absence. Every refusal returns an empty plan.
 

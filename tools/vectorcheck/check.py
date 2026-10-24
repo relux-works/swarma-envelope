@@ -466,6 +466,7 @@ def signed_snapshot(f, root, ids, keys):
 
 
 def verify_attestation(key, f, device=False, check_revocation=True, reference=None):
+    message_reference = reference is not None
     collection = "operator_attestations" if device else "attestations"
     records = evidence_object(f.get(collection))
     lookup = key
@@ -494,7 +495,7 @@ def verify_attestation(key, f, device=False, check_revocation=True, reference=No
             and all(type(b[n]) is str for n in ("key_class", "purpose", "iat", "exp"))
             and type(b["roles"]) is list and type(b["actions"]) is list, "key_binding_invalid")
     requested_key = key
-    if not device:
+    if not device and message_reference:
         key = subject["key_id"]
     try:
         alg, public = key_bytes(key)
@@ -553,7 +554,8 @@ def verify_attestation(key, f, device=False, check_revocation=True, reference=No
             revoker = policy["key"]
         signed_snapshot(f, revoker, [e["id"]], [key])
     if not device:
-        require(e["id"] == reference and key == requested_key, "author_attestation_mismatch")
+        require(e["id"] == reference and key == requested_key,
+                "author_attestation_mismatch" if message_reference else "key_binding_invalid")
     return e
 
 

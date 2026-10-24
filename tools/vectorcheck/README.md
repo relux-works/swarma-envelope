@@ -11,8 +11,8 @@ and exit status is 2, rather than success. It prints per-row mismatches and exit
 This is a conformance oracle for fixed offline inputs, not an importable public
 verifier API. It does not consult the generator or generated verdict code.
 Use the Go byte inventory check in addition to it to detect case removal and
-format drift. Default input contains 557 named semantic cases only. The complete
-2217-case gate must generate the 1660 T/B/Z/U sweeps first:
+format drift. Default input contains 559 named semantic cases only. The complete
+2219-case gate must generate the 1660 T/B/Z/U sweeps first:
 
 ```sh
 GOMAXPROCS=2 "$CURATOR_GO" run ./tools/vectors -check
@@ -100,3 +100,7 @@ Signer narrowing compares three exact paths and extends existing
 signer_identity_* refusals; I-attestation-* retains positive PI controls.
 W-assertion-wrapper / W-webauthn-signature distinguish schema from raw crypto
 refusal. Purpose-5 and registry-root cross-signing both refuse at K1.
+
+W-grant-subject-record / W-grant-subject-before-revocation retain the earlier
+subject-key derivation refusal in grants; the late author/reference mismatch
+code is message-specific.

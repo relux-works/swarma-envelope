@@ -4,7 +4,7 @@ A secure agent coordination and communication protocol: signed messages between 
 
 ## Status
 
-**Draft design with offline conformance tooling.** The platform slice specifies `swarm-envelope/2`, general `grant/1`, `operator-act/1`, root-signed `attestation/1` and shared `revocation/1`. Its 2217 vectors (2120 negative, 97 positive) have a Go generator and independent Python checker. The tree retains 557 named semantic vectors; 1660 mechanical sweep cases are represented by a checked SHA-256 manifest and materialized on demand. No production verifier, consumer integration or activation is implemented. The Go module currently contains tools only; the public library is a later slice. Broker v0 retains static R1 admission; Keymaker persistent revoke remains gated on verifier integration. Attested agent messages provide A1 provenance; widening is inactive because v0 has no qualified A3 provider.
+**Draft design with offline conformance tooling.** The platform slice specifies `swarm-envelope/2`, general `grant/1`, `operator-act/1`, root-signed `attestation/1` and shared `revocation/1`. Its 2219 vectors (2122 negative, 97 positive) have a Go generator and independent Python checker. The tree retains 559 named semantic vectors; 1660 mechanical sweep cases are represented by a checked SHA-256 manifest and materialized on demand. No production verifier, consumer integration or activation is implemented. The Go module currently contains tools only; the public library is a later slice. Broker v0 retains static R1 admission; Keymaker persistent revoke remains gated on verifier integration. Attested agent messages provide A1 provenance; widening is inactive because v0 has no qualified A3 provider.
 
 ## Layout
 
@@ -40,7 +40,7 @@ Python 3.14.4 and the already present cryptography 46.0.5 for P-256.
 | --- | --- | --- |
 | Go generator | `GOMAXPROCS=2 "$CURATOR_GO" run ./tools/vectors` | Writes named JSON, sweep manifest/digest and public keys under `vectors/` |
 | Go inventory check | `GOMAXPROCS=2 "$CURATOR_GO" run ./tools/vectors -check` | Regenerates all cases; compares named JSON and sweep manifest/digest without writing |
-| Independent Python checker | `python3 -B tools/vectorcheck/check.py` | Checks supplied cases (557 named by default); nonzero failure or PENDING |
+| Independent Python checker | `python3 -B tools/vectorcheck/check.py` | Checks supplied cases (559 named by default); nonzero failure or PENDING |
 | Go vet | `GOMAXPROCS=2 "$CURATOR_GO" vet ./tools/vectors` | Narrow tool validation; stdout/stderr and exit status |
 | Go formatting | `"$CURATOR_GO" fmt ./tools/vectors` | Formats generator source |
 | Git | `git diff --check`, `git diff --stat` | Whitespace validation and scoped change review |

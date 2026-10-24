@@ -287,6 +287,22 @@ func contentReviewVectors() {
 	materializeEvidence(&v)
 	indexAttestations(&v)
 	add("W-purpose5-grant", "A conflicting grant root pin cannot widen the purpose-5 key's attestation-only signing language.", "PG1", "signature_profile_invalid", v)
+	// Grant subjects retain the earlier key-derivation refusal, before snapshots;
+	// the new late author/reference mismatch code is message-specific.
+	for _, revoked := range []bool{false, true} {
+		v := reviewSource("PG1")
+		message := reviewSource("PE1")
+		ref := body(message)["author_attestation"].(string)
+		v.Fixture["attestations"].(M)[ref] = message.Fixture["attestations"].(M)[ref]
+		v.Fixture["agent_attestation_ids"].(M)[keys[2].ID] = ref
+		v.Fixture["active_generations"].(M)[keys[0].ID] = message.Fixture["active_generations"].(M)[keys[0].ID]
+		name := "record"
+		if revoked {
+			name = "before-revocation"
+			reviewSnapshot(&v, func(b M) { b["entries"] = []any{M{"kind": "key", "id": keys[0].ID, "from": v.Fixture["now"]}} })
+		}
+		add("W-grant-subject-"+name, "Grant subject derivation rejects another key's otherwise valid record before revocation; message-only mismatch codes do not escape into grants.", "PG1", "key_binding_invalid", v)
+	}
 	revocationBoundVectors()
 	signerAttestationVectors()
 }
