@@ -1,0 +1,19 @@
+{
+  "id": "I-attestation-duplicate",
+  "claim": "Signer third identity path rejects duplicate without signing.",
+  "positive_control": "PI1",
+  "mode": "signer",
+  "input": {
+    "preimage": "c3dhcm1hLW1zZy8yCnsiYm9keSI6eyJhY3Rpb24iOiJtZXNzYWdlLmRlbGl2ZXIiLCJhcmd1bWVudHMiOnsidGV4dCI6ImhlbGxvIn0sImF1ZCI6InNlcnZpY2UtYSIsImF1dGhvciI6ImVkMjU1MTk6d3VlMnQxR0plTFpUcXpZdWRrelJJaHlZMTFsQXp5UFhEanNUWGdYb0lyayIsImF1dGhvcl9hdHRlc3RhdGlvbiI6IngiLCJhdXRob3JfYXR0ZXN0YXRpb24iOiJzaGEyNTY6YzNjZmJkMjA4NWEzMWIwYjIzZTg0MWFmYzg0ZmEyOGQ0ZTI4NmUxOThhNjAwMjFiY2YwMmVjNDYyNTFiMTA5MCIsImJvZHlfc2hhMjU2IjoiMmNmMjRkYmE1ZmIwYTMwZTI2ZTgzYjJhYzViOWUyOWUxYjE2MWU1YzFmYTc0MjVlNzMwNDMzNjI5MzhiOTgyNCIsImV4cCI6IjIwMjYtMDEtMDFUMDA6MDI6MDBaIiwiaWF0IjoiMjAyNi0wMS0wMVQwMDowMDowMFoiLCJub25jZSI6IkJ3Y0hCd2NIQndjSEJ3Y0hCd2NIQnciLCJyb29tIjoiIXJvb206dGVzdC5pbnZhbGlkIiwidGFyZ2V0Ijp7ImlkIjoidGVhbS9tZW1iZXIiLCJraW5kIjoic3RhdGlvbiJ9LCJ0byI6IkByZWNpcGllbnQ6dGVzdC5pbnZhbGlkIiwidHlwZSI6Im1lc3NhZ2UvMSJ9LCJrZXkiOiJlZDI1NTE5Ond1ZTJ0MUdKZUxaVHF6WXVka3pSSWh5WTExbEF6eVBYRGpzVFhnWG9JcmsiLCJyb2xlIjoiYXV0aG9yIiwidmVyc2lvbiI6InN3YXJtLWVudmVsb3BlLzIifQ"
+  },
+  "fixture": {
+    "caller_attestation_id": "sha256:c3cfbd2085a31b0b23e841afc84fa28d4e286e198a60021bcf02ec46251b1090",
+    "caller_key_id": "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+    "identity_check": true,
+    "multi_agent": true
+  },
+  "expected": {
+    "code": "signer_payload_invalid",
+    "plan": {}
+  }
+}

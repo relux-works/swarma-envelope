@@ -48,3 +48,22 @@ These rulings are DECIDED and supersede conflicting defaults above.
 | R5 — DECIDED, 2026-10-23 | Required grant min_assurance {level:A1/A2/A3,presence:boolean}; child equal/tighter only. Separate established-request comparison and refusal step. | Protected request-bound assurance provider, no self-assertion; A3 constraints remain dormant in v0. |
 | R6 — DECIDED, 2026-10-23 | No qualified A3 signer provider in v0. Otherwise-valid widening always returns act_a3_inactive. Narrowing and Keymaker persistent revoke stay supported. | Another lane must qualify provider interface and publish a reviewed activation change. |
 | R7 — DECIDED, 2026-10-23 | Historical signature verification is outside v0. Current effective revocation cannot be bypassed with an old claimed iat. | Current-time/effect serialization remains mandatory. |
+
+## Content review decisions, 2026-10-24
+
+These decisions are DECIDED and supersede conflicting earlier defaults.
+
+| Decision | Status and adopted contract | Remaining boundary |
+| --- | --- | --- |
+| D3 | DECIDED: closed CCJ-1 grant encoding, keys only, time-window-only caveats/v1. | Extension needs a later version. |
+| D4 | DECIDED: protected root pins, complete cumulative signed snapshots, rollback continuity, configured maximum age at most 60 seconds. | Qualify publication, external continuity and restore fencing. |
+| D5 | DECIDED: unsigned authentication creates no act; persistent revoke requires its signed narrowing act. | Consumer-specific separate narrowing fallbacks cannot weaken this format. |
+| D7 | DECIDED: closed credential.lease, agent.spawn, message.deliver vocabulary and typed correlated targets. | Additional profiles require versioned review. |
+| D8 | DECIDED: no role or agent: grant subjects; keys only. | Generation-to-key consumer adapter remains required. |
+| D23 | DECIDED: message/1 requires signed author_attestation; content-id lookup, full verification and exact author/id equality at the end of K1. | Binding prevents substitution; it does not prove creation time beyond the message window. |
+| D24 | DECIDED: agent keys cannot issue grant/1 in v0; subjects/leaves remain admissible. | Agent-issued grants require the same signed attestation binding in a later version; no new signing-service language is enabled. |
+| D25 | DECIDED: D22 narrowing extracts exactly key, body.author, body.author_attestation; compares to protected caller key and current attestation id. Existing signer_identity_unavailable/malformed/mismatch codes are extended. | Signing service owns resolution and full attestation validation, with no aliases or absence equality. |
+| D26 | DECIDED: operator devices produce raw P-256 low-S signatures over the exact preimage. WebAuthn/FIDO assertions refuse. | A separate WebAuthn proof profile is a future slice, with its own tag/record. |
+| D27 | DECIDED: snapshot-only revocation bound is first-containing issued_at + configured max_age for an effective entry, never before from; future entries use max(issued_at+age,from). Nothing is covered before signed publication. Cumulative retention, unique increasing issuance and continuity are mandatory. | End-to-end platform promise is D29, with no default. |
+| D28 | DECIDED: purpose-5 root signs only agent attestation/1; a separate registry-owner root signs agent revocation/1, with protected registry-revocation purpose and exact attestation-root scope. Operator-device snapshots keep the operator-root rule. | Signing-service binding revoke is authoritative; snapshots distribute it. Root custody/publication and continuity still require qualification. |
+| D29 | OPEN — owner decision required: what does "revocation complete" promise for the platform end to end? | No default completion point, publication latency, acknowledgement set or end-to-end bound is claimed. |

@@ -157,6 +157,7 @@ func base(mode string, idx int) Vector {
 		b["room"], b["to"] = "!room:test.invalid", "@recipient:test.invalid"
 		b["body_sha256"] = strings.TrimPrefix(digest([]byte("hello")), "sha256:")
 		b["author"] = keys[idx].ID
+		b["author_attestation"] = defaultAttestationID(idx)
 		b["action"] = "message.deliver"
 		b["target"] = M{"kind": "station", "id": "team/member"}
 		b["arguments"] = M{"text": "hello"}
@@ -164,13 +165,25 @@ func base(mode string, idx int) Vector {
 	v.Input["envelope"] = wire(envelope(b, keys[idx], role))
 	return v
 }
+
+// Generic multi-link grant controls use an attested P-256 issuer; agent keys
+// remain final subjects. Explicit agent-issuer witnesses use vertexChain.
+func grantSigner(idx int) Key {
+	if idx > 0 && idx < 6 {
+		return keys[6]
+	}
+	return keys[idx]
+}
 func chain(n int) []any {
 	var out []any
 	parent := any(nil)
 	for i := 0; i < n; i++ {
 		b := common("grant/1")
-		b["issuer"] = keys[i].ID
+		b["issuer"] = grantSigner(i).ID
 		b["subject"] = keys[i+1].ID
+		if i+1 < n {
+			b["subject"] = grantSigner(i + 1).ID
+		}
 		b["actions"] = []any{"credential.lease"}
 		b["targets"] = []any{target("team/*")}
 		b["depth"] = max(3-i, 0)
@@ -183,7 +196,7 @@ func chain(n int) []any {
 		}
 		b["not_before"] = b["iat"]
 		b["expires"] = b["exp"]
-		e := envelope(b, keys[i], "author")
+		e := envelope(b, grantSigner(i), "author")
 		parent = e["id"]
 		out = append([]any{wire(e)}, out...)
 	}
@@ -210,7 +223,7 @@ func link(v *Vector, i, idx int, fn func(M)) {
 	a := v.Input["chain"].([]any)
 	b := decode(a[i].(string))["body"].(map[string]any)
 	fn(b)
-	a[i] = wire(envelope(b, keys[idx], "author"))
+	a[i] = wire(envelope(b, grantSigner(idx), "author"))
 }
 func add(id, claim, pair, code string, v Vector) {
 	pruneAgentEvidence(&v)
@@ -267,6 +280,9 @@ func main() {
 	d.Add(d, big.NewInt(1))
 	x, y := c.ScalarBaseMult(d.Bytes())
 	keys = append(keys, Key{ID: "p256:" + b64(elliptic.MarshalCompressed(c, x, y)), Seed: seed[:], EC: &ecdsa.PrivateKey{PublicKey: ecdsa.PublicKey{Curve: c, X: x, Y: y}, D: d}})
+	registrySeed := sha256.Sum256([]byte("waggle public test registry revocation seed"))
+	registryPrivate := ed25519.NewKeyFromSeed(registrySeed[:])
+	keys = append(keys, Key{ID: "ed25519:" + b64(registryPrivate.Public().(ed25519.PublicKey)), Seed: registrySeed[:], Ed: registryPrivate})
 	// Each negative states its specific claim and names a valid neighboring control.
 	neg("E01", "Duplicate decoded member names refuse before hashing.", "PE1", "envelope_malformed", "envelope", func(v *Vector) {
 		raw := unb64(v.Input["envelope"].(string))
@@ -388,7 +404,7 @@ func main() {
 	neg("G06", "Five-link chain refuses before link verification.", "PG4", "grant_chain_malformed", "grant", func(v *Vector) { v.Input["chain"] = chain(5) })
 	neg("G07", "Broken leaf parent reference refuses.", "PG1", "grant_chain_broken", "grant", func(v *Vector) { link(v, 0, 1, func(b M) { b["parent"] = "sha256:" + strings.Repeat("0", 64) }) })
 	neg("G08", "Child issuer must equal parent subject.", "PG1", "grant_chain_broken", "grant", func(v *Vector) { link(v, 0, 0, func(b M) { b["issuer"] = keys[0].ID }) })
-	neg("G09", "Root must be pinned.", "PG1", "grant_root_unknown", "grant", func(v *Vector) { v.Fixture["root"] = keys[3].ID })
+	neg("G09", "Root must be pinned.", "PG1", "grant_root_unknown", "grant", func(v *Vector) { v.Input["chain"] = vertexChain([]int{6, 2}); v.Fixture["root"] = keys[3].ID })
 	neg("G10", "Expiry is exclusive.", "PG1", "expired", "grant", func(v *Vector) { v.Fixture["now"] = "2026-01-01T00:02:00Z" })
 	neg("G11", "Future grant refuses.", "PG1", "not_yet_valid", "grant", func(v *Vector) { v.Fixture["now"] = "2025-12-31T23:59:59Z" })
 	neg("G12", "Watermark rollback cannot revive expired leaf.", "PG1", "expired", "grant", func(v *Vector) { v.Fixture["watermark"] = "2026-01-01T00:02:00Z" })
@@ -599,8 +615,13 @@ func main() {
 	boundVectors()
 	for i := range cases {
 		materializeEvidence(&cases[i])
+		bindAcceptedMessage(&cases[i])
 	}
 	orderVectors()
+	for i := range cases {
+		indexAttestations(&cases[i])
+	}
+	contentReviewVectors()
 	seeds, pubs := M{}, M{}
 	for i, k := range keys {
 		name := fmt.Sprintf("test-%d", i)
@@ -856,7 +877,7 @@ func addendumVectors() {
 		neg(a.id, a.claim, "PE1", a.code, "envelope", a.change)
 	}
 	neg("K19", "Grant leaf subject needs current attested agent binding.", "PG1", "key_binding_unavailable", "grant", func(v *Vector) { delete(v.Fixture["agent_evidence"].(M), keys[2].ID) })
-	neg("K20", "Delegated agent grant issuer also needs current binding.", "PG1", "key_binding_unavailable", "grant", func(v *Vector) { delete(v.Fixture["agent_evidence"].(M), keys[1].ID) })
+	neg("K20", "Delegated device grant issuer also needs attestation provenance.", "PG1", "key_binding_unavailable", "grant", func(v *Vector) { v.Fixture["operator_pins"] = []any{} })
 	for i, tag := range tags {
 		add(fmt.Sprintf("PD%d", i+1), "The exact configured tag verifies its own signature without implying consumer admission: "+tag+".", "", "accept", domainVector(tag, tag, payload))
 	}
@@ -1054,7 +1075,7 @@ func typeSweep() {
 			if len(path) > 0 {
 				field, _ := path[len(path)-1].(string)
 				// New fields have their own Z sweep; preserve all inherited T names.
-				if field == "room" || field == "to" || field == "body_sha256" || field == "min_assurance" {
+				if field == "room" || field == "to" || field == "body_sha256" || field == "min_assurance" || field == "author_attestation" {
 					return
 				}
 				for _, wrong := range []any{nil, false, 1, "x", []any{}, M{}} {
@@ -1110,6 +1131,18 @@ func typeSweep() {
 			walk(src.Fixture["request"], nil, true)
 		}
 	}
+	for _, control := range []string{"PE1", "PE5"} {
+		for _, wrong := range []any{nil, false, 1, []any{}, M{}} {
+			v := base("envelope", 0)
+			if control == "PE5" {
+				extraSignature(&v, false)
+			}
+			edit(&v, func(e M) { e["body"].(M)["author_attestation"] = wrong })
+			n++
+			add(fmt.Sprintf("T%04d", n), fmt.Sprintf("Wrong %s type at %s body.author_attestation refuses at E2.", jsonKind(wrong), control), control, "envelope_malformed", v)
+		}
+	}
+
 }
 
 // Caller evidence is not CCJ wire data. These fixtures retain JSON floats so
@@ -1184,6 +1217,9 @@ func evidenceSweep() {
 		idx             int
 	}{{"envelope", "PE1", "author", 0}, {"grant", "PG1", "issuer", 1}, {"grant", "PG1", "leaf-subject", 2}} {
 		src := copyVector(base(item.mode, 0))
+		if item.use == "issuer" {
+			src.Input["chain"] = vertexChain([]int{0, 1, 2})
+		}
 		key := keys[item.idx].ID
 		paths := [][]any{{"agent_evidence"}, {"agent_expected"}, {"agent_evidence", key}, {"agent_expected", key}}
 		record := src.Fixture["agent_evidence"].(M)[key].(M)
@@ -1271,10 +1307,10 @@ func provenanceMatrix() {
 		for _, position := range []string{"issuer", "subject", "leaf-subject"} {
 			vertices := []int{c.root, c.idx, 2}
 			if position == "subject" {
-				vertices = []int{c.root, 1, c.idx, 2}
+				vertices = []int{c.root, 6, c.idx, 2}
 			}
 			if position == "leaf-subject" {
-				vertices = []int{c.root, 1, c.idx}
+				vertices = []int{c.root, 6, c.idx}
 			}
 			v := base("grant", 0)
 			v.Input["chain"] = vertexChain(vertices)
@@ -1285,8 +1321,15 @@ func provenanceMatrix() {
 			}
 			n++
 			pair := fmt.Sprintf("PM%02d", n)
-			add(pair, c.name+" in "+position+" position retains protected provenance under a valid narrowing chain.", "", "accept", v)
+			code, positive, claim := "accept", "", c.name+" in "+position+" position retains protected provenance under a valid narrowing chain."
+			if c.idx == 3 && position != "leaf-subject" {
+				code, positive, claim = "signature_profile_invalid", "PG1", "An attested agent cannot issue a grant, including after delegation."
+			}
+			add(pair, claim, positive, code, v)
 			valid := copyVector(cases[len(cases)-1])
+			if c.idx == 3 && position != "leaf-subject" {
+				pair = "PG1"
+			}
 			v = copyVector(valid)
 			switch c.name {
 			case "pinned-authority-ed25519", "pinned-authority-p256":
@@ -1315,21 +1358,21 @@ func provenanceMatrix() {
 			}
 			if c.name == "attested-agent-ed25519" {
 				v = copyVector(valid)
-				v.Fixture["operator_pins"] = []any{keys[3].ID}
+				v.Fixture["operator_pins"] = []any{keys[6].ID, keys[3].ID}
 				add(fmt.Sprintf("M%02d", n+12), "Ed25519 in "+position+" cannot become an operator device by a contradictory pin.", pair, "key_binding_invalid", v)
 			}
 		}
 	}
 }
 
-// Identity narrowing reads only signing-record key and body.author. Caller key
+// Identity narrowing reads only key, body.author and body.author_attestation. Caller key
 // and multi-agent policy are protected service context, never preimage selectors.
 func signerIdentityVectors() {
 	message := base("envelope", 0)
 	pre := sigPre(body(message), "author", keys[0].ID, "message/1")
 	baseIdentity := func() Vector {
 		v := signerVector(pre)
-		v.Fixture = M{"identity_check": true, "multi_agent": true, "caller_key_id": keys[0].ID}
+		v.Fixture = M{"identity_check": true, "multi_agent": true, "caller_key_id": keys[0].ID, "caller_attestation_id": defaultAttestationID(0)}
 		return v
 	}
 	change := func(v *Vector, edit func(M)) {
@@ -1381,7 +1424,7 @@ func signerIdentityVectors() {
 		r.edit(&v)
 		add(r.id, r.claim, "PI1", r.code, v)
 	}
-	add("PI1", "Exact signing key and body.author match the attested OS caller and active generation.", "", "accept", baseIdentity())
+	add("PI1", "Exact signing key, body.author and body.author_attestation match the attested OS caller and active generation.", "", "accept", baseIdentity())
 	v := baseIdentity()
 	change(&v, func(p M) { p["role"] = "approver" })
 	add("PI2", "Identity narrowing does not interpret role; receiver profile checks remain mandatory.", "", "accept", v)

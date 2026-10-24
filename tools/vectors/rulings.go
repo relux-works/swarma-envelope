@@ -103,7 +103,7 @@ func materializeEvidence(v *Vector) {
 	}
 	if v.Mode == "signer" {
 		trimmed := M{}
-		for _, n := range []string{"identity_check", "multi_agent", "caller_key_id"} {
+		for _, n := range []string{"identity_check", "multi_agent", "caller_key_id", "caller_attestation_id"} {
 			if x, ok := f[n]; ok {
 				trimmed[n] = x
 			}
@@ -113,7 +113,7 @@ func materializeEvidence(v *Vector) {
 	}
 	attest := M{}
 	active := M{}
-	revs := M{keys[5].ID: freshSnapshot(keys[5]), keys[4].ID: freshSnapshot(keys[4])}
+	revs := M{keys[7].ID: freshSnapshot(keys[7]), keys[4].ID: freshSnapshot(keys[4])}
 	root := keys[0]
 	for _, k := range keys {
 		if k.ID == f["root"] {
@@ -170,14 +170,14 @@ func materializeEvidence(v *Vector) {
 				attest[key] = status
 			}
 			state, exists := r["revocation"]
-			sr := revs[keys[5].ID].(M)
+			sr := revs[keys[7].ID].(M)
 			if !exists || state == nil || state == "unavailable" {
 				sr["availability"] = "unavailable"
 			} else if state == "revoked" {
 				e := decode(sr["snapshot"].(string))
 				b := e["body"].(M)
 				b["entries"] = append(b["entries"].([]any), M{"kind": "key", "id": key, "from": f["now"]})
-				sr["snapshot"] = evidenceWire(b, keys[5])
+				sr["snapshot"] = evidenceWire(b, keys[7])
 			} else if state != "not_revoked" {
 				sr["availability"] = state
 			}
@@ -197,6 +197,7 @@ func materializeEvidence(v *Vector) {
 	}
 	f["operator_attestations"] = devices
 	f["service_root"] = M{"key": keys[5].ID, "purpose": 5}
+	f["agent_revocation_root"] = M{"key": keys[7].ID, "purpose": "registry-revocation", "attestation_root": keys[5].ID}
 	f["operator_root"] = keys[4].ID
 	f["operator_owner"] = "owner-a"
 	f["revocations"] = revs
@@ -220,7 +221,7 @@ func materializeEvidence(v *Vector) {
 		delete(f, "record_mutation")
 	}
 	if fault, ok := f["snapshot_fault"].(M); ok {
-		idx := 5
+		idx := 7
 		recordMap := attest
 		subject := keys[0].ID
 		if fault["device"] == true {
@@ -274,8 +275,12 @@ func materializeEvidence(v *Vector) {
 			b["issuer"] = keys[6].ID
 			collection[key] = evidenceWire(b, keys[6])
 		}
-		delete(revs, old)
-		revs[keys[6].ID] = freshSnapshot(keys[6])
+		if role == "operator" {
+			delete(revs, old)
+			revs[keys[6].ID] = freshSnapshot(keys[6])
+		} else {
+			f["agent_revocation_root"].(M)["attestation_root"] = keys[6].ID
+		}
 		delete(f, "p256_root")
 	}
 }
@@ -613,7 +618,7 @@ func newRecordShapeVectors() {
 	add("A26", "Owner-domain revocation signature is verified, not merely available.", "PG1", "revocation_invalid", v)
 	v = base("envelope", 0)
 	v.Fixture["p256_root"] = "service"
-	add("PA4", "A pinned P-256 purpose-5 service root verifies an Ed25519 agent attestation and its snapshot.", "", "accept", v)
+	add("PA4", "A pinned P-256 purpose-5 service root verifies an Ed25519 agent attestation with a separately pinned registry snapshot.", "", "accept", v)
 	v = base("operator", 0)
 	v.Fixture["p256_root"] = "operator"
 	add("PA5", "A pinned P-256 operator root verifies an explicit P-256 device attestation and narrowing act.", "", "accept", v)

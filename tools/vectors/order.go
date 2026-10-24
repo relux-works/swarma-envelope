@@ -227,7 +227,7 @@ func orderVectors() {
 	groups = append(groups, orderGroup{name: "G2", source: "PG1", bounds: append(append(append([]orderFault{}, headerBounds...), subjectBounds...), principalBounds...), earlier: []orderFault{
 		{"G1-request-shape", "grant_chain_malformed", func(v *Vector) { v.Fixture["request"].(M)["action"] = []any{} }},
 		invalidSig,
-		{"G2-leaf-issuer", "key_binding_unavailable", func(v *Vector) { delete(v.Fixture["attestations"].(M), keys[1].ID) }},
+		{"G2-leaf-issuer", "key_binding_unavailable", func(v *Vector) { delete(v.Fixture["operator_attestations"].(M), keys[6].ID) }},
 	}})
 	g = orderGroup{name: "G8", source: "PG1", earlier: []orderFault{
 		{"G1-request-shape", "grant_chain_malformed", func(v *Vector) { v.Fixture["request"].(M)["action"] = []any{} }},
@@ -238,10 +238,10 @@ func orderVectors() {
 		{"target-overlong", "request_target_invalid", func(v *Vector) { v.Fixture["request"].(M)["target"].(M)["id"] = strings.Repeat("x", 256) }},
 	}}
 	groups = append(groups, g)
-	groups = append(groups, orderGroup{name: "K1-snapshot", source: "PE1", bounds: snapshotOrderBounds(5, "key_binding_invalid"), earlier: []orderFault{
+	groups = append(groups, orderGroup{name: "K1-snapshot", source: "PE1", bounds: snapshotOrderBounds(7, "key_binding_invalid"), earlier: []orderFault{
 		expiry,
 		{"attestation-missing", "key_binding_unavailable", func(v *Vector) { delete(v.Fixture["attestations"].(M), keys[0].ID) }},
-		snapshotHeaderMissing(5, "key_binding_unavailable"),
+		snapshotHeaderMissing(7, "key_binding_unavailable"),
 	}})
 	groups = append(groups, orderGroup{name: "O2-snapshot", source: "PO1", bounds: snapshotOrderBounds(4, "revocation_invalid"), earlier: []orderFault{
 		{"O1-operation", "act_operation_unknown", func(v *Vector) { resign(v, 6, func(b M) { b["operation"] = "unknown.operation" }) }},

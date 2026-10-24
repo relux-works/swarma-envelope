@@ -11,8 +11,8 @@ and exit status is 2, rather than success. It prints per-row mismatches and exit
 This is a conformance oracle for fixed offline inputs, not an importable public
 verifier API. It does not consult the generator or generated verdict code.
 Use the Go byte inventory check in addition to it to detect case removal and
-format drift. Default input contains 513 named semantic cases only. The complete
-2143-case gate must generate the 1630 T/B/Z/U sweeps first:
+format drift. Default input contains 557 named semantic cases only. The complete
+2217-case gate must generate the 1660 T/B/Z/U sweeps first:
 
 ```sh
 GOMAXPROCS=2 "$CURATOR_GO" run ./tools/vectors -check
@@ -58,7 +58,8 @@ signed attestation bytes (including deliberately malformed/forged negative
 records), signed snapshots and separate current-generation bindings; none of
 those construction status flags is an oracle input. PM/M cases exercise pinned
 owner roots, operator-root-attested devices and service-root-attested agents in
-all chain positions. Root provenance wins before device/agent classification.
+all chain positions. PM10/PM11 now refuse agent issuance; agent leaves remain
+admissible. Root provenance wins before device/agent classification.
 C/PC covers actual delivery/text; A/PA covers signed evidence; Q/PQ covers
 assurance attenuation/comparison and the unconditionally closed widening gate;
 X adds every directed domain pair involving either new tag. Z checks the new
@@ -84,8 +85,18 @@ provider adapters or unspecified store cardinality limits.
 
 The generated U family checks refusal precedence with independent earlier-only,
 bound-only and accepted-source controls. Run the documented full `-sweeps` gate
-to include all 403 matrix cases. Three committed N-O1-unknown-* cases retain the
+to include all 423 matrix cases. Three committed N-O1-unknown-* cases retain the
 exact O16 signed unknown operation while separately invalidating protected
 owner, epoch or target. They must return act_operation_unknown before any
 act_binding_mismatch. See the [matrix inventory](../vectors/README.md#refusal-order-matrix)
 for group counts, cross-row/within-row coverage and same-code limits.
+
+Message author lookup is by the signed author_attestation content id. The
+returned evidence is fully verified, including current binding, validity and
+the separately scoped registry snapshot, before exact author/id comparison
+(`author_attestation_mismatch`). W/PW and U-reference-* cover stable-key
+substitution and ordering; T0619–T0628 cover the new member's wrong types.
+Signer narrowing compares three exact paths and extends existing
+signer_identity_* refusals; I-attestation-* retains positive PI controls.
+W-assertion-wrapper / W-webauthn-signature distinguish schema from raw crypto
+refusal. Purpose-5 and registry-root cross-signing both refuse at K1.

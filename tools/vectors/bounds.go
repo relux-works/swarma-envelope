@@ -133,7 +133,7 @@ func boundVectors() {
 		for _, size := range []int{8192, 8193} {
 			key := keys[0].ID
 			if collection == "revocations" {
-				key = keys[5].ID
+				key = keys[7].ID
 			}
 			v := base("envelope", 0)
 			v.Fixture["record_mutation"] = M{"collection": collection, "key": key, "pad_to": size}

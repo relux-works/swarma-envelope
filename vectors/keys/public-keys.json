@@ -5,5 +5,6 @@
   "test-3": "ed25519:IUj_CVABHAaYiUFvd6OplZ6sq6L0khQW_GIOF-PhTJo",
   "test-4": "ed25519:HBNOVZnP7h9DWY3ShGX0kQ8NsEwAUjEZP119NF_Z4yo",
   "test-5": "ed25519:b2CdQco2XmEi01K78Tg0l7-24Eu5_wHLHlSvQE3mj1M",
-  "test-6": "p256:AtvuKbwrlJKTmC1cFKDUv9lAx4xolphryoTXkRZN0Ayl"
+  "test-6": "p256:AtvuKbwrlJKTmC1cFKDUv9lAx4xolphryoTXkRZN0Ayl",
+  "test-7": "ed25519:2dJ3Im2a_cYnF0y9xP2zc5XitBT0maSzUxgZgNKq9f4"
 }

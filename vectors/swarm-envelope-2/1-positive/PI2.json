@@ -4,9 +4,10 @@
   "positive_control": "",
   "mode": "signer",
   "input": {
-    "preimage": "c3dhcm1hLW1zZy8yCnsiYm9keSI6eyJhY3Rpb24iOiJtZXNzYWdlLmRlbGl2ZXIiLCJhcmd1bWVudHMiOnsidGV4dCI6ImhlbGxvIn0sImF1ZCI6InNlcnZpY2UtYSIsImF1dGhvciI6ImVkMjU1MTk6d3VlMnQxR0plTFpUcXpZdWRrelJJaHlZMTFsQXp5UFhEanNUWGdYb0lyayIsImJvZHlfc2hhMjU2IjoiMmNmMjRkYmE1ZmIwYTMwZTI2ZTgzYjJhYzViOWUyOWUxYjE2MWU1YzFmYTc0MjVlNzMwNDMzNjI5MzhiOTgyNCIsImV4cCI6IjIwMjYtMDEtMDFUMDA6MDI6MDBaIiwiaWF0IjoiMjAyNi0wMS0wMVQwMDowMDowMFoiLCJub25jZSI6IkJ3Y0hCd2NIQndjSEJ3Y0hCd2NIQnciLCJyb29tIjoiIXJvb206dGVzdC5pbnZhbGlkIiwidGFyZ2V0Ijp7ImlkIjoidGVhbS9tZW1iZXIiLCJraW5kIjoic3RhdGlvbiJ9LCJ0byI6IkByZWNpcGllbnQ6dGVzdC5pbnZhbGlkIiwidHlwZSI6Im1lc3NhZ2UvMSJ9LCJrZXkiOiJlZDI1NTE5Ond1ZTJ0MUdKZUxaVHF6WXVka3pSSWh5WTExbEF6eVBYRGpzVFhnWG9JcmsiLCJyb2xlIjoiYXBwcm92ZXIiLCJ2ZXJzaW9uIjoic3dhcm0tZW52ZWxvcGUvMiJ9"
+    "preimage": "c3dhcm1hLW1zZy8yCnsiYm9keSI6eyJhY3Rpb24iOiJtZXNzYWdlLmRlbGl2ZXIiLCJhcmd1bWVudHMiOnsidGV4dCI6ImhlbGxvIn0sImF1ZCI6InNlcnZpY2UtYSIsImF1dGhvciI6ImVkMjU1MTk6d3VlMnQxR0plTFpUcXpZdWRrelJJaHlZMTFsQXp5UFhEanNUWGdYb0lyayIsImF1dGhvcl9hdHRlc3RhdGlvbiI6InNoYTI1NjpjM2NmYmQyMDg1YTMxYjBiMjNlODQxYWZjODRmYTI4ZDRlMjg2ZTE5OGE2MDAyMWJjZjAyZWM0NjI1MWIxMDkwIiwiYm9keV9zaGEyNTYiOiIyY2YyNGRiYTVmYjBhMzBlMjZlODNiMmFjNWI5ZTI5ZTFiMTYxZTVjMWZhNzQyNWU3MzA0MzM2MjkzOGI5ODI0IiwiZXhwIjoiMjAyNi0wMS0wMVQwMDowMjowMFoiLCJpYXQiOiIyMDI2LTAxLTAxVDAwOjAwOjAwWiIsIm5vbmNlIjoiQndjSEJ3Y0hCd2NIQndjSEJ3Y0hCdyIsInJvb20iOiIhcm9vbTp0ZXN0LmludmFsaWQiLCJ0YXJnZXQiOnsiaWQiOiJ0ZWFtL21lbWJlciIsImtpbmQiOiJzdGF0aW9uIn0sInRvIjoiQHJlY2lwaWVudDp0ZXN0LmludmFsaWQiLCJ0eXBlIjoibWVzc2FnZS8xIn0sImtleSI6ImVkMjU1MTk6d3VlMnQxR0plTFpUcXpZdWRrelJJaHlZMTFsQXp5UFhEanNUWGdYb0lyayIsInJvbGUiOiJhcHByb3ZlciIsInZlcnNpb24iOiJzd2FybS1lbnZlbG9wZS8yIn0"
   },
   "fixture": {
+    "caller_attestation_id": "sha256:c3cfbd2085a31b0b23e841afc84fa28d4e286e198a60021bcf02ec46251b1090",
     "caller_key_id": "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
     "identity_check": true,
     "multi_agent": true
@@ -14,7 +15,7 @@
   "expected": {
     "code": "accept",
     "plan": {
-      "preimage_sha256": "sha256:771f7cedd71e992e7f0e7fdcaf94452881061322ea6f4f2f2ba5c26a822ee95a",
+      "preimage_sha256": "sha256:f13943b68456bae51acd5c894a09513b4fa60521e9fd4ea1825892e38584eb9c",
       "tag": "swarma-msg/2"
     }
   }

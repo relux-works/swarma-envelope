@@ -7,6 +7,7 @@
     "preimage": "c3dhcm1hLW1zZy8yCnsia2V5IjoiZWQyNTUxOTp3dWUydDFHSmVMWlRxell1ZGt6UkloeVkxMWxBenlQWERqc1RYZ1hvSXJrIiwicm9sZSI6ImF1dGhvciIsInZlcnNpb24iOiJzd2FybS1lbnZlbG9wZS8yIn0"
   },
   "fixture": {
+    "caller_attestation_id": "sha256:c3cfbd2085a31b0b23e841afc84fa28d4e286e198a60021bcf02ec46251b1090",
     "caller_key_id": "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
     "identity_check": true,
     "multi_agent": true

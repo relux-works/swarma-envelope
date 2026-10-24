@@ -17,9 +17,9 @@ GOMAXPROCS=2 "$CURATOR_GO" vet ./tools/vectors
 
 Run commands sequentially through the host's required resource runner where
 applicable. Logs and generated copies belong in ignored `.tmp/`. The default
-write command (`go run ./tools/vectors`) writes 513 named cases, the public keys
+write command (`go run ./tools/vectors`) writes 557 named cases, the public keys
 and sweep manifest/digest under `vectors/`; it does not materialize T/B/Z/U JSON.
-`-sweeps` adds those 1630 cases (2143 total: 2049 negative, 94 positive).
+`-sweeps` adds those 1660 cases (2217 total: 2120 negative, 97 positive).
 The inventory check also rejects unexpected JSON under both managed trees,
 including accidentally materialized sweeps when `-sweeps` is absent. Generation
 does not remove obsolete files; remove only reviewed stale paths explicitly.
@@ -79,7 +79,7 @@ by the pipeline in spec/swarm-envelope-2.md, never sampled from the checker.
 Earlier-only and bound-only controls accompany each Cartesian group; the four
 accepted source controls are PE1, PE5, PO1 and PG1.
 
-The 1630 generated cases comprise T618 + B462 + Z147 + U403. U is stored in the
+The 1660 generated cases comprise T628 + B462 + Z147 + U423. U is stored in the
 same byte-checked manifest, materialized by the existing `-sweeps` command, and
 consumable by independent implementations. Three semantic regressions
 N-O1-unknown-owner/epoch/target are committed separately. They preserve the exact
@@ -103,10 +103,13 @@ the known-operation/invalid-binding controls; PO1 accepts.
 | K1-snapshot | 3 | 3 | 9 | 0 | 6 | 15 |
 | O2-snapshot | 3 | 3 | 9 | 0 | 6 | 15 |
 | G7 | 3 | 2 | 6 | 0 | 5 | 11 |
+| K1-reference (controls reused) | 4 | 5 | 20 | 0 | 0 | 20 |
 
-Total: 70 bound columns and 56 earlier-failure controls across 14 groups produce
+The original 14 groups use 70 bound columns and 56 earlier-failure controls to produce
 271 Cartesian cases, six additional within-E7a cases and 126 operand controls:
-403 U cases. Of 277 compound cases, 256 distinguish the earlier failure by a
+403 original U cases. The added U-reference-* group crosses five earlier failures
+with four valid-but-mismatched references (20 compounds): 423 U cases total.
+Of 297 compound cases, 276 distinguish the earlier failure by a
 different refusal code; 21 collide on the same required code and therefore
 establish refusal behavior only, not observable internal order. The latter are
 three T1 provider/authority combinations and 18 K1/O2 signature-vs-bound cases.
@@ -135,3 +138,33 @@ shared K1 header helper, while G7 varies the snapshot issuer, signature key and
 content id under a valid protected root. Immutable time inputs similarly fail at
 T1 before later snapshot checks. The matrix does not invent unreachable late
 states or qualify live adapters, effects, storage, or provider continuity.
+
+## Content-addressed author and revocation profiles
+
+`content_review.go` adds W/PW semantic controls and I-attestation-* signer
+controls. message/1 signs exactly one required author_attestation content id.
+Fixture `attestations` maps the requested content id to the returned signed
+bytes; the verifier independently checks that those bytes have that exact id,
+subject and current protected binding. A wrong lookup response is untrusted.
+`agent_attestation_ids` is the protected current-id selection for grant agent
+subjects; message intake never falls back to it. Device evidence remains keyed
+by device key id. `caller_attestation_id` is the signing service's independently
+resolved current id for the third identity comparison. These are offline
+interface fixtures, not new native signing request fields.
+
+The purpose-5 root signs agent attestations only. Public synthetic test-7 is
+the separately pinned registry revocation root; its protected configuration
+includes purpose registry-revocation and exact attestation_root scope.
+Operator snapshots keep their existing operator root. Generic grant controls
+now delegate through a P-256 device; explicit agent-issuer witnesses refuse
+the profile after evidence validation. PM10/PM11 now refuse rather than accept.
+The B issuer evidence family retains an explicit agent issuer to isolate its
+earlier evidence failures before that profile refusal. No inherited ID is lost.
+
+W-webauthn-signature contains a real low-S P-256 signature over
+authenticatorData || SHA-256(clientDataJSON), with a base64url content-id
+challenge. Its construction bytes are included for independent recomputation;
+PO1 is the same-key raw-preimage positive control. W-assertion-wrapper tests
+the closed signature-entry schema. Snapshot-bound controls cover age at the
+deadline and both sides of future from. Live publication, cumulative issuance
+and rollback witness continuity remain separate issuer/adapter obligations.

@@ -6,7 +6,8 @@
     "test-3": "6f2b1a6f6115046dfa4a49faf23e976c42e2ee1fc26bdf8b57e07e3e5634739e",
     "test-4": "2bd6c40a463ead650dc6e11e70ae23ea75a4398a2b631c4ceadeb812db2a3984",
     "test-5": "4231147bf62c5b47a59e9891d0487f284c9f67c39d0fdc8660c1fab329dc1daf",
-    "test-6": "e6c150e03c43bffdc64e399b0a66276f8416de93ab1668c4d96272e1d7ea9bc6"
+    "test-6": "e6c150e03c43bffdc64e399b0a66276f8416de93ab1668c4d96272e1d7ea9bc6",
+    "test-7": "3ab3ed8bf295cc64356bb73cf3e5873b545a447e426151a34652ae230639f9be"
   },
   "warning": "PUBLIC TEST-ONLY SEEDS; never deploy"
 }

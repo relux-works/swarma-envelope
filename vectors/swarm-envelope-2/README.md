@@ -28,7 +28,8 @@ and an action id for an act; it is not a committed effect or storage receipt.
 Signer-only acceptance returns the exact tag and preimage digest, not a
 signature/effect receipt. Domain-only acceptance returns the configured tag
 and verified key, not a consumer admission decision. Actual attestation and revocation envelopes are base64url bytes in fixture
-maps; the checker independently verifies their root signatures, type/profile,
+maps (agent records addressed by the requested content id; devices by key id);
+the checker independently verifies their root signatures, type/profile,
 subject derivation, validity and current binding. `active_generations` is a
 separate protected caller projection. `operator_attestations` contains signed
 device records under `operator_root`, never device pins. Delivery context contains
@@ -44,9 +45,9 @@ cryptography reports PENDING and exits 2; it never reports full conformance.
 No network is used by the checker. Go module resolution may download the pinned
 public registrar dependency. Neither tool imports the future production verifier.
 
-Only 513 named cases are tracked. All 1630 T/B/Z/U cases remain in the generator
+Only 557 named cases are tracked. All 1660 T/B/Z/U cases remain in the generator
 and committed `sweeps.tsv` / `sweeps.sha256`; `-sweeps` materializes them for the
-complete 2143-case check. See the [manifest format](../../tools/vectors/README.md).
+complete 2217-case check. See the [manifest format](../../tools/vectors/README.md).
 Commands must run sequentially through any host-required resource runner.
 
 Generator `-out DIR` writes named cases and the manifest; adding `-sweeps`
@@ -72,10 +73,10 @@ signatures in the fixtures, not a boolean signature-valid input.
 | D01–D47, PD1–PD7 | Every directed pair among the original seven tags; X adds the two new tags, role/type mutation inside one message domain, exact case/space/CR rules. External rows prove tag/signature separation only; external body schemas are not simulated. |
 | S01–S26, PS1–PS5 | Message signer accepts exactly swarma-msg/2, refuses grant/act/registrar/broker and unknown future-service tags, checks canonicality, exact size/depth boundaries and no envelope semantics. S07 uses a generic unregistered sentinel, not an invented signing-service witness tag. |
 | R01–R12, PR1–PR4 | Review regressions for enum type safety, signed operator-only grant targets, unsupported broker names, key currency, presence currency and the envelope/handler qualification boundary. PR4 is a valid station grant alongside credential controls. |
-| T0001–T0618 | Every other JSON type at each closed wire/request field, nested object and array entry across message, multi-signature message, populated-caveat grant, narrowing act and widening/account act. Exact ordered structural refusal and empty plan; caller provider/store snapshots remain typed external evidence. |
+| T0001–T0628 | Every other JSON type at each closed wire/request field, nested object and array entry across message, multi-signature message, populated-caveat grant, narrowing act and widening/account act. Exact ordered structural refusal and empty plan; caller provider/store snapshots remain typed external evidence. |
 | J01–J15, PB1–PB2 | Attestation regressions: absent/null records and tuples, boolean/float/string/nonpositive registrations, missing required fields and malformed validity; empty/overlong/surrogate principal text; maximum safe integer and 255-byte text positive controls. |
 | B0001–B0462 | Caller evidence and principal-tuple shape sweep in author, delegated issuer and grant leaf subject: missing/null and every wrong JSON type per required field, plus integral/fractional floats, nonpositive and unsafe registration numbers. |
-| M01–M12, M19–M27, PM01–PM12 | Protected provenance matrix: root Ed25519/P-256, operator P-256 and agent Ed25519 in issuer, intermediate subject and leaf-subject positions. Valid provenance accepts; removed provenance refuses unavailable; non-current operator devices and contradictory algorithm/class claims refuse invalid. |
+| M01–M12, M19–M27, PM01–PM12 | Protected provenance matrix: root Ed25519/P-256, operator P-256 and agent Ed25519 in issuer, intermediate subject and leaf-subject positions. Valid provenance accepts for admitted profiles; PM10/PM11 refuse agent issuance; removed provenance refuses unavailable; non-current operator devices and contradictory algorithm/class claims refuse invalid. |
 | I01–I21, PI1–PI5 | Caller-identity narrowing for message signing: exact key/author paths and byte comparison; foreign/disagreeing identities, missing/wrong types, aliases, duplicates, caller/policy unavailability and mandatory multi-agent enforcement. Role/action semantics remain receiver checks. Existing S21/S22 and PS2/PS3 bounds are unchanged. |
 | O01–O18, PO1/PO2/PO4; PO3 now refuses | Exact consumer/binding/argument/epoch/key, single-use act, widening confirmation/provider facts, replay availability and record bound. |
 
@@ -102,7 +103,9 @@ is the applicable provenance. Every actual agent still needs its binding.
 | Operator device P-256 | PM07 / M07 / M19 / M25 | PM08 / M08 / M20 / M26 | PM09 / M09 / M21 / M27 |
 | Attested agent Ed25519 | PM10 / M10 / M22 | PM11 / M11 / M23 | PM12 / M12 / M24 |
 
-PM entries accept; M01–M12 have removed provenance and refuse unavailable;
+PM entries accept except PM10/PM11, which now refuse `signature_profile_invalid`
+for agent issuance (including an intermediate subject that issues the next link).
+M01–M12 have removed provenance and refuse unavailable;
 M19–M21 retain the device attestation but have non-current device authority and refuse invalid.
 M22–M24 reject an Ed25519 key mislabeled by a device attestation; M25–M27 reject a
 P-256 key mislabeled by an agent attestation.
@@ -144,8 +147,19 @@ supply expected bytes. No fixture file is rewritten by `-check`.
 | Cases | Refusal precedence witnesses |
 | --- | --- |
 | N-O1-unknown-owner/epoch/target | Exact O16 signed input combined with each reported invalid protected binding; operation profile still wins. O16 and H-act-binding-* retain the two adjacent refusal controls; PO1 accepts. |
-| U (generated) | 403 order-matrix cases: 271 Cartesian combinations, six additional within-row combinations, 126 operand controls, with PE1/PE5/PO1/PG1 accepted controls. 256 compounds distinguish order by code; 21 same-code compounds only establish the required refusal. |
+| U (generated) | 423 order-matrix cases: 271 original Cartesian combinations, 20 author-reference compounds, six additional within-row combinations, 126 operand controls, with PE1/PE5/PO1/PG1 accepted controls. 276 compounds distinguish order by code; 21 same-code compounds only establish the required refusal. |
 
-The 1630 generated cases break down as T618/B462/Z147/U403; all are committed via
+The 1660 generated cases break down as T628/B462/Z147/U423; all are committed via
 manifest and materialized on demand. The generator guide documents each group,
 its representative bound columns and the earlier conditions it crosses.
+
+| Cases | Content-addressed author and scoped issuer witnesses |
+| --- | --- |
+| W-substitute-*, W-only-newer, W-other-key, W-concurrent-substitute; PW-binding/PW-concurrent-* | Exact attestation identity despite stable keys, changed registration/master epoch, and concurrent same-generation attestations; no key-based fallback. |
+| W-reference-*, W-expired-reference, W-revoked-reference; T0619–T0628 | Required canonical reference shape and full validity/revocation checks. |
+| U-reference-* | Twenty combined-invalid cases place final reference equality after earlier envelope, time and attestation/revocation failures. |
+| I-attestation-*; PI1–PI5 | Third signer path, aliases, all wrong JSON types, duplicates including decoded aliases, protected-resolution priority and mandatory multi-agent comparison. |
+| W-agent-issuer; PM10/PM11 | Fully attested agent issuers are forbidden; other generic grant controls use a device issuer. |
+| W-assertion-wrapper, W-webauthn-signature; PO1 | Closed entry schema and real WebAuthn construction refuse; raw-preimage signature by the same key accepts. |
+| W-purpose5-snapshot/grant, W-revoker-attestation/scope/purpose/missing; PW-binding | Separately pinned registry revocation issuer, protected purpose and exact attestation-root scope. |
+| W/PW-bound-* | Omitting snapshot stale at the publication deadline, containing snapshot effective, future from inactive before and effective at its boundary. |

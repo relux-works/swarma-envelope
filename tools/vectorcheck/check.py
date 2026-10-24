@@ -230,7 +230,7 @@ def schema(envelope, expected):
     hash_id(envelope["id"])
     b = envelope["body"]
     common = "type aud nonce iat exp "
-    extra = {"message/1": "author action target arguments room to body_sha256",
+    extra = {"message/1": "author author_attestation action target arguments room to body_sha256",
              "grant/1": "issuer subject actions targets not_before expires depth parent caveats min_assurance",
              "operator-act/1": "operation target owner epoch action_id arguments_digest confirmed"}
     exact(b, common + extra[expected])
@@ -277,6 +277,7 @@ def schema(envelope, expected):
         require(all(type(b[n]) is str and re.fullmatch(r"[!-~]{1,255}", b[n]) for n in ("room", "to")), "envelope_malformed")
         require(type(b["body_sha256"]) is str and re.fullmatch(r"[0-9a-f]{64}", b["body_sha256"]), "envelope_malformed")
         key_bytes(b["author"])
+        hash_id(b["author_attestation"])
         require(isinstance(b["action"], str) and target(b["target"])
                 and isinstance(b["arguments"], dict), "envelope_malformed")
 
@@ -337,14 +338,20 @@ def signer_admission(raw, f):
             point(public)
         except Refusal:
             raise Refusal("signer_identity_unavailable") from None
+        caller_attestation = f.get("caller_attestation_id")
+        try:
+            hash_id(caller_attestation)
+        except Refusal:
+            raise Refusal("signer_identity_unavailable") from None
         # These exact paths are each read once after duplicate-free CCJ admission.
         require(type(decoded) is dict, "signer_identity_malformed")
         key = decoded.get("key")
         body = decoded.get("body")
         require(type(body) is dict, "signer_identity_malformed")
         author = body.get("author")
-        require(type(key) is str and type(author) is str, "signer_identity_malformed")
-        require(key == caller_key and author == caller_key, "signer_identity_mismatch")
+        author_attestation = body.get("author_attestation")
+        require(type(key) is str and type(author) is str and type(author_attestation) is str, "signer_identity_malformed")
+        require(key == caller_key and author == caller_key and author_attestation == caller_attestation, "signer_identity_mismatch")
     return {"tag": "swarma-msg/2", "preimage_sha256": digest(raw)}
 
 
@@ -458,10 +465,21 @@ def signed_snapshot(f, root, ids, keys):
                     for kind, item, when in effective_entries), "revoked")
 
 
-def verify_attestation(key, f, device=False, check_revocation=True):
+def verify_attestation(key, f, device=False, check_revocation=True, reference=None):
     collection = "operator_attestations" if device else "attestations"
     records = evidence_object(f.get(collection))
-    require(key in records, "key_binding_unavailable")
+    lookup = key
+    if not device:
+        if reference is None:
+            current_ids = evidence_object(f.get("agent_attestation_ids"))
+            reference = current_ids.get(key)
+        require(reference is not None, "key_binding_unavailable")
+        try:
+            hash_id(reference)
+        except Refusal:
+            raise Refusal("key_binding_invalid") from None
+        lookup = reference
+    require(lookup in records, "key_binding_unavailable")
     if device:
         root = f.get("operator_root")
         require(root is not None, "key_binding_unavailable")
@@ -469,12 +487,15 @@ def verify_attestation(key, f, device=False, check_revocation=True):
         root_record = evidence_exact(f.get("service_root"), "key purpose")
         require(type(root_record["purpose"]) is int and root_record["purpose"] == 5, "key_binding_invalid")
         root = root_record["key"]
-    e = signed_evidence(records[key], "attestation/1", root)
+    e = signed_evidence(records[lookup], "attestation/1", root)
     b = evidence_exact(e["body"], "type issuer subject key_class purpose roles actions iat exp binding")
     subject = evidence_exact(b["subject"], "algorithm key_id public_bytes")
     require(all(type(subject[n]) is str for n in subject)
             and all(type(b[n]) is str for n in ("key_class", "purpose", "iat", "exp"))
             and type(b["roles"]) is list and type(b["actions"]) is list, "key_binding_invalid")
+    requested_key = key
+    if not device:
+        key = subject["key_id"]
     try:
         alg, public = key_bytes(key)
         subject_alg, subject_public = key_bytes(subject["key_id"])
@@ -520,15 +541,27 @@ def verify_attestation(key, f, device=False, check_revocation=True):
     low, high = time_values(f)
     require(start <= low and high < end, "key_binding_invalid")
     if check_revocation:
-        signed_snapshot(f, root, [e["id"]], [key])
+        revoker = root
+        if not device:
+            policy = evidence_exact(f.get("agent_revocation_root"), "key purpose attestation_root")
+            require(policy["purpose"] == "registry-revocation" and policy["attestation_root"] == root
+                    and policy["key"] != root, "key_binding_invalid")
+            try:
+                key_bytes(policy["key"])
+            except Refusal:
+                raise Refusal("key_binding_invalid") from None
+            revoker = policy["key"]
+        signed_snapshot(f, revoker, [e["id"]], [key])
+    if not device:
+        require(e["id"] == reference and key == requested_key, "author_attestation_mismatch")
     return e
 
 
-def agent_binding(key, f):
-    verify_attestation(key, f)
+def agent_binding(key, f, reference=None):
+    verify_attestation(key, f, reference=reference)
 
 
-def grant_key_binding(key, f):
+def grant_key_binding(key, f, issuer=False):
     # Protected authority-root provenance is independent of algorithm/position.
     if key == f["root"]:
         return
@@ -538,6 +571,7 @@ def grant_key_binding(key, f):
         operator_key_current(f)
     else:
         agent_binding(key, f)
+        require(not issuer, "signature_profile_invalid")
 
 
 def delivery_binding(b, f):
@@ -598,6 +632,9 @@ def envelope(raw, expected, f):
         allowed = ((expected == "message/1" and (s["role"], alg) in {("author", "ed25519"), ("approver", "p256")})
                    or (expected == "operator-act/1" and (s["role"], alg) == ("approver", "p256"))
                    or (expected == "grant/1" and s["role"] == "author" and alg in {"ed25519", "p256"}))
+        service_root = f.get("service_root")
+        if type(service_root) is dict:
+            require(s["key"] != service_root.get("key"), "signature_profile_invalid")
         require(allowed, "signature_profile_invalid")
         pre = signing_preimage(b, s["key"], s["role"], expected)
         if expected == "message/1":
@@ -615,7 +652,7 @@ def envelope(raw, expected, f):
     low, high = time_values(f)
     window(b["iat"], b["exp"], low, high)
     if expected == "message/1":
-        agent_binding(b["author"], f)
+        agent_binding(b["author"], f, reference=b["author_attestation"])
         if any(s["role"] == "approver" for s in sigs):
             operator_key_current(f)
             for sig in sigs:
@@ -623,8 +660,8 @@ def envelope(raw, expected, f):
                     verify_attestation(sig["key"], f, device=True)
 
     elif expected == "grant/1":
-        for key in (b["issuer"], b["subject"]):
-            grant_key_binding(key, f)
+        grant_key_binding(b["issuer"], f, issuer=True)
+        grant_key_binding(b["subject"], f)
     require(f["id_journal_available"], "id_journal_unavailable")
     require(e["id"] not in f["seen"] or unb64(f["seen"][e["id"]]) == raw, "envelope_conflict")
     return e

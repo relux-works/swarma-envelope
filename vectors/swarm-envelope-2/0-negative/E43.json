@@ -4,10 +4,16 @@
   "positive_control": "PE1",
   "mode": "envelope",
   "input": {
-    "envelope": "eyJib2R5Ijp7ImFjdGlvbiI6Im1lc3NhZ2UuZGVsaXZlciIsImFyZ3VtZW50cyI6eyJ0ZXh0IjoiaGVsbG8ifSwiYXVkIjoic2VydmljZS1hIiwiYXV0aG9yIjoicDI1NjpBdHZ1S2J3cmxKS1RtQzFjRktEVXY5bEF4NHhvbHBocnlvVFhrUlpOMEF5bCIsImJvZHlfc2hhMjU2IjoiMmNmMjRkYmE1ZmIwYTMwZTI2ZTgzYjJhYzViOWUyOWUxYjE2MWU1YzFmYTc0MjVlNzMwNDMzNjI5MzhiOTgyNCIsImV4cCI6IjIwMjYtMDEtMDFUMDA6MDI6MDBaIiwiaWF0IjoiMjAyNi0wMS0wMVQwMDowMDowMFoiLCJub25jZSI6IkJ3Y0hCd2NIQndjSEJ3Y0hCd2NIQnciLCJyb29tIjoiIXJvb206dGVzdC5pbnZhbGlkIiwidGFyZ2V0Ijp7ImlkIjoidGVhbS9tZW1iZXIiLCJraW5kIjoic3RhdGlvbiJ9LCJ0byI6IkByZWNpcGllbnQ6dGVzdC5pbnZhbGlkIiwidHlwZSI6Im1lc3NhZ2UvMSJ9LCJpZCI6InNoYTI1Njo3YTRmY2QwZWNlYzEyOWE1OTcwMjQ5NzY2MmFlZDJiZTFhYjA5OThkNTQ2OTE4ZWI1NDU0ZTQ0NjA2MjNhMjQwIiwic2lnbmF0dXJlcyI6W3sia2V5IjoicDI1NjpBdHZ1S2J3cmxKS1RtQzFjRktEVXY5bEF4NHhvbHBocnlvVFhrUlpOMEF5bCIsInJvbGUiOiJhdXRob3IiLCJzaWciOiJDNnFVSUw5MnJvTnhNb0xXM2tEaHlGWXR6dDBTSHN1WGk5WTE0Nmoxa2E0U3V0b3ZvdEJ6U09WU1VxS19QN1ItRk1ncXVEU1NQcVNDTEtyZHJGMmNCUSJ9XSwidmVyc2lvbiI6InN3YXJtLWVudmVsb3BlLzIifQ"
+    "envelope": "eyJib2R5Ijp7ImFjdGlvbiI6Im1lc3NhZ2UuZGVsaXZlciIsImFyZ3VtZW50cyI6eyJ0ZXh0IjoiaGVsbG8ifSwiYXVkIjoic2VydmljZS1hIiwiYXV0aG9yIjoicDI1NjpBdHZ1S2J3cmxKS1RtQzFjRktEVXY5bEF4NHhvbHBocnlvVFhrUlpOMEF5bCIsImF1dGhvcl9hdHRlc3RhdGlvbiI6InNoYTI1NjpjM2NmYmQyMDg1YTMxYjBiMjNlODQxYWZjODRmYTI4ZDRlMjg2ZTE5OGE2MDAyMWJjZjAyZWM0NjI1MWIxMDkwIiwiYm9keV9zaGEyNTYiOiIyY2YyNGRiYTVmYjBhMzBlMjZlODNiMmFjNWI5ZTI5ZTFiMTYxZTVjMWZhNzQyNWU3MzA0MzM2MjkzOGI5ODI0IiwiZXhwIjoiMjAyNi0wMS0wMVQwMDowMjowMFoiLCJpYXQiOiIyMDI2LTAxLTAxVDAwOjAwOjAwWiIsIm5vbmNlIjoiQndjSEJ3Y0hCd2NIQndjSEJ3Y0hCdyIsInJvb20iOiIhcm9vbTp0ZXN0LmludmFsaWQiLCJ0YXJnZXQiOnsiaWQiOiJ0ZWFtL21lbWJlciIsImtpbmQiOiJzdGF0aW9uIn0sInRvIjoiQHJlY2lwaWVudDp0ZXN0LmludmFsaWQiLCJ0eXBlIjoibWVzc2FnZS8xIn0sImlkIjoic2hhMjU2OmJhOTQ3MzczODIwYTA5MzM5OWQwYmVkNWUzZDZiZDk3ZmZkZTU3OWYwYjIxZDExNTU3MTdhMDEwOTY2ZjFlZGEiLCJzaWduYXR1cmVzIjpbeyJrZXkiOiJwMjU2OkF0dnVLYndybEpLVG1DMWNGS0RVdjlsQXg0eG9scGhyeW9UWGtSWk4wQXlsIiwicm9sZSI6ImF1dGhvciIsInNpZyI6Ikx3VkxCM3NIeGxPZWc1Zk54em41TndiTUQ1TW1pdzdXN3QweU8tUlV5RHAyb24yc19nQ1dIY3FHdEduZ2daQ0ZZaWd0X28xdml5NEpaOVJyUThoNUF3In1dLCJ2ZXJzaW9uIjoic3dhcm0tZW52ZWxvcGUvMiJ9"
   },
   "fixture": {
     "active_generations": {},
+    "agent_attestation_ids": {},
+    "agent_revocation_root": {
+      "attestation_root": "ed25519:b2CdQco2XmEi01K78Tg0l7-24Eu5_wHLHlSvQE3mj1M",
+      "key": "ed25519:2dJ3Im2a_cYnF0y9xP2zc5XitBT0maSzUxgZgNKq9f4",
+      "purpose": "registry-revocation"
+    },
     "assurance": {
       "level": "A1",
       "presence": false
@@ -60,17 +66,17 @@
       "author"
     ],
     "revocations": {
+      "ed25519:2dJ3Im2a_cYnF0y9xP2zc5XitBT0maSzUxgZgNKq9f4": {
+        "availability": "available",
+        "max_age": 60,
+        "rollback_safe": true,
+        "snapshot": "eyJib2R5Ijp7ImNvbXBsZXRlIjp0cnVlLCJlbnRyaWVzIjpbXSwiaXNzdWVkX2F0IjoiMjAyNi0wMS0wMVQwMDowMTowMFoiLCJpc3N1ZXIiOiJlZDI1NTE5OjJkSjNJbTJhX2NZbkYweTl4UDJ6YzVYaXRCVDBtYVN6VXhnWmdOS3E5ZjQiLCJ0eXBlIjoicmV2b2NhdGlvbi8xIn0sImlkIjoic2hhMjU2OmQ1ZDI3Y2UzM2FlZGY3NWE0NzU0YWM3MmZjMGY0YTA1NzMyZTUyYjY4NmY4ZmJjZDA2OGU3ZGZlZWJhOTRmODIiLCJzaWduYXR1cmVzIjpbeyJrZXkiOiJlZDI1NTE5OjJkSjNJbTJhX2NZbkYweTl4UDJ6YzVYaXRCVDBtYVN6VXhnWmdOS3E5ZjQiLCJyb2xlIjoiYXV0aG9yIiwic2lnIjoiaklrZlBQdl9kZlMyVkR3Y2lKWkNyUWV6clVxeERYblRkQVhLb0dUTDVyZG52M1VnZ01UTHZjMnZEaTNYSXhVMUY1LVFLWVpfRlU0VHF2b1ZmUC1CQWcifV0sInZlcnNpb24iOiJzd2FybS1lbnZlbG9wZS8yIn0"
+      },
       "ed25519:HBNOVZnP7h9DWY3ShGX0kQ8NsEwAUjEZP119NF_Z4yo": {
         "availability": "available",
         "max_age": 60,
         "rollback_safe": true,
         "snapshot": "eyJib2R5Ijp7ImNvbXBsZXRlIjp0cnVlLCJlbnRyaWVzIjpbXSwiaXNzdWVkX2F0IjoiMjAyNi0wMS0wMVQwMDowMTowMFoiLCJpc3N1ZXIiOiJlZDI1NTE5OkhCTk9WWm5QN2g5RFdZM1NoR1gwa1E4TnNFd0FVakVaUDExOU5GX1o0eW8iLCJ0eXBlIjoicmV2b2NhdGlvbi8xIn0sImlkIjoic2hhMjU2OjBlNTNmMDU1NWJhNzM5N2MzYmRjNDgyMGY0YzBhMGVlNzgxMzBlMWNjNzE0YjZkNGE5MmMyZjEzNTk0Y2Y5NTciLCJzaWduYXR1cmVzIjpbeyJrZXkiOiJlZDI1NTE5OkhCTk9WWm5QN2g5RFdZM1NoR1gwa1E4TnNFd0FVakVaUDExOU5GX1o0eW8iLCJyb2xlIjoiYXV0aG9yIiwic2lnIjoidXQ0VGZBMkNXMWpQdF8tZ0FmeWk3cndnWVAzQlhGVTdCbXdTb1lELTJsWGl1dkNzM0RFVDFzSWpGQTZDTnlUbGpkYUlOQU5FcFc3M0hqaHpkZ0RURHcifV0sInZlcnNpb24iOiJzd2FybS1lbnZlbG9wZS8yIn0"
-      },
-      "ed25519:b2CdQco2XmEi01K78Tg0l7-24Eu5_wHLHlSvQE3mj1M": {
-        "availability": "available",
-        "max_age": 60,
-        "rollback_safe": true,
-        "snapshot": "eyJib2R5Ijp7ImNvbXBsZXRlIjp0cnVlLCJlbnRyaWVzIjpbXSwiaXNzdWVkX2F0IjoiMjAyNi0wMS0wMVQwMDowMTowMFoiLCJpc3N1ZXIiOiJlZDI1NTE5OmIyQ2RRY28yWG1FaTAxSzc4VGcwbDctMjRFdTVfd0hMSGxTdlFFM21qMU0iLCJ0eXBlIjoicmV2b2NhdGlvbi8xIn0sImlkIjoic2hhMjU2OjQxYjhkMmU5Y2MzNjMxMDRlYzQ5ZDAyZDBkY2Q4ZTYzOGVlYmUzN2RhZjBhOTBjMGQ0ZWZlZDc3NjNmNGUwMzEiLCJzaWduYXR1cmVzIjpbeyJrZXkiOiJlZDI1NTE5OmIyQ2RRY28yWG1FaTAxSzc4VGcwbDctMjRFdTVfd0hMSGxTdlFFM21qMU0iLCJyb2xlIjoiYXV0aG9yIiwic2lnIjoiRS1ROUVSd2RmTDZkekRuU0xDMl9lSDdveVEwNktxRjJDZ3BaZzd5cmxTaG5PYVlwTzZsbVUyRGJGTlI3djYxYTA4OTB0cjVuTHBoMjVHMXhUNk5tQUEifV0sInZlcnNpb24iOiJzd2FybS1lbnZlbG9wZS8yIn0"
       },
       "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk": {
         "availability": "available",

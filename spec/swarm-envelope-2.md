@@ -78,7 +78,7 @@ Times MUST be exactly `YYYY-MM-DDTHH:MM:SSZ`, real Gregorian dates, years
 and messages have lifetime at most 120 seconds; grants have no implicit renewal
 or maximum lifetime beyond the chain and protected consumer policy.
 
-`message/1` adds exactly `author`, `action`, `target`, `arguments` (an object),
+`message/1` adds exactly `author`, `author_attestation`, `action`, `target`, `arguments` (an object),
 `room`, `to`, `body_sha256`. `room` and `to` MUST be strings of 1–255 bytes,
 each byte ASCII 0x21–0x7e. They are opaque exact full carrier identifiers,
 never aliases or display names; the carrier adapter MUST supply its actual
@@ -103,6 +103,10 @@ arguments object against its registered action/handler schema, reject unknown
 members and invalid values for that schema, and authorize the concrete action
 and target before dispatch. Envelope-only acceptance can include unexpected
 argument members; it proves neither handler-schema validity nor authority.
+
+`author_attestation` is required and is the canonical `sha256:<64 lowercase hex>`
+content id (§2.2) of the exact attestation/1 envelope attesting `author`. It is
+inside the signed body; it is not an unsigned lookup hint.
 
 ### 2.2 CCJ-1 and preimages
 
@@ -213,9 +217,9 @@ The accepted signature profiles are exhaustive:
 
 | Expected type | Signature role | Key class / algorithm | Required provenance |
 | --- | --- | --- | --- |
-| message/1 | author | Agent / Ed25519 | Verified root-signed attestation/1 and current generation binding (§2.6); key equals body.author |
+| message/1 | author | Agent / Ed25519 | Verified root-signed attestation/1 and current generation binding (§2.6); key equals body.author and exact verified attestation id equals body.author_attestation |
 | message/1 | approver, optional or caller-required | Operator device / P-256 low-S | Pinned operator root, verified operator-device attestation, current revocation and caller policy |
-| grant/1 | author, exactly one | Grant authority / Ed25519 or P-256 low-S | Pinned owner root or issuer named by parent; agent issuers/subjects additionally satisfy §2.6 |
+| grant/1 | author, exactly one | Grant authority / Ed25519 or P-256 low-S | Pinned owner root, or parent-authorized operator device with §2.6 provenance; agent keys are subjects/leaves only |
 | operator-act/1 | approver, exactly one | Operator device / P-256 low-S | Pinned operator root, verified operator-device attestation and §4 act checks |
 
 An operator **device** key MUST be P-256; an agent key MUST be Ed25519. A pinned
@@ -225,8 +229,24 @@ P-256 agent authors, Ed25519 operator acts and agent approvers/delegates. The
 `delegate` role is reserved without an admitted v0 profile. An optional message
 approver is a signature on content, not a replacement operator act or an A3
 claim. Grant authority still requires the complete chain; key class is no grant.
+An agent key MUST NOT issue grant/1 in v0, even with a valid parent grant and
+current agent attestation. K1 verifies required provenance before returning
+`signature_profile_invalid` for an agent issuer. Agent subjects and leaves
+remain admissible. An agent-issued-grant profile needs explicit signed
+attestation binding in a later version; no such profile is implied here.
 A K3 message signer cannot issue a grant: a separately qualified grant-domain
 signer would be required. This specification publishes no such Keymaker method.
+
+An operator-device signer provider MUST produce a raw 64-byte P-256 low-S
+signature over the exact §2.2 preimage (for example, using a platform secure
+element). FIDO/WebAuthn assertions are outside v0: they sign authenticatorData ||
+SHA-256(clientDataJSON), not this preimage. Extra assertion members in a signature
+entry MUST refuse the closed schema (`envelope_malformed` at E2). A mathematically
+valid signature over that WebAuthn construction, even with the preimage or its
+content id as challenge, MUST refuse `envelope_signature_invalid` at E6 when
+presented as `sig`. No assertion wrapping, challenge extraction or signature
+translation is permitted. A future WebAuthn proof profile needs its own tag and
+record, not a reinterpretation of these bytes.
 
 ### 2.5 Message signer provider: opaque canonical bytes
 
@@ -250,23 +270,30 @@ A provider MAY additionally enforce caller identity. This check is REQUIRED
 for a provider that holds keys for several agents; it cannot be disabled by a
 caller option. After steps 1–4 it resolves the attested Ed25519 key id for the
 calling OS identity and its active generation, using the signing service's
-existing identity/attestation mechanism and §2.6's key-id derivation. This is
+existing identity/attestation mechanism and §2.6's key-id derivation. It also
+resolves the exact content id of that caller's current, fully verified attestation. This is
 protected service context, never a key selector or asserted identity supplied
 inside the signing request. Unavailable or invalid identity resolution refuses.
 
-The check extracts exactly two identity paths from the canonical signed record:
+The check extracts exactly three identity paths from the canonical signed record:
 
 | Path | Required value |
 | --- | --- |
 | `key` | Top-level signed-record key id, a string |
 | `body.author` | Message author key id, a string inside the body object |
+| `body.author_attestation` | Content id of the caller's current attestation, a string inside the body object |
 
 Each path is extracted exactly once, with those exact member names, no aliases,
 no first/last-member choice and no fallback to other fields. CCJ-1 already
 rejects duplicate decoded members, including escaped aliases, before this
 check. A missing path, non-object path container or wrongly typed member
-refuses. Both strings MUST equal the caller's resolved attested key id, byte for
-byte, before signing; agreement between two foreign ids is insufficient.
+refuses. The first two strings MUST equal the caller's resolved attested key id;
+the third MUST equal the service-resolved current attestation content id, all
+byte for byte before signing. Missing service resolution refuses
+`signer_identity_unavailable`; missing/wrongly typed record paths refuse
+`signer_identity_malformed`; unequal values use the existing
+`signer_identity_mismatch`. Absence never equals absence; agreement between
+foreign identities is insufficient.
 The check applies only in the exact message domain; grant and operator-act tags
 already refuse at step 3. Nothing else in the body is interpreted.
 
@@ -274,7 +301,7 @@ This check narrows what bytes the provider signs. It does not replace any
 receiver schema, signature-profile, attestation, grant, revocation or authority
 check. A single-agent provider without this optional narrowing retains the
 base codec-only admission contract (PS1–PS5); a multi-agent provider must apply
-both contracts. PI1–PI5 and I01–I21 exercise the additional check.
+both contracts. PI1–PI5, I01–I21 and I-attestation-* exercise the additional check.
 
 It MUST sign the original complete bytes, without changing whitespace, adding a
 newline, reconstructing an envelope or deciding action, role, type, audience,
@@ -365,8 +392,22 @@ For an act, the attested owner MUST also equal the act owner and protected regis
 independent successful comparisons to two different owners are insufficient.
 Ed25519 FIDO devices and Matrix-master/OMEMO attestations are deferred.
 
-The caller supplies actual signed attestation bytes keyed by subject key id,
-the protected signing-service root/purpose and operator root, protected active
+For a message author, the verifier MUST resolve attestation bytes by the signed
+`author_attestation` content id using §6, never by "the current attestation for
+this key" and never by fallback to a newer record. Fully verify that returned
+attestation through this entire subpipeline, including its own subject key,
+protected current binding, validity and registry-owner revocation. Only then
+require its subject key id = `author` and its content id = `author_attestation`,
+both byte for byte; otherwise refuse `author_attestation_mismatch` at the end
+of K1, after earlier evidence refusals. Missing referenced bytes are unavailable.
+Two concurrent valid attestations for the same key/generation are distinct;
+only the referenced one may authenticate this message. Current binding includes
+registration_number and master_epoch even when generation itself is unchanged.
+
+The caller supplies content-addressed signed agent attestation bytes, protected
+current-attestation ids for grant agent subjects, device attestation bytes keyed
+by device key id, the protected signing-service root/purpose, registry revocation
+root/purpose/scope, and operator root, protected active
 bindings, trusted time, and signed snapshots. A caller-supplied `valid` flag is
 not attestation evidence. Missing/null maps, records, required fields or current
 bindings return `key_binding_unavailable`; wrong types, invalid shape, crypto,
@@ -386,8 +427,33 @@ root. Its body is exactly `{type,issuer,issued_at,complete,entries}`:
   content id (attestation, grant or act in this root authority domain). `from`
   is an exact timestamp. An empty list is valid only in a verified complete snapshot.
 
-The issuing root alone may revoke its subjects/records. Key and attestation-id
-revocations are cumulative: either matching entry refuses from its stated time,
+The purpose-5 signing-service root signs **only attestation/1**. Its key MUST
+NOT sign message/grant/act profiles; conflicting additional pins cannot widen
+that language (`signature_profile_invalid` at E6). For agent keys
+and their attestations, revocation/1 MUST instead be signed by a separately
+pinned registry-owner root. Its protected purpose is `registry-revocation`, and
+protected configuration MUST bind it to the exact attestation root whose
+subjects and records it may revoke. Its key MUST differ from that attestation
+root. RootPolicy (§6) supplies the pin, purpose and scope; no key gains another
+signing language implicitly. A purpose-5-root-signed revocation snapshot, a
+revocation-root-signed attestation, wrong revoker purpose or wrong scope MUST
+refuse `key_binding_invalid` at K1; missing policy is unavailable. The signing
+service's binding revoke remains authoritative; snapshots distribute it.
+Operator-device revocation is unchanged: the pinned operator root signs its
+device attestations and its domain's revocation snapshots. Owner grant snapshots
+remain signed by the pinned grant root. Each root is authorized only for its
+explicitly configured record languages and authority domain.
+
+Only the protected revocation issuer for that domain may revoke its
+subjects/records. Key and attestation-id
+revocations are cumulative across the complete snapshot sequence: issuers MUST
+retain every entry, including future-effective entries, and MUST NOT remove it,
+move `from` later, or issue a newer clearing snapshot. A changed snapshot MUST
+have a strictly increasing `issued_at`; equal timestamps permit only identical
+record retransmission. Continuity MUST fence conflicting same-time records as
+well as rollback; unavailable continuity fails closed. A complete snapshot
+cannot silently truncate entries to meet the wire bound. Matching works as
+follows: either matching entry refuses from its stated time,
 when `from <= max(now,W)`. Future entries have no effect before that boundary.
 All entries MUST be structurally validated before evaluating any match. The
 caller supplies rollback continuity and a positive integer maximum age <=60 s;
@@ -398,6 +464,20 @@ empty set is accepted. The derived outcome remains exactly `not_revoked`,
 `revoked`, `unavailable`; invalid evidence is a definite refusal, never a fourth
 successful outcome. §6 maps these facts to intake-specific refusal codes.
 
+Let S be `issued_at` of the first signed complete snapshot containing an entry,
+A the configured maximum age (0 < A <=60 s), and F its `from`. Under these
+cumulative, complete, unique-issuance and rollback-continuity rules, an already
+effective entry takes effect at every conforming verification/effect gate no
+later than S+A, and never before F (time is measured by the protected min/max
+policy). Before S, this profile promises nothing about withdrawal: the issuer
+has not signed its publication. Any snapshot omitting the entry must have an
+issuance time strictly below S and is stale by S+A; every admissible snapshot
+at or after S contains it. Missing or discontinuous evidence refuses as well.
+For a future F > S+A the exact bound is max(S+A,F): it cannot take effect before
+F, and by then an omitting snapshot is stale. An unqualified S+A deadline would
+contradict a future `from`. This is a snapshot-distribution guarantee, not an
+end-to-end platform completion promise or a guarantee before issuance.
+
 Historical verification (whether a signature was valid at its claimed time)
 is outside v0. Authorization checks current snapshots at verification/effect
 admission. A self-declared old `iat` MUST NOT bypass a currently effective
@@ -406,11 +486,13 @@ revocation. Consumers MUST serialize snapshot currency with their effect gate.
 Provenance is independent of chain position: the directly pinned owner grant
 root wins first, even when it is an intermediate or leaf subject or also a
 device. Otherwise an operator-device attestation under the pinned operator
-root supplies device provenance; otherwise an agent attestation under the
-purpose-5 service root and current generation supplies agent provenance.
+root supplies device provenance; otherwise, for a subject/leaf only, an agent attestation under the
+purpose-5 service root and current generation supplies agent provenance. A
+verified agent used as an issuer refuses the profile at K1.
 Algorithm or position alone never supplies provenance. Missing required
 attestation refuses unavailable; a contradictory profile refuses invalid.
-Every non-root issuer and subject, including the leaf, is checked (K19/K20).
+Every non-root issuer and subject, including the leaf, is checked (K19/K20);
+no chain position enables agent grant issuance.
 Attestation proves identity and its purpose-scoped signing profile, never grant
 rights; all chain/action/target/revocation checks remain mandatory. The grant
 signature role `author` denotes its chain-authorized issuer slot, not
@@ -422,6 +504,10 @@ signing method is created here.
 ## 3. General grant/1
 
 ### 3.1 Closed v0 body
+
+Agent keys MUST NOT be issuers in v0 (§2.4); they remain admissible as subjects
+and leaves. Parent delegation does not widen a key's signing profile. A
+non-root issuing device requires its operator attestation and current authority.
 
 In addition to common members a grant has exactly:
 
@@ -581,6 +667,12 @@ published; a format rewrite cannot authorize them. This slice publishes no
 broker migration executable or new binding wire fields.
 
 ## 4. operator-act/1
+
+The device signer provider MUST sign the exact raw S0 preimage using P-256
+low-S (§2.4), not a FIDO/WebAuthn assertion construction. Assertion wrappers
+and signatures over authenticatorData || SHA-256(clientDataJSON) refuse even
+when their challenge contains this preimage or its content id. A raw-preimage
+signature by the same device key remains the positive control.
 
 ### 4.1 Body and authority
 
@@ -758,9 +850,12 @@ Revocations.Verify(signed_snapshot,pinned_issuer,ids,keys,sample,continuity)
 IdJournal.Lookup(id) -> absent | exact_bytes | unavailable
 Replay.Lookup(consumer,action_id) -> unused | used | unavailable
 SignerFacts.Lookup(owner,key) -> current + presence_current + presence_policy | unavailable
-Attestations.Lookup(key_id) -> exact signed attestation/1 bytes | unavailable
-CurrentGeneration.Lookup(key_id) -> typed active binding | unavailable
-RootPolicy.Lookup(purpose,owner) -> protected root pin | unavailable
+Attestations.Lookup(content_id) -> exact signed agent attestation/1 bytes | unavailable
+DeviceAttestations.Lookup(key_id) -> exact signed device attestation/1 bytes | unavailable
+CurrentGeneration.Lookup(key_id) -> typed active binding + current_attestation_id | unavailable
+RootPolicy.Lookup(purpose,owner) -> protected attestation/operator/grant root pin | unavailable
+RootPolicy.AgentRevoker(attestation_root) -> registry-owner key + purpose registry-revocation
+  + exact attestation_root scope | unavailable
 SignedSnapshots.Lookup(issuer) -> exact signed revocation/1 + continuity + max_age | unavailable
 EstablishedAssurance.Lookup(exact_request) -> level + presence | unavailable
 DeliveryContext.Lookup -> actual room + full recipient + exact text bytes | unavailable
@@ -791,7 +886,7 @@ entries are checked in array order. Codes are distinct per listed substep:
 | E7b | Delivered text present, valid UTF-8 bytes, exact digest | `message_text_unavailable` / `message_text_invalid` / `message_text_mismatch` |
 | T1 | Trusted/fresh provider authority, watermark availability | `time_unavailable` / `watermark_unavailable` |
 | T2 | Each expiry at max, then start at min | `expired` / `not_yet_valid` |
-| K1 | Required outer evidence/header and root, strict root signature, purpose-specific typed fields/current binding, profile/derivation, validity and signed issuer revocation (§2.6) | `key_binding_unavailable` / `key_binding_invalid` / `revoked` |
+| K1 | Required outer evidence/header and root, strict root signature, purpose-specific typed fields/current binding, profile/derivation, validity and scoped signed revocation; finally message author/reference equality or grant agent-issuer profile (§2.6) | `key_binding_unavailable` / `key_binding_invalid` / `revoked` / `author_attestation_mismatch` / `signature_profile_invalid` |
 | E8 | Id journal availability, then same id other bytes | `id_journal_unavailable` / `envelope_conflict` |
 | G1 | Chain length 1–4, unique ids, closed request/schema | `grant_chain_malformed` |
 | G2 | E1–E8 for every link (before remaining G rows) | envelope/time code above |
@@ -828,7 +923,7 @@ Message signer admission (§2.5) has its own ordered refusals: size
 `signer_preimage_too_large`; tag grammar/delimiter `signer_tag_malformed`;
 exact message membership `signer_domain_refused`; CCJ-1 canonicality/depth
 `signer_payload_invalid`; when identity narrowing applies, missing/invalid
-service-resolved caller key or identity policy `signer_identity_unavailable`,
+service-resolved caller key/current-attestation id or identity policy `signer_identity_unavailable`,
 then missing/wrongly typed identity paths `signer_identity_malformed`, then
 unequal identity values `signer_identity_mismatch`. It performs no effect authorization. In domain-only
 conformance probes a malformed tag is `domain_tag_malformed`, an unregistered
@@ -861,6 +956,19 @@ and both chains' continued authority. Repeat current ledger/generation, profile,
 account, credential binding, freeze, time and revocation checks immediately
 before release, including after asynchronous refresh. R1 remains unchanged now.
 Dispatcher support and generation-to-key binding are activation dependencies.
+
+The signed author-attestation reference prevents receiver cross-generation or
+cross-registration substitution of a stable key. The three-path signer check
+prevents a caller from signing for another attestation. Neither proves actual
+creation time beyond the admissible message window; a signed `iat` is still a
+claim, and historical verification remains outside v0.
+
+The v0 revocation guarantee is only §2.6's signed-snapshot bound: no later than
+first-containing-snapshot issued_at + configured maximum age (at most 60 s)
+for an effective entry, never before `from`, hence max(issued_at+age,from) for
+future entries. It promises nothing before the issuer signs that snapshot.
+The platform meaning of "revocation complete" is OPEN, owner decision required;
+no end-to-end default or completion latency is claimed here.
 
 Threats left open: compromised pinned roots/devices/providers, dishonest
 confirmation rendering, malicious consumers, stolen live credentials, denial of

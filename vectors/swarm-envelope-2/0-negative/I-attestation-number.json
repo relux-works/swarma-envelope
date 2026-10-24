@@ -1,0 +1,19 @@
+{
+  "id": "I-attestation-number",
+  "claim": "Signer third identity path rejects number without signing.",
+  "positive_control": "PI1",
+  "mode": "signer",
+  "input": {
+    "preimage": "c3dhcm1hLW1zZy8yCnsiYm9keSI6eyJhY3Rpb24iOiJtZXNzYWdlLmRlbGl2ZXIiLCJhcmd1bWVudHMiOnsidGV4dCI6ImhlbGxvIn0sImF1ZCI6InNlcnZpY2UtYSIsImF1dGhvciI6ImVkMjU1MTk6d3VlMnQxR0plTFpUcXpZdWRrelJJaHlZMTFsQXp5UFhEanNUWGdYb0lyayIsImF1dGhvcl9hdHRlc3RhdGlvbiI6MSwiYm9keV9zaGEyNTYiOiIyY2YyNGRiYTVmYjBhMzBlMjZlODNiMmFjNWI5ZTI5ZTFiMTYxZTVjMWZhNzQyNWU3MzA0MzM2MjkzOGI5ODI0IiwiZXhwIjoiMjAyNi0wMS0wMVQwMDowMjowMFoiLCJpYXQiOiIyMDI2LTAxLTAxVDAwOjAwOjAwWiIsIm5vbmNlIjoiQndjSEJ3Y0hCd2NIQndjSEJ3Y0hCdyIsInJvb20iOiIhcm9vbTp0ZXN0LmludmFsaWQiLCJ0YXJnZXQiOnsiaWQiOiJ0ZWFtL21lbWJlciIsImtpbmQiOiJzdGF0aW9uIn0sInRvIjoiQHJlY2lwaWVudDp0ZXN0LmludmFsaWQiLCJ0eXBlIjoibWVzc2FnZS8xIn0sImtleSI6ImVkMjU1MTk6d3VlMnQxR0plTFpUcXpZdWRrelJJaHlZMTFsQXp5UFhEanNUWGdYb0lyayIsInJvbGUiOiJhdXRob3IiLCJ2ZXJzaW9uIjoic3dhcm0tZW52ZWxvcGUvMiJ9"
+  },
+  "fixture": {
+    "caller_attestation_id": "sha256:c3cfbd2085a31b0b23e841afc84fa28d4e286e198a60021bcf02ec46251b1090",
+    "caller_key_id": "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+    "identity_check": true,
+    "multi_agent": true
+  },
+  "expected": {
+    "code": "signer_identity_malformed",
+    "plan": {}
+  }
+}
