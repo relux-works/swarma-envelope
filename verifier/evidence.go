@@ -55,8 +55,35 @@ func currentDevice(f facts) {
 	need(isBool(m["current"]), "key_binding_unavailable")
 	need(m["current"] == true, "key_binding_invalid")
 }
-func snapshot(f facts, root any, ids, keys []string) {
+
+// snapshotPolicy admits only a protected revocation issuer. Registry policy is
+// scoped to the exact purpose-5 attestation root; the service itself can never
+// issue snapshots. Other missing roles do not prevent an explicitly pinned
+// operator/grant issuer from using its own record language.
+func snapshotPolicy(f facts, root any) {
 	distinct(f)
+	need(isString(root) && str(root) != "", "key_binding_invalid")
+	service := obj(f["service_root"])
+	need(service == nil || !equal(root, service["key"]), "key_binding_invalid")
+	registry := obj(f["agent_revocation_root"])
+	if registry != nil && equal(root, registry["key"]) {
+		policy := evidenceExact(f["agent_revocation_root"], "key purpose attestation_root")
+		issuer := evidenceExact(f["service_root"], "key purpose")
+		need(isInt(issuer["purpose"]) && num(issuer["purpose"]) == 5 && policy["purpose"] == "registry-revocation" && equal(policy["attestation_root"], issuer["key"]), "key_binding_invalid")
+		mapped(func() bool { key(issuer["key"]); key(policy["key"]); return true }, "*", "key_binding_invalid")
+		return
+	}
+	if equal(root, f["operator_root"]) || equal(root, f["root"]) {
+		return
+	}
+	// Without the remaining policies a requested issuer cannot be resolved;
+	// with all policies available an unpinned issuer is definitively invalid.
+	evidenceExact(f["agent_revocation_root"], "key purpose attestation_root")
+	need(f["operator_root"] != nil && f["root"] != nil, "key_binding_unavailable")
+	need(false, "key_binding_invalid")
+}
+func snapshot(f facts, root any, ids, keys []string) {
+	snapshotPolicy(f, root)
 	records := evidence(f["revocations"], "")
 	need(isString(root), "key_binding_invalid")
 	r := evidence(records[str(root)], "availability max_age rollback_safe snapshot")
@@ -112,7 +139,8 @@ func attestation(keyID, reference string, device, revocations, message bool, f f
 	}
 	records := evidence(f[collection], "")
 	if !device {
-		if !message {
+		if reference == "" {
+			need(!message, "key_binding_unavailable")
 			ids := evidence(f["agent_attestation_ids"], "")
 			v := ids[keyID]
 			need(v != nil, "key_binding_unavailable")
@@ -251,7 +279,9 @@ const (
 
 // CheckRevocation evaluates signed snapshots for the exact root authority
 // domain. Invalid evidence returns Unavailable plus a definite refusal error;
-// it is not a fourth successful state. No historical-iat bypass exists.
+// it is not a fourth successful state. The root must be the protected registry,
+// operator or grant issuer; registry purpose/scope and D30 apply before lookup.
+// No historical-iat bypass exists.
 func (v Verifier) CheckRevocation(root string, ids, keys []string) (state RevocationState, err error) {
 	r := decide(func() Plan { snapshot(v.facts(), root, ids, keys); return Plan{} })
 	switch r.Code {
@@ -275,9 +305,12 @@ type Attestation struct {
 
 // VerifyAttestation verifies agent evidence by an exact content reference, or
 // device evidence by key when device is true; it includes current revocation.
+// Agent reference is required. A nonempty device reference must also match.
 func (v Verifier) VerifyAttestation(key, reference string, device bool) (a Attestation, err error) {
 	r := decide(func() Plan {
-		e := attestation(key, reference, device, true, !device && reference != "", v.facts())
+		need(device || reference != "", "key_binding_unavailable")
+		e := attestation(key, reference, device, true, false, v.facts())
+		need(!device || reference == "" || e["id"] == reference, "key_binding_invalid")
 		b := obj(e["body"])
 		s := obj(b["subject"])
 		a = Attestation{ID: str(e["id"]), Key: str(s["key_id"]), Owner: str(obj(b["binding"])["owner"])}

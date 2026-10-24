@@ -45,9 +45,9 @@ cryptography reports PENDING and exits 2; it never reports full conformance.
 No network is used by the checker. Go module resolution may download the pinned
 public registrar dependency. Neither tool imports the future production verifier.
 
-Only 559 named cases are tracked. All 1660 T/B/Z/U cases remain in the generator
+Only 669 named cases are tracked. All 1688 T/B/Z/U cases remain in the generator
 and committed `sweeps.tsv` / `sweeps.sha256`; `-sweeps` materializes them for the
-complete 2219-case check. See the [manifest format](../../tools/vectors/README.md).
+complete 2357-case check. See the [manifest format](../../tools/vectors/README.md).
 Commands must run sequentially through any host-required resource runner.
 
 Generator `-out DIR` writes named cases and the manifest; adding `-sweeps`
@@ -149,7 +149,7 @@ supply expected bytes. No fixture file is rewritten by `-check`.
 | N-O1-unknown-owner/epoch/target | Exact O16 signed input combined with each reported invalid protected binding; operation profile still wins. O16 and H-act-binding-* retain the two adjacent refusal controls; PO1 accepts. |
 | U (generated) | 423 order-matrix cases: 271 original Cartesian combinations, 20 author-reference compounds, six additional within-row combinations, 126 operand controls, with PE1/PE5/PO1/PG1 accepted controls. 276 compounds distinguish order by code; 21 same-code compounds only establish the required refusal. |
 
-The 1660 generated cases break down as T628/B462/Z147/U423; all are committed via
+The 1688 generated cases break down as T628/B462/Z147/U451; all are committed via
 manifest and materialized on demand. The generator guide documents each group,
 its representative bound columns and the earlier conditions it crosses.
 
@@ -163,3 +163,12 @@ its representative bound columns and the earlier conditions it crosses.
 | W-assertion-wrapper, W-webauthn-signature; PO1 | Closed entry schema and real WebAuthn construction refuse; raw-preimage signature by the same key accepts. |
 | W-purpose5-snapshot/grant, W-revoker-attestation/scope/purpose/missing; PW-binding | Separately pinned registry revocation issuer, protected purpose and exact attestation-root scope. |
 | W/PW-bound-* | Omitting snapshot stale at the publication deadline, containing snapshot effective, future from inactive before and effective at its boundary. |
+
+| Cases | Exact signing-key binding |
+| --- | --- |
+| N02 / PN02 | Two admitted, validly attested agent keys; a valid signature by A over signed author B refuses `signer_unknown` at E6. The same author B signed by B accepts. |
+| N02-grant / PN02-grant | A valid signature by the grant authority root over a leaf naming a different delegated issuer refuses `signer_unknown` at G2/E6. The exact issuer signature accepts. |
+
+`operator-act/1` has no `issuer` or `author` member. Its signer-to-identity join
+is the device attestation and owner binding at O2; existing A29 / PO1 cover a
+valid device attested for a different owner and its valid neighbor.

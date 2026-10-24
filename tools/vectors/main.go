@@ -624,6 +624,7 @@ func main() {
 	contentReviewVectors()
 	rootAndApproverVectors()
 	contextVectors()
+	signerBindingVectors()
 	seeds, pubs := M{}, M{}
 	for i, k := range keys {
 		name := fmt.Sprintf("test-%d", i)

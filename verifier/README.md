@@ -48,8 +48,14 @@ Methods:
 - `VerifyEnvelope`: E1–E8 for a selected platform type. This lower-level method
   does not replace chain authorization or the operator pipeline.
 - `VerifyAttestation` and `CheckRevocation`: signed evidence independently of
-  envelope admission. Invalid revocation evidence is an error, never a fourth
-  successful state. Only `not_revoked` permits progress.
+  envelope admission. Agent lookups require an exact key and nonempty content
+  reference; device lookups require the exact key and, if supplied, exact content
+  reference. The standalone helper never defers identity equality to a caller.
+  Snapshot roots must match a protected registry, operator or grant issuer;
+  registry purpose and exact service-root scope are mandatory, and purpose-5
+  roots cannot issue snapshots. Missing policy/evidence yields unavailable;
+  invalid policy or evidence is an error, never a fourth successful revocation
+  state. Only `not_revoked` permits progress.
 - `OperatorRecordCode`: separate coarse Keymaker refusal mapping; keep the
   original fine reason in local audit. An empty/missing verifier code maps to
   unavailable. Supply `state_unavailable` for a failed/unavailable Commit.
@@ -85,7 +91,7 @@ conformance test generates its corpus with the existing generator in a Go test
 temporary directory. `CURATOR_GO` selects that child toolchain explicitly;
 otherwise it uses the runtime toolchain or Go on PATH. `WAGGLE_VECTORS` may
 select an already materialized corpus. The committed sweep digest, entire
-manifest, all 1688 sweep byte hashes, all 665 named bytes and exact 2353
+manifest, all 1688 sweep byte hashes, all 669 named bytes and exact 2357
 code/plan verdicts are checked. Generated sweeps are never committed. Fixture
 base64 transport and legacy field names are adapted only in the test.
 
