@@ -45,9 +45,9 @@ cryptography reports PENDING and exits 2; it never reports full conformance.
 No network is used by the checker. Go module resolution may download the pinned
 public registrar dependency. Neither tool imports the future production verifier.
 
-Only 903 named cases are tracked. All 1688 T/B/Z/U cases remain in the generator
+Only 908 named cases are tracked. All 1688 T/B/Z/U cases remain in the generator
 and committed `sweeps.tsv` / `sweeps.sha256`; `-sweeps` materializes them for the
-complete 2591-case check. See the [manifest format](../../tools/vectors/README.md).
+complete 2596-case check. See the [manifest format](../../tools/vectors/README.md).
 Commands must run sequentially through any host-required resource runner.
 
 Generator `-out DIR` writes named cases and the manifest; adding `-sweeps`
@@ -226,3 +226,9 @@ changes after those required input repairs. The unchanged historical twelve
 inputs now refuse journal_unavailable at the prior-evidence gate (including
 four former accepts); D39 records this compatibility change. These fixtures
 qualify offline formats, not live publication policy.
+
+Minimum-time publication controls distinguish an absent predecessor from Unix
+zero: P-FR-genesis-epoch and P-FR-genesis-epoch-plus-one accept, while
+N-FR-epoch-equal refuses a new publication at its real predecessor's epoch
+instant. P-FR-epoch-advance and P-FR-epoch-retransmit retain strict advancement
+and exact retransmission, with exact epoch watermark plans checked.

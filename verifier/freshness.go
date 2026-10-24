@@ -120,9 +120,11 @@ func (v Verifier) VerifyFreshness(chain [][]byte, checkpoint []byte, ids, keys [
 		need(issued <= low && high-issued <= maxAge && stamp(cb["at"]) <= issued && read >= issued && read <= low && high-read <= maxAge, "freshness_unavailable")
 		a := freshnessAnchor(f, root, owner)
 		seq, prev := num(a["publication_seq"]), a["freshness_id"]
-		at := int64(0)
+		// Only publication genesis lacks a predecessor time; Unix zero is valid.
+		var at *int64
 		if a["issued_at"] != nil {
-			at = stamp(a["issued_at"])
+			when := stamp(a["issued_at"])
+			at = &when
 		}
 		registrySeq, checkpointID, snapshotID := num(a["registry_seq"]), a["checkpoint_id"], a["snapshot"]
 		for i, e := range es {
@@ -132,7 +134,7 @@ func (v Verifier) VerifyFreshness(chain [][]byte, checkpoint []byte, ids, keys [
 			need(n >= seq, "freshness_rollback")
 			if n == seq {
 				need(e["id"] == prev, "freshness_fork")
-				need(i == 0 && when == at && num(p["registry_seq"]) == registrySeq && p["checkpoint_id"] == checkpointID && p["snapshot"] == snapshotID, "freshness_state_invalid")
+				need(i == 0 && at != nil && when == *at && num(p["registry_seq"]) == registrySeq && p["checkpoint_id"] == checkpointID && p["snapshot"] == snapshotID, "freshness_state_invalid")
 				continue
 			}
 			need(n == seq+1, "freshness_gap")
@@ -146,11 +148,12 @@ func (v Verifier) VerifyFreshness(chain [][]byte, checkpoint []byte, ids, keys [
 				need(p["checkpoint_id"] != checkpointID, "freshness_binding_mismatch")
 			}
 			need(equal(p["prev"], expectedPrev), "freshness_gap")
-			need(when > at, "freshness_time_invalid")
+			need(at == nil || when > *at, "freshness_time_invalid")
 			if sameHead {
 				need(p["snapshot"] == snapshotID, "freshness_binding_mismatch")
 			}
-			seq, prev, at = n, e["id"], when
+			seq, prev = n, e["id"]
+			at = &when
 			registrySeq, checkpointID, snapshotID = num(p["registry_seq"]), p["checkpoint_id"], p["snapshot"]
 		}
 		// F9: query shape, then effective matching after the complete proof.

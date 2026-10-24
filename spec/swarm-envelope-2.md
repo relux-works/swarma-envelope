@@ -853,7 +853,11 @@ externally authorized publication-genesis provisioning alone may use
 publication_seq0, freshness_id null and issued_at null, while still pinning an
 authenticated positive registry_seq/checkpoint_id and snapshot. This is not a
 seq0 witness projection or automatic cold-store bootstrap. Other anchor seqs
-are positive safe integers with content ids and exact timestamp. The caller
+are positive safe integers with content ids and exact timestamp. Publication
+genesis has no predecessor timestamp: the §2.1 minimum timestamp is valid for
+its first publication. Strict time increase applies only against an actual
+predecessor, including a predecessor at that minimum; exact retransmission
+still preserves the accepted timestamp. The caller
 qualifies anchor authenticity/continuity outside the registry failure domain.
 
 At most64 publication records plus one checkpoint, each <=8192 received bytes,
@@ -878,6 +882,12 @@ partial success or fabricated refreshed snapshot. Registry publication must
 make all qualified publication positions available; signed hash continuity
 proves completeness only from the supplied retained anchor through the tip,
 not non-withholding before publication or a malicious issuer's unpublished tail.
+It also cannot certify that a still-current supplied tip is the latest published
+position: a newer published but withheld tail is undetected until the consumer
+retains it. The bound supplied is tip age<=protected max_age, not proof of the
+latest publication position. Retaining a newer position makes an older tip
+rollback on subsequent admission. No additional tail-discovery mechanism is
+defined here.
 Live publication/effect integration and witness authentication remain separate.
 
 ## 3. General grant/1

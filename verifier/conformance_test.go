@@ -332,7 +332,7 @@ func runVectors(t *testing.T, paths []string) {
 // This is the named subset; TestConformance adds the manifest-bound sweeps.
 func TestNamed(t *testing.T) {
 	paths := namedPaths(t, "../vectors")
-	if len(paths) != 903 {
+	if len(paths) != 908 {
 		t.Fatalf("named count %d", len(paths))
 	}
 	runVectors(t, paths)
@@ -414,10 +414,10 @@ func TestConformance(t *testing.T) {
 			t.Fatalf("named corpus bytes mismatch %s", p)
 		}
 	}
-	if count != 1688 || len(paths) != 2591 {
-		t.Fatalf("counts named903 sweeps%d total%d", count, len(paths))
+	if count != 1688 || len(paths) != 2596 {
+		t.Fatalf("counts named908 sweeps%d total%d", count, len(paths))
 	}
-	t.Logf("named=903 generated=%s total=%d", strconv.Itoa(count), len(paths))
+	t.Logf("named=908 generated=%s total=%d", strconv.Itoa(count), len(paths))
 	runVectors(t, paths)
 }
 

@@ -152,3 +152,18 @@ func TestFreshnessConcurrent(t *testing.T) {
 		}
 	}
 }
+
+// Genesis has no predecessor time; the epoch is valid. A real epoch-zero
+// predecessor instead requires strict increase, with exact retransmission kept.
+// Every case checks the exact code/plan, including the epoch-zero watermark.
+func TestFreshnessEpochBoundary(t *testing.T) {
+	var paths []string
+	for _, id := range []string{"N-FR-epoch-equal", "P-FR-genesis-epoch", "P-FR-genesis-epoch-plus-one", "P-FR-epoch-retransmit", "P-FR-epoch-advance"} {
+		dir := "1-positive"
+		if strings.HasPrefix(id, "N-") {
+			dir = "0-negative"
+		}
+		paths = append(paths, "../vectors/swarm-envelope-2/"+dir+"/"+id+".json")
+	}
+	runVectors(t, paths)
+}

@@ -1184,7 +1184,7 @@ def fresh_revocation(inp, f):
             and issued <= read_at <= low and high-read_at <= max_age, "freshness_unavailable")
     anchor = publication_anchor(f, root, owner)
     seq, previous = anchor["publication_seq"], anchor["freshness_id"]
-    at = timestamp(anchor["issued_at"]) if anchor["issued_at"] is not None else 0
+    at = timestamp(anchor["issued_at"]) if anchor["issued_at"] is not None else None
     registry_seq, checkpoint_id, snapshot_ref = anchor["registry_seq"], anchor["checkpoint_id"], anchor["snapshot"]
     for index, publication in enumerate(proof):
         b = publication["body"]
@@ -1192,7 +1192,7 @@ def fresh_revocation(inp, f):
         require(n >= seq, "freshness_rollback")
         if n == seq:
             require(publication["id"] == previous, "freshness_fork")
-            require(index == 0 and when == at and b["registry_seq"] == registry_seq
+            require(index == 0 and at is not None and when == at and b["registry_seq"] == registry_seq
                     and b["checkpoint_id"] == checkpoint_id and b["snapshot"] == snapshot_ref, "freshness_state_invalid")
             continue
         require(n == seq+1, "freshness_gap")
@@ -1205,7 +1205,7 @@ def fresh_revocation(inp, f):
             require(b["checkpoint_id"] != checkpoint_id, "freshness_binding_mismatch")
             expected_prev = None
         require(b["prev"] == expected_prev, "freshness_gap")
-        require(when > at, "freshness_time_invalid")
+        require(at is None or when > at, "freshness_time_invalid")
         if same_head:
             require(b["snapshot"] == snapshot_ref, "freshness_binding_mismatch")
         seq, previous, at = n, publication["id"], when

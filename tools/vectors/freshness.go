@@ -243,6 +243,7 @@ func freshnessVectors() {
 	freshnessEdit(&v, func(b M) { b["publication_seq"], b["prev"] = 1, nil })
 	add("P-FR-genesis", "Explicit protected publication-genesis provisioning admits a first signed record; absent state still refuses.", "", "accept", v)
 
+	freshnessEpochVectors()
 	freshnessOrderVectors()
 	freshnessDomainVectors()
 }
