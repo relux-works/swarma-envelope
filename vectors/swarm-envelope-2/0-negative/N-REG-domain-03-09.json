@@ -1,0 +1,18 @@
+{
+  "id": "N-REG-domain-03-09",
+  "claim": "A valid raw signature under one exact registered domain never verifies as another domain; no body/authority profile is claimed.",
+  "positive_control": "P-REG-domain-journal-entry",
+  "mode": "domain",
+  "input": {
+    "key": "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+    "preimage": "c3dhcm1hLWF0dGVzdGF0aW9uIGF0dGVzdGF0aW9uLzEKeyJ0eXBlIjoiZG9tYWluLW1hdGgtb25seSJ9",
+    "sig": "dBatzDlcJTOXhMYvZYtVohQa4zybPZC7JPfFzCCHnM2PErBbvuGInDExYqdxmjYq76B2u2rbbcQcDkm2-6qHBg"
+  },
+  "fixture": {
+    "expected_tag": "swarma-registry journal-entry/1"
+  },
+  "expected": {
+    "code": "domain_mismatch",
+    "plan": {}
+  }
+}

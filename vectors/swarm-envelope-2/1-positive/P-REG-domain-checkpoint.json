@@ -1,0 +1,21 @@
+{
+  "id": "P-REG-domain-checkpoint",
+  "claim": "The new exact registry domain has an ordinary valid raw signature-math control; record admission remains separate.",
+  "positive_control": "",
+  "mode": "domain",
+  "input": {
+    "key": "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+    "preimage": "c3dhcm1hLXJlZ2lzdHJ5IGNoZWNrcG9pbnQvMQp7InR5cGUiOiJkb21haW4tbWF0aC1vbmx5In0",
+    "sig": "Pf4qf3cck3itJeuCAC3trlchNZfNY0mEjk5hdfJzX4dkdxHOKTxXqaXZ7rFrZaG07z5acyYwUaIKIFhrttZ4Cw"
+  },
+  "fixture": {
+    "expected_tag": "swarma-registry checkpoint/1"
+  },
+  "expected": {
+    "code": "accept",
+    "plan": {
+      "key": "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+      "tag": "swarma-registry checkpoint/1"
+    }
+  }
+}

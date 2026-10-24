@@ -6,7 +6,7 @@ UTF-8 bytes, not characters. Refusal codes in §6 are stable within this draft.
 
 ## 1. Scope, ownership and existing waggle
 
-This slice defines `swarm-envelope/2`, general `grant/1`, `operator-act/1`, `attestation/1` and shared `revocation/1`.
+This slice defines `swarm-envelope/2`, general `grant/1`, `operator-act/1`, `attestation/1`, shared `revocation/1`, unsigned `journal-entry/1` and registry-signed `checkpoint/1`.
 The platform choice of CCJ-1 plus an explicit domain tag is settled; SSHSIG is
 not the platform-service encoding. The exact v0 schemas remain under review.
 For platform services it supersedes the SSHSIG encoding and verification rules
@@ -20,8 +20,8 @@ This boundary also supersedes v5.2's permissive dropping of invalid signatures:
 every attached signature in this slice MUST pass. Transport is not authority.
 
 waggle owns these formats and the future verifier. Consumers MUST pin a reviewed
-main commit and change that pin through their own review. No library API is
-published by this slice; §6 is the required behavior for the next slice.
+main commit and change that pin through their own review. The pure `record` and `verifier` packages implement the offline contract;
+§6 remains normative and no consumer activation is implied.
 
 Owner decision, 2026-10-24: the owner registry and rollback witness are to run
 on one separately administered trust node outside the agent platform's
@@ -209,9 +209,11 @@ closed table; caller configuration cannot register an alias.
 | `swarma-registrar enrollment/1` | Registrar enrollment; registrar §2 | Refused |
 | `swarma-credential-broker grant/1` | Broker's separate closed grant; broker §6 | Refused |
 | `swarma-credential-broker revocation/1` | Broker's revocation; broker §6.4 | Refused |
+| `swarma-registry journal-entry/1` | Unsigned identity-journal content id; §2.7 | Refused |
+| `swarma-registry checkpoint/1` | Registry-signed checkpoint; §2.7 | Refused |
 | Unpublished signing-service witness domain (no literal assigned here) | Signing service owns publication; placeholder is NOT a registered tag | Refused until separately published; never implicitly admitted |
 
-All nine published literals above MUST be pairwise distinct. Prefix uniqueness
+All eleven published literals above MUST be pairwise distinct. Prefix uniqueness
 is not required: even if one tag is a prefix of another, at the shorter tag's
 end one preimage has LF while the other has a non-LF tag byte. Exact tag plus
 LF already separates them. In particular `swarma-msg/20` is not accepted merely
@@ -230,7 +232,7 @@ The accepted signature profiles are exhaustive:
 | --- | --- | --- | --- |
 | message/1 | author | Agent / Ed25519 | Verified root-signed attestation/1 and current generation binding (§2.6); key equals body.author and exact verified attestation id equals body.author_attestation |
 | message/1 | approver, optional or caller-required | Operator device / P-256 low-S | Pinned operator root, verified operator-device attestation, current revocation and caller policy |
-| grant/1 | author, exactly one | Grant authority / Ed25519 or P-256 low-S | Pinned owner root, or parent-authorized operator device with §2.6 provenance; agent keys are subjects/leaves only |
+| grant/1 | author, exactly one | Grant authority / Ed25519 or P-256 low-S | Pinned owner root, parent-authorized operator device, or parent-authorized service key with §2.6 provenance; agent keys are subjects/leaves only |
 | operator-act/1 | approver, exactly one | Operator device / P-256 low-S | Pinned operator root, verified operator-device attestation and §4 act checks |
 
 An operator **device** key MUST be P-256; an agent key MUST be Ed25519. A pinned
@@ -350,7 +352,7 @@ Both signer and message verifier MUST enforce the preimage budget and depth.
 `attestation/1` and `revocation/1` use the four-member envelope and §2.2's
 content-id and signed-record construction with their own exact tags in §2.4.
 They do not use the message/grant common schema. Before any signed evidence is
-consumed, protected root pins for the four roles (purpose-5 signing service,
+consumed, protected root pins for the four root roles (purpose-5 signing service,
 registry-owner revocation, operator, and grant owner) MUST be pairwise distinct
 key ids. No overlap between these roles is allowed. The operator root signing
 both its device attestations and its snapshots is one role, not an exception
@@ -381,16 +383,32 @@ have integer key purpose 5. The caller MUST NOT promote a subject to a root.
 Issuers MUST validate the same body/profile/time bounds before signing that
 verifiers enforce; offline fixtures do not qualify the live issuer.
 
+D30 record and storage roles are explicit; present keys in these different
+roles MUST be distinct. Agent and operator-device subject keys also cannot
+select a service or commit/publisher role through overlapping protected maps.
+Unused new roles need not be configured on inherited intake paths; provisioning
+must still preserve global role separation. The verifier compares every role
+that the protected configuration makes present.
+
+| D30 role | Protected source | Admitted record language |
+| --- | --- | --- |
+| Purpose-5 signing-service root | service root key/purpose5 | Agent attestation/1 only |
+| Registry-owner root | registry-revocation root/purpose/scope | Scoped revocation/1 and §2.7 checkpoint/1 only |
+| Operator root | operator pin | Operator-device attestations and its own snapshots |
+| Grant-owner root | grant pin; explicit grant-service purpose/owner for attestations | Grant/1, own revocation/1, explicitly configured service attestations |
+| Grant-service subject | Exact service-attestation collection and §2.6 profile | Parent-authorized grant/1 only |
+| Offline enrollment publisher | Separate publisher key | Registrar enrollment/1 only, external to this verifier's record admission |
+| Repository commit signer | Separate commit-signing key | NO protocol record type; repository commits are storage/transport only |
+
 The registry-owner revocation root in D30 is the registry's signing key on
 §1's separate trust node. Its authoritative-writer role does not re-sign
 content: agent `attestation/1` retains the purpose-5 service signature, device
-attestations retain the operator-root signature, and grants retain the
-grant-owner signature. Registrar `enrollment/1` records retain their offline
+attestations retain the operator-root signature, and grants retain their
+original grant-authority signatures. Registrar `enrollment/1` records retain their offline
 publisher Ed25519 key; the registry service stores and serves them but MUST NOT
 sign them online. Online enrollment signing would require a separate registrar
 decision; this reference adds no S0 record profile or tag. The registry key
-signs only `revocation/1` snapshots and, in a later reviewed profile,
-identity-journal checkpoints. Operator-device
+signs only `revocation/1` snapshots and §2.7 identity-journal checkpoints. Operator-device
 snapshots retain their existing operator-root signature rule; the registry
 may store and publish them without substituting its signature. D30's distinct
 keys remain mandatory even when roles are hosted on the same node. Neither
@@ -415,9 +433,9 @@ An attestation body has exactly these required members:
 | --- | --- |
 | `type`, `issuer` | Exactly `attestation/1`, pinned issuing root key id. |
 | `subject` | Exactly `{algorithm,key_id,public_bytes}`; algorithm is `Ed25519` or `P-256`; canonical unpadded base64url raw public bytes. `key_id` MUST equal `ed25519:` + encoding of the 32 bytes, or `p256:` + encoding of the 33 compressed SEC1 bytes. Strict §2.3 point checks apply. |
-| `key_class`, `purpose` | Agent: exactly `agent`, `swarma-msg`. Operator device: both exactly `operator-device`. |
-| `roles`, `actions` | Sorted unique closed lists. Agent: `["author"]`, `["message.sign"]`. Operator device: `["act","approver"]`, `["act.sign","grant.sign","message.approve"]`. These limit the identity/signing profile; they grant no concrete action/target authority. |
-| `iat`, `exp` | Exact timestamps; start-inclusive/end-exclusive under min/max time. Positive interval. Agent window MUST be <=86,400 seconds, checked by both issuer and verifier. Device expiry is required, bounded further by protected policy. |
+| `key_class`, `purpose` | Agent: exactly `agent`, `swarma-msg`. Operator device: both exactly `operator-device`. Service: `service`, `grant-service`. |
+| `roles`, `actions` | Sorted unique closed lists. Agent: `["author"]`, `["message.sign"]`. Operator device: `["act","approver"]`, `["act.sign","grant.sign","message.approve"]`. Service: `["author"]`, `["grant.sign"]`. These limit the identity/signing profile; they grant no concrete action/target authority. |
+| `iat`, `exp` | Exact timestamps; start-inclusive/end-exclusive under min/max time. Positive interval. Agent and service windows MUST be <=86,400 seconds, checked by both issuer and verifier. Device expiry is required, bounded further by protected policy. |
 | `binding` | Purpose-specific closed object below. |
 
 Agent binding has exactly `{uid,generation,registration_number,master_epoch,
@@ -460,6 +478,55 @@ Two concurrent valid attestations for the same key/generation are distinct;
 only the referenced one may authenticate this message. Current binding includes
 registration_number and master_epoch even when generation itself is unchanged.
 
+A **grant-service** subject is a third `attestation/1` profile, distinct
+from the purpose-5 signing-service root. Its `key_class` is exactly `service`,
+`purpose` exactly `grant-service`, `roles` exactly `["author"]`, `actions`
+exactly `["grant.sign"]`, algorithm exactly Ed25519. Its closed binding is
+`{owner}` with the same independent 1–255 UTF-8-byte checks as device owners.
+Its validity is positive and at most 86,400 seconds. The issuer is the exact
+pinned grant-owner root, with an additional protected `grant-service` purpose
+and owner bound to that same pin. This is an explicit additional language for
+that root, not implicit promotion by a subject or a registry signature. Using
+one existing grant authority avoids a fifth attestation root while the protected
+purpose keeps ordinary grant-root possession/configuration from silently
+selecting this profile. Required purpose/owner or attestation bytes absent/null
+refuses `key_binding_unavailable`; malformed/incorrect evidence refuses
+`key_binding_invalid` at K1. Resolve service attestations by the exact requested
+key from a protected collection, verify the complete signed record, subject
+identity, owner, profile, time and grant-owner snapshot. A service attestation
+is identity evidence only, never a parent grant or action authority.
+
+A grant-service key is its own D30 subject role. It MUST differ from every
+protected root role, commit signer and enrollment publisher, and from keys
+present in protected current-agent or operator-device collections. Check these
+present-role collisions before signed evidence at K1/O2, or G7 as already
+specified. The protected collections identify expected roles; an unsigned
+`key_class` claim cannot select service verification. Agent attestations
+presented in the service collection refuse even with otherwise valid crypto.
+Service keys may sign only `grant/1`, never message, act, attestation, revocation
+or checkpoint records. Known service and commit-signing keys are excluded at
+the E6 profile gate. Root admission on evidence/checkpoint paths remains exact.
+A service key issuing a link MUST have a parent grant addressed to that key,
+with depth at least 1 and covering the child under all existing G3/G4 rules.
+A self-rooted service chain refuses `grant_root_unknown`; attestation alone
+never supplies the missing parent. Agent issuers remain forbidden under D24.
+
+Grant-service keys and their attestations use the existing grant-owner signed
+revocation domain. G7 still checks every chain issuer, subject and grant id;
+K1 additionally checks the service key/attestation there. Expired or revoked
+parent authority invalidates the whole chain, with no historical-iat bypass.
+A leaf whose own interval remains current after its parent expires is already
+non-narrowing; T2 at G2 wins before that later G4 failure. Such a compound is a
+negative ordering witness, not an admissible lifetime exception.
+
+D30 also reserves a **repository commit signer** role. Its protected key MUST
+be distinct from all record roles and from the offline enrollment publisher;
+the publisher MUST also differ from the registry key. Neither role is a
+registry, grant or attestation root. Commit-signing keys are accepted by no
+protocol-record verifier; low-level domain/signature math alone confers no
+role admission. Git signatures authenticate storage/transport only. Existing
+records need not configure unused roles, but every present pin is compared.
+
 The caller supplies content-addressed signed agent attestation bytes, protected
 current-attestation ids for grant agent subjects, device attestation bytes keyed
 by device key id, the protected signing-service root/purpose, registry revocation
@@ -488,7 +555,7 @@ root. Its body is exactly `{type,issuer,issued_at,complete,entries}`:
 
 The purpose-5 signing-service root signs **only attestation/1 for agent keys**.
 This restriction applies on every intake path: direct signers, attestation
-issuers of either class, and snapshot issuers in every authority domain.
+issuers of all classes, and snapshot issuers in every authority domain.
 The pairwise root-role rule above is enforced before consuming any such signed
 evidence; in particular a purpose-5/operator overlap refuses at K1 or O2 with
 `key_binding_invalid`, before device attestation or snapshot verification. Its key MUST
@@ -549,8 +616,11 @@ revocation. Consumers MUST serialize snapshot currency with their effect gate.
 
 Provenance is independent of chain position: the directly pinned owner grant
 root wins first, even when it is an intermediate or leaf subject or also a
-device. Otherwise an operator-device attestation under the pinned operator
-root supplies device provenance; otherwise, for a subject/leaf only, an agent attestation under the
+device. Otherwise an explicitly selected grant-service attestation under the
+protected grant-root purpose/owner supplies service provenance; its D30 role
+cannot overlap a root, current agent or operator device. Otherwise an
+operator-device attestation under the pinned operator root supplies device
+provenance; otherwise, for a subject/leaf only, an agent attestation under the
 purpose-5 service root and current generation supplies agent provenance. A
 verified agent used as an issuer refuses the profile at K1.
 Algorithm or position alone never supplies provenance. Missing required
@@ -565,13 +635,141 @@ grant-domain signing provider remains required. A message signer
 still MUST refuse grant/act/attestation/revocation domains; no new Keymaker
 signing method is created here.
 
+### 2.7 Identity journal and checkpoints
+
+The following defaults are subject to content review (D33–D36). Git layout is
+informative storage/transport and is not specified. Enrollment remains the
+registrar's offline publisher-signed record; the registry references its
+content id, never re-signs it or admits its contents through this journal.
+A journal authenticates ordering/references, not the referenced record's
+schema, provenance or action authority. Consumers must verify those records
+under their original profiles before use.
+
+An unsigned entry is exactly `{version,body,id}`; version is
+`swarm-envelope/2`. No `signatures` member is permitted. The id is SHA-256 of
+`swarma-registry journal-entry/1` + LF + CCJ-1(body). Its body is exactly:
+
+| Member | Rule |
+| --- | --- |
+| `type` | `journal-entry/1` |
+| `registry`, `owner` | Exact registry-owner key id and protected owner (1–255 UTF-8 bytes); registry is a key id, not a URL or repository name |
+| `seq` | JSON integer 1–9007199254740991 |
+| `prev` | Previous entry content id; null if and only if seq=1 |
+| `at` | Exact §2.1 timestamp; non-decreasing across entries; copied verbatim by the external witness |
+| `op` | Exactly `add` or `revoke` |
+| `record_type` | Exactly `attestation/1`, `grant/1`, `revocation/1` or `enrollment/1` |
+| `record` | Content id of the stored original signed record |
+
+A checkpoint uses the four-member envelope, own exact tag
+`swarma-registry checkpoint/1`, the existing content-id and signing-preimage
+construction, and exactly one `author` signature by its body.registry. Its
+body is exactly `{type,registry,owner,seq,head,at,snapshot}`. Type is
+`checkpoint/1`; registry/owner/seq/at have the entry rules. `head` is the entry
+id at seq. `snapshot` is the exact id of the caller-supplied current complete
+registry-owner `revocation/1`. No `issuer` alias is added: this new profile
+explicitly signs `registry`. Its pin is the existing D30 registry role, with
+its existing registry-revocation purpose/scope. Neither commit signer nor
+enrollment publisher is an alternative. Strict root crypto is mandatory.
+
+Each complete entry/checkpoint is at most 8,192 bytes, depth16, with the shared
+string and array bounds. Verify at most64 entries plus at most2 checkpoints
+(candidate and optional fork evidence) per call, at most540672 received bytes.
+This is a bounded suffix, not a limit on total journal length. The caller
+supplies an already verified witness head-projection fact, exactly
+`{registry_id,owner,registry_seq,registry_head,checkpoint_id,previous_checkpoint_id}`.
+`registry_id` is the protected registry-owner root key id; owner is the exact
+§2.6 owner. `registry_seq` is a positive safe integer; registry_head and both
+non-null checkpoint references are content ids. previous_checkpoint_id is
+null only for externally authorized registry genesis; otherwise it identifies
+the last resolved predecessor and MUST differ from checkpoint_id. The external
+witness verifier establishes that ancestry and any genesis authorization.
+This API checks the exact shape, scope, bounds and reference encodings, not
+witness wire, signature, publication or authorization. Missing/null facts
+refuse unavailable; malformed facts refuse invalid. There is no seq0 anchor
+or automatic bootstrap. A received self-asserted tuple is not evidence.
+The external witness must preserve checkpoint.at verbatim: both journal and
+checkpoint `at` use exactly §2.1's timestamp form, with no translation or
+fractional precision. No timestamp is added to this six-field interface.
+
+The suffix begins at registry_seq+1 and registry_head. It may optionally
+include the authenticated anchor entry first (seq=registry_seq, id=registry_head)
+to check its timestamp against the following entries; recompute its id and
+scope before accepting it. Require every subsequent seq exactly previous+1,
+`prev` equal to the previous id, and `at` non-decreasing within the supplied
+chain, never after checkpoint.at. Without the anchor entry, its timestamp is
+not supplied or reverified by this interface. The caller's verified ancestry
+remains required; this method does not invent a missing timestamp fact.
+Recompute every id and bind registry/owner. Final seq/id MUST equal
+checkpoint.seq/head. Zero entries is permitted only for exact witnessed
+seq/head/checkpoint-id retransmission. Candidate checkpoint and current snapshot are no
+older than protected max_age<=60 seconds, neither issued in the future under
+min(now,W), and snapshot.issued_at<=checkpoint.at. The existing complete,
+cumulative, unique issued_at, freshness and rollback-continuity snapshot rules
+apply unchanged. A stale/missing/discontinuous snapshot or required witness
+refuses; there is no default empty revocation set.
+
+Two fully admitted current checkpoints for the same registry/owner and seq
+but different heads OR checkpoint content ids are fork evidence: return
+`journal_fork` with empty plan. The protected projection at the same seq with
+a different head OR checkpoint id is also a fork. A lower candidate seq than
+registry_seq is `journal_rollback`. A consistent projection proceeds to the
+bounded chain checks; equality of head alone never suppresses a checkpoint fork.
+Authenticate the optional second checkpoint completely before using it as
+fork evidence; corrupt unrelated bytes are not evidence of a fork. Invalid
+entry ids/scope refuse `journal_entry_invalid`; discontinuous seq/prev/time or
+final head refuses `journal_chain_broken`. The first-failure order is in §6.
+Successful verification returns a candidate plan naming the checkpoint id and
+watermark, not an effect or witness-update permit. The caller atomically
+persists those exact verified checkpoint bytes and monotonic watermark before
+using its journal view, and separately applies the witness owner's update
+contract. Journal acceptance replaces neither id-binding nor replay journals.
+
+Snapshot reissue/publication is the unresolved D38 fork, not an optional
+extension of revocation/1. The recommended A format associates each reissued
+snapshot with an add/revocation/1 entry and its own checkpoint, bound to that
+snapshot id; the publication integrator must qualify one checkpoint per entry,
+witness intent/commit and complete history. This library checks supplied
+references/ancestry, not that publication transaction or a 20-second scheduler.
+Alternative B needs a separately versioned freshness format; it is specified
+for owner review in D38 and is not registered or implemented here.
+
+### 2.8 Snapshot capacity decision
+
+The current domain still requires ONE complete cumulative signed snapshot,
+at most64 entries AND at most8,192 bytes including signatures, whichever binds
+first. For example65 entries already violate the common array cap; even64 may
+exceed the wire limit depending on key/id lengths. There is no count-only
+promise that64 entries fit. A producer MUST refuse an over-capacity publication
+and retain the last durable complete state; never truncate, clear entries,
+reset issuance/continuity, silently split a domain or publish partial success.
+Consumers refuse oversized/count-overflow evidence at bounded parse: existing
+`key_binding_invalid` at K1, `checkpoint_snapshot_invalid` at checkpoint intake, `revocation_invalid` at
+G7, and no accepted plan. Stale last-good state becomes unavailable normally.
+A small signed snapshot omitting retained entries is not made complete by its
+flag: qualified caller continuity must reject it. Offline parsing alone cannot
+establish cumulative retention.
+
+Options: (a) pages under one signed head bound to every page digest, count,
+completeness and issuance; (b) a Merkle root and inclusion/exclusion proofs;
+(c) narrower independently pinned domains. Default (a) preserves cumulative
+enumeration and can be audited without a new exclusion-proof algorithm. (b)
+adds proof/canonical-tree and exclusion completeness rules; (c) changes authority
+scope and risks gaps or silently discarded history. This slice adopts ONLY
+the format direction and over-capacity refusal: no page/head wire profile,
+tag or partial-page acceptance is implemented. A later reviewed profile must
+bind the full page set, monotonic issued_at, cumulative/future-effective
+entries, current max-age and rollback witness to ONE atomic complete head;
+missing/mixed pages fail closed. Existing domains that fit are byte-unchanged.
+
 ## 3. General grant/1
 
 ### 3.1 Closed v0 body
 
 Agent keys MUST NOT be issuers in v0 (§2.4); they remain admissible as subjects
 and leaves. Parent delegation does not widen a key's signing profile. A
-non-root issuing device requires its operator attestation and current authority.
+non-root issuing device requires its operator attestation and current authority;
+a grant-service issuer requires its explicit service attestation and a covering
+parent grant under §2.6. Neither class is a root by attestation alone.
 
 In addition to common members a grant has exactly:
 
@@ -996,6 +1194,24 @@ entries are checked in array order. Codes are distinct per listed substep:
 | O5 | Widening activation; unconditionally closed in v0 | `act_a3_inactive` |
 | C1 | Adapter Commit conflict/unavailability | `act_replay` / `state_unavailable` |
 
+Journal intake has its own ordered table:
+
+| Step | Check | Refusal |
+| --- | --- | --- |
+| J1 | Journal input count/total/record byte bounds, duplicate-free depth16 parse, closed entry/checkpoint shapes and encoding | `journal_malformed` |
+| J2 | Protected registry owner/pin purpose/scope, D30 and commit/publisher roles | `journal_unavailable` / `journal_invalid` |
+| J3 | Candidate then optional checkpoint: exact pin/id/author signature; complete typed body, time; full current snapshot admission, exact snapshot id and stricter snapshot/checkpoint time relation | `checkpoint_invalid` / `time_unavailable` / `watermark_unavailable` / `journal_unavailable` / `checkpoint_snapshot_invalid` |
+| J4 | Protected witness availability, exact six-field typed/scope-bound projection | `journal_unavailable` / `journal_witness_invalid` |
+| J5 | Same-seq different-head/checkpoint-id fork, then candidate seq rollback | `journal_fork` / `journal_rollback` |
+| J6 | Each entry id/scope, seq/prev/non-decreasing time, then final checkpoint head/seq | `journal_entry_invalid` / `journal_chain_broken` |
+
+Journal J rows are a separate entry point; they do not precede E/G/O rows on
+message/grant/act intake. Within J3 authenticate candidate before optional
+fork evidence, each fully before witness comparison; J6 entries are oldest
+first. All refusals have an empty plan. K1's new service profile follows the
+same evidence-signature-before-typed-body order as existing attestations.
+
+
 For message/act intake, absent/null required-role policy is `signer_unavailable`
 at E4; malformed role policy is `envelope_role_invalid`. It MUST NOT default
 to an empty role set. Grant intake has its fixed single-author policy.
@@ -1115,12 +1331,11 @@ on a fresh registry snapshot or on registry availability. Restart MUST require
 separate current authority; an emergency stop is not a restart authorization.
 The mechanism and its reviewed record/profile remain future work.
 
-An identity journal is not defined in S0. It MUST have its own reviewed CCJ-1
-record type and tag, with a hash-chained sequence and registry-signed checkpoints
-cross-checked with the rollback witness. No tag is registered now. Git MAY be
-storage or transport, but authority is the signed chain, never repository
-commits. This future identity journal does not replace the existing caller's
-id-binding or replay journals, and no journal protocol is implemented here.
+The identity-journal formats and pure suffix/checkpoint verification are in
+§2.7. Registry/witness deployment, witness authentication/update protocol and
+explicit bootstrap qualification remain external. Git MAY be storage or
+transport; repository commits confer no record authority. No registry service,
+witness format, recovery record, contacts or inter-registry exchange is added.
 
 Threats left open: compromised pinned roots/devices/providers, dishonest
 confirmation rendering, malicious consumers, stolen live credentials, denial of

@@ -95,7 +95,7 @@ func context(t *testing.T, f map[string]any) verifier.Context {
 	t.Helper()
 	var c verifier.Context
 	slots := map[string]*verifier.Evidence{
-		"audience": &c.Audience, "required_roles": &c.RequiredRoles, "known_keys": &c.AdmittedKeys, "root": &c.GrantRoot, "service_root": &c.ServiceRoot, "agent_revocation_root": &c.AgentRevocationRoot, "operator_root": &c.OperatorRoot, "operator_owner": &c.OperatorOwner, "attestations": &c.Attestations, "agent_attestation_ids": &c.AgentAttestationIDs, "operator_attestations": &c.DeviceAttestations, "active_generations": &c.CurrentGenerations, "revocations": &c.SignedSnapshots, "time": &c.Time, "now": &c.Now, "watermark_available": &c.WatermarkAvailable, "watermark": &c.Watermark, "id_journal_available": &c.IDJournalAvailable, "seen": &c.IDJournal, "replay_available": &c.ReplayAvailable, "used_actions": &c.UsedActions, "signer_facts": &c.SignerFacts, "assurance": &c.Assurance, "delivery": &c.Delivery, "binding": &c.ActBinding}
+		"service_authority": &c.ServiceAuthority, "service_attestations": &c.ServiceAttestations, "registry_owner": &c.RegistryOwner, "journal_witness": &c.JournalWitness, "commit_signing_key": &c.CommitSigningKey, "enrollment_publisher": &c.EnrollmentPublisher, "audience": &c.Audience, "required_roles": &c.RequiredRoles, "known_keys": &c.AdmittedKeys, "root": &c.GrantRoot, "service_root": &c.ServiceRoot, "agent_revocation_root": &c.AgentRevocationRoot, "operator_root": &c.OperatorRoot, "operator_owner": &c.OperatorOwner, "attestations": &c.Attestations, "agent_attestation_ids": &c.AgentAttestationIDs, "operator_attestations": &c.DeviceAttestations, "active_generations": &c.CurrentGenerations, "revocations": &c.SignedSnapshots, "time": &c.Time, "now": &c.Now, "watermark_available": &c.WatermarkAvailable, "watermark": &c.Watermark, "id_journal_available": &c.IDJournalAvailable, "seen": &c.IDJournal, "replay_available": &c.ReplayAvailable, "used_actions": &c.UsedActions, "signer_facts": &c.SignerFacts, "assurance": &c.Assurance, "delivery": &c.Delivery, "binding": &c.ActBinding}
 	// Fixture transport encodes bytes as base64url; production snapshot values
 	// carry raw bytes. Invalid fixture encodings retain a wrong-typed marker so
 	// the library, at the consuming row, produces the required invalid refusal.
@@ -113,7 +113,7 @@ func context(t *testing.T, f map[string]any) verifier.Context {
 		if !ok {
 			continue
 		}
-		if name == "attestations" || name == "operator_attestations" || name == "seen" {
+		if name == "service_attestations" || name == "attestations" || name == "operator_attestations" || name == "seen" {
 			if m, ok := v.(map[string]any); ok {
 				n := map[string]any{}
 				for k, b := range m {
@@ -208,7 +208,30 @@ func derive(t *testing.T, v vector) expected {
 	}
 	lib := verifier.New(context(t, f))
 	var r verifier.Result
-	if v.Mode == "grant" {
+	if v.Mode == "journal" {
+		values, _ := input["entries"].([]any)
+		raws := make([][]byte, len(values))
+		for i, x := range values {
+			raw, e := b64(x)
+			if e != nil {
+				return empty("journal_malformed")
+			}
+			raws[i] = raw
+		}
+		cp, e := b64(input["checkpoint"])
+		if e != nil {
+			return empty("journal_malformed")
+		}
+		var conflict []byte
+		if value, ok := input["conflict"]; ok {
+			var err error
+			conflict, err = b64(value)
+			if err != nil {
+				return empty("journal_malformed")
+			}
+		}
+		r = lib.VerifyJournal(raws, cp, conflict)
+	} else if v.Mode == "grant" {
 		entries, _ := input["chain"].([]any)
 		chain := make([][]byte, len(entries))
 		for i, x := range entries {
@@ -288,7 +311,7 @@ func runVectors(t *testing.T, paths []string) {
 // This is the named subset; TestConformance adds the manifest-bound sweeps.
 func TestNamed(t *testing.T) {
 	paths := namedPaths(t, "../vectors")
-	if len(paths) != 674 {
+	if len(paths) != 797 {
 		t.Fatalf("named count %d", len(paths))
 	}
 	runVectors(t, paths)
@@ -370,10 +393,10 @@ func TestConformance(t *testing.T) {
 			t.Fatalf("named corpus bytes mismatch %s", p)
 		}
 	}
-	if count != 1688 || len(paths) != 2362 {
-		t.Fatalf("counts named674 sweeps%d total%d", count, len(paths))
+	if count != 1688 || len(paths) != 2485 {
+		t.Fatalf("counts named797 sweeps%d total%d", count, len(paths))
 	}
-	t.Logf("named=674 generated=%s total=%d", strconv.Itoa(count), len(paths))
+	t.Logf("named=797 generated=%s total=%d", strconv.Itoa(count), len(paths))
 	runVectors(t, paths)
 }
 

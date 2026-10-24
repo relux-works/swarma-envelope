@@ -45,9 +45,9 @@ cryptography reports PENDING and exits 2; it never reports full conformance.
 No network is used by the checker. Go module resolution may download the pinned
 public registrar dependency. Neither tool imports the future production verifier.
 
-Only 674 named cases are tracked. All 1688 T/B/Z/U cases remain in the generator
+Only 797 named cases are tracked. All 1688 T/B/Z/U cases remain in the generator
 and committed `sweeps.tsv` / `sweeps.sha256`; `-sweeps` materializes them for the
-complete 2362-case check. See the [manifest format](../../tools/vectors/README.md).
+complete 2485-case check. See the [manifest format](../../tools/vectors/README.md).
 Commands must run sequentially through any host-required resource runner.
 
 Generator `-out DIR` writes named cases and the manifest; adding `-sweeps`
@@ -178,3 +178,23 @@ valid device attested for a different owner and its valid neighbor.
 | N-E6-issuer-before-subject-ed25519 / -p256; PN02-grant | A correctly signed issuer mismatch wins over an invalid, canonically encoded subject point: `signer_unknown` at G2/E6. |
 | N-E6-profile-before-subject; PG1 | A matching issuer with a valid signature but a disallowed purpose-5 signing profile wins over invalid subject crypto: `signature_profile_invalid`. |
 | N-E6-subject-only-ed25519 / -p256; PN02-grant | With issuer and profile admission restored, those same invalid points refuse `envelope_signature_invalid`; moving crypto later never removes it. |
+
+| Registry-format cases | Contract and accepted neighbor |
+| --- | --- |
+| N-SVC-*; P-SVC-chain, PN02 | Explicit service identity; root→service(depth1, both rights)→agent(depth0, credential.lease), parent authority/narrowing, expiry/revocation and forbidden message/agent profile |
+| N-JRN-*; P-JRN-genesis/suffix/retransmit | Unsigned hash-chain entries; registry checkpoint signature, exact current snapshot, protected witness, fork/rollback and every sequence/prev/time/head link |
+| N-CAP-*; P-CAP-64/bytes8192 | At most64entries and8192received bytes independently; retained cumulative domain cannot be truncated or silently split |
+| N-ORD-JRN-* and N-ORD-SVC-* | Named extensions of the U order matrix: J1→J2→J3→J4→J5→J6, evidence signature before required body fields, leaf evidence before later parent expiry |
+| N-REG-domain-*, P-REG-domain-*; N-REG-signer-* | The38new directed pairs complete110pairs among11exact tags;2own-domain math controls; both registry tags refused by the message signer |
+
+Journal entries reference original content ids, including registrar enrollment;
+no registry signature substitutes for the offline publisher. Protected witness
+facts are an interface boundary, not an implemented witness format/server. These
+fixtures prove offline verdicts and candidate plans only; paging direction,
+bootstrap, external continuity and deployment require separate qualification.
+
+`P-JRN-reissue` and `N-JRN-reissue-old-snapshot`/`N-JRN-reissue-no-entry`
+exercise D38 A's20-second unchanged-set reissue: actual new signed snapshot id,
+its add entry and own checkpoint; old snapshot references and same-sequence
+checkpoint replacement refuse. These do not qualify a publication scheduler,
+witness intent/commit or publication-history completeness.

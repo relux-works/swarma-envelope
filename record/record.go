@@ -46,14 +46,18 @@ func Tag(kind string) string {
 		return "swarma-attestation attestation/1"
 	case "revocation/1":
 		return "swarma-attestation revocation/1"
+	case "journal-entry/1":
+		return "swarma-registry journal-entry/1"
+	case "checkpoint/1":
+		return "swarma-registry checkpoint/1"
 	}
 	return ""
 }
 
-// Registered reports exact membership in the nine-tag closed registry.
+// Registered reports exact membership in the eleven-tag closed registry.
 func Registered(tag string) bool {
 	switch tag {
-	case "swarma-msg/2", "swarma-waggle grant/1", "swarma-waggle operator-act/1", "swarma-attestation attestation/1", "swarma-attestation revocation/1", "swarma-registrar registration/1", "swarma-registrar enrollment/1", "swarma-credential-broker grant/1", "swarma-credential-broker revocation/1":
+	case "swarma-registry journal-entry/1", "swarma-registry checkpoint/1", "swarma-msg/2", "swarma-waggle grant/1", "swarma-waggle operator-act/1", "swarma-attestation attestation/1", "swarma-attestation revocation/1", "swarma-registrar registration/1", "swarma-registrar enrollment/1", "swarma-credential-broker grant/1", "swarma-credential-broker revocation/1":
 		return true
 	}
 	return false

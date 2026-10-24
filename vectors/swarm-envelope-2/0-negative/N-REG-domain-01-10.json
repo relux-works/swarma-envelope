@@ -1,0 +1,18 @@
+{
+  "id": "N-REG-domain-01-10",
+  "claim": "A valid raw signature under one exact registered domain never verifies as another domain; no body/authority profile is claimed.",
+  "positive_control": "P-REG-domain-checkpoint",
+  "mode": "domain",
+  "input": {
+    "key": "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+    "preimage": "c3dhcm1hLXdhZ2dsZSBncmFudC8xCnsidHlwZSI6ImRvbWFpbi1tYXRoLW9ubHkifQ",
+    "sig": "BwykI2aKgPLxTvJtc5Yq1zGEzbcooNgpLvm71THjUdmzAG9suq25ZGOuYuxrVGpLoK8Fl16oX6yK3eqi_F24Dw"
+  },
+  "fixture": {
+    "expected_tag": "swarma-registry checkpoint/1"
+  },
+  "expected": {
+    "code": "domain_mismatch",
+    "plan": {}
+  }
+}

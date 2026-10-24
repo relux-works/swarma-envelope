@@ -1,0 +1,14 @@
+{
+  "id": "N-REG-signer-checkpoint",
+  "claim": "The new exact registry tag never enters the message signer.",
+  "positive_control": "PS1",
+  "mode": "signer",
+  "input": {
+    "preimage": "c3dhcm1hLXJlZ2lzdHJ5IGNoZWNrcG9pbnQvMQp7fQ"
+  },
+  "fixture": {},
+  "expected": {
+    "code": "signer_domain_refused",
+    "plan": {}
+  }
+}

@@ -7,12 +7,26 @@ import (
 )
 
 func distinct(f facts) {
-	pins := []any{obj(f["service_root"])["key"], obj(f["agent_revocation_root"])["key"], f["operator_root"], f["root"]}
+	pins := []any{obj(f["service_root"])["key"], obj(f["agent_revocation_root"])["key"], f["operator_root"], f["root"], f["commit_signing_key"], f["enrollment_publisher"]}
 	seen := map[string]bool{}
 	for _, p := range pins {
 		if s, ok := p.(string); ok {
 			need(!seen[s], "key_binding_invalid")
 			seen[s] = true
+		}
+	}
+	for key := range obj(f["service_attestations"]) {
+		need(!seen[key], "key_binding_invalid")
+		_, agent := obj(f["active_generations"])[key]
+		_, device := obj(f["operator_attestations"])[key]
+		need(!agent && !device, "key_binding_invalid")
+	}
+	for _, name := range []string{"commit_signing_key", "enrollment_publisher"} {
+		if v, exists := f[name]; exists {
+			mapped(func() bool { key(v); return true }, "*", "key_binding_invalid")
+			_, agent := obj(f["active_generations"])[str(v)]
+			_, device := obj(f["operator_attestations"])[str(v)]
+			need(!agent && !device, "key_binding_invalid")
 		}
 	}
 }
@@ -82,7 +96,7 @@ func snapshotPolicy(f facts, root any) {
 	need(f["operator_root"] != nil && f["root"] != nil, "key_binding_unavailable")
 	need(false, "key_binding_invalid")
 }
-func snapshot(f facts, root any, ids, keys []string) {
+func snapshot(f facts, root any, ids, keys []string) map[string]any {
 	snapshotPolicy(f, root)
 	records := evidence(f["revocations"], "")
 	need(isString(root), "key_binding_invalid")
@@ -91,7 +105,8 @@ func snapshot(f facts, root any, ids, keys []string) {
 	need(r["availability"] != "unavailable", "key_binding_unavailable")
 	need(r["availability"] == "available", "key_binding_invalid")
 	need(isInt(r["max_age"]) && num(r["max_age"]) > 0 && num(r["max_age"]) <= 60 && isBool(r["rollback_safe"]), "key_binding_invalid")
-	b := evidenceExact(signed(r["snapshot"], "revocation/1", root)["body"], "type issuer issued_at complete entries")
+	verified := signed(r["snapshot"], "revocation/1", root)
+	b := evidenceExact(verified["body"], "type issuer issued_at complete entries")
 	entries, ok := b["entries"].([]any)
 	need(isBool(b["complete"]) && ok, "key_binding_invalid")
 	issued := mapped(func() int64 { return stamp(b["issued_at"]) }, "*", "key_binding_invalid")
@@ -128,6 +143,7 @@ func snapshot(f facts, root any, ids, keys []string) {
 			need(e.id != s, "revoked")
 		}
 	}
+	return verified
 }
 func attestation(keyID, reference string, device, revocations, message bool, f facts) map[string]any {
 	distinct(f)
@@ -237,6 +253,10 @@ func grantRoot(f facts) string {
 }
 func grantBinding(key string, issuer bool, f facts) {
 	if key == grantRoot(f) {
+		return
+	}
+	if _, ok := obj(f["service_attestations"])[key]; ok {
+		serviceAttestation(key, f)
 		return
 	}
 	devices := evidence(f["operator_attestations"], "")

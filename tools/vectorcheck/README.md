@@ -11,8 +11,8 @@ and exit status is 2, rather than success. It prints per-row mismatches and exit
 This is a conformance oracle for fixed offline inputs, not an importable public
 verifier API. It does not consult the generator or generated verdict code.
 Use the Go byte inventory check in addition to it to detect case removal and
-format drift. Default input contains 674 named semantic cases only. The complete
-2362-case gate must generate the 1688 T/B/Z/U sweeps first:
+format drift. Default input contains 797 named semantic cases only. The complete
+2485-case gate must generate the 1688 T/B/Z/U sweeps first:
 
 ```sh
 GOMAXPROCS=2 "$CURATOR_GO" run ./tools/vectors -check
@@ -121,3 +121,16 @@ E6 follows the normative issuer/author match, allowed profile, message preimage
 size/depth, then strict crypto order. Grant subject-point crypto runs in the
 last stage, after issuer/profile admission. `N-E6-*` pairs isolate both earlier
 refusals and the subject-only strict-crypto operands with valid neighbors.
+
+Registry-format rows use independent `service_identity` and `identity_journal`
+logic derived from spec §§2.6–2.8/6. Service attestations bind the exact grant
+root with protected grant-service purpose/owner, never an unsigned profile
+selection. The journal checks real checkpoint signatures and unsigned hash-chain
+ids, the exact complete current snapshot and protected external witness facts.
+Explicit null entry prev and projection predecessor are values, not missing fields; absent
+witness still refuses. Fork and rollback are distinct ordered refusals with no
+plan. `N-ORD-*` compounds extend the U ordering claims as named cases, leaving
+inherited manifest bytes intact. New tag math remains separate from authority;
+the message signer refuses both. No live witness, enrollment or paging protocol
+is implemented. Over-capacity current domains keep the existing fail-closed
+count/byte rules rather than accepting truncated snapshots.

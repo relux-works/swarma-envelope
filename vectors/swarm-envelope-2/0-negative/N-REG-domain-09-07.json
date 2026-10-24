@@ -1,0 +1,18 @@
+{
+  "id": "N-REG-domain-09-07",
+  "claim": "A valid raw signature under one exact registered domain never verifies as another domain; no body/authority profile is claimed.",
+  "positive_control": "PD6",
+  "mode": "domain",
+  "input": {
+    "key": "ed25519:wue2t1GJeLZTqzYudkzRIhyY11lAzyPXDjsTXgXoIrk",
+    "preimage": "c3dhcm1hLXJlZ2lzdHJ5IGpvdXJuYWwtZW50cnkvMQp7InR5cGUiOiJkb21haW4tbWF0aC1vbmx5In0",
+    "sig": "_o1q9hiaIvJ4NLcdakncaQ3lq-j6YKvi-823qDnCwZRCsfIOipJchVzcYnhqja3XUcssgOIhXkC1tUbI07HnCA"
+  },
+  "fixture": {
+    "expected_tag": "swarma-credential-broker grant/1"
+  },
+  "expected": {
+    "code": "domain_mismatch",
+    "plan": {}
+  }
+}

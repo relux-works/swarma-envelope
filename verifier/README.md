@@ -67,7 +67,8 @@ provider deployment. A fresh verifier/context is needed after facts change.
 The caller must atomically Commit before effect, recheck current authority at
 its serialized effect boundary, and perform the authority-owner online check
 for consumer-selected critical effects. The v0 library defines no network,
-registry, recovery, emergency-stop or identity-journal implementation.
+registry service, recovery, emergency-stop or witness implementation.
+Pure journal/checkpoint format verification is supported below.
 
 The caller owns the exact received-byte slice and must not mutate it during
 verification. Returned plans are independent of the verifier's immutable facts.
@@ -91,7 +92,7 @@ conformance test generates its corpus with the existing generator in a Go test
 temporary directory. `CURATOR_GO` selects that child toolchain explicitly;
 otherwise it uses the runtime toolchain or Go on PATH. `WAGGLE_VECTORS` may
 select an already materialized corpus. The committed sweep digest, entire
-manifest, all 1688 sweep byte hashes, all 674 named bytes and exact 2362
+manifest, all 1688 sweep byte hashes, all 797 named bytes and exact 2485
 code/plan verdicts are checked. Generated sweeps are never committed. Fixture
 base64 transport and legacy field names are adapted only in the test.
 
@@ -106,3 +107,39 @@ all inputs, live integration or cryptographic security.
 Each package's `api.txt` and `TestAPISurface` inventory exported declarations,
 fields and methods. This name inventory is not a compatibility proof or review
 approval. Consumers pin a reviewed main commit and raise it through review.
+
+Registry formats add these protected context facts. They are immutable
+in-process values, not a witness wire format or self-asserted received claims:
+
+| Context evidence | Value when available |
+| --- | --- |
+| ServiceAuthority | `{key,purpose,owner}`; key exactly GrantRoot, purpose `grant-service`, independently bounded owner |
+| ServiceAttestations | Exact service key id to raw grant-root-signed attestation bytes; presence selects expected service role, never an unsigned class field |
+| RegistryOwner | Exact protected nonempty UTF-8 owner, at most255bytes |
+| JournalWitness | Already verified head projection exactly `{registry_id,owner,registry_seq,registry_head,checkpoint_id,previous_checkpoint_id}`; registry_seq is positive int64, predecessor null only externally authorized genesis. No timestamp or witness wire parsing; absence refuses |
+| CommitSigningKey, EnrollmentPublisher | Separate key-id strings; every present role is compared under D30; commit key has no protocol-record profile |
+
+`VerifyServiceAttestation(key)` returns only an exact verified identity, including
+owner, current time and grant-owner revocation. Its zero identity and definite
+error on refusal confer no partial authority. `Authorize` still requires a
+covering parent grant, all narrowing and every-link time/revocation checks.
+Agent keys remain forbidden as grant issuers. Service keys sign only grants.
+
+`VerifyJournal(entries, checkpoint, conflict)` checks an oldest-first suffix,
+registry-author checkpoint, exact current registry snapshot and external witness
+facts; conflict is nil or one additional fully authenticated current checkpoint.
+It returns exact J1–J6 codes and an empty plan on every refusal. The accepted
+plan names only the checkpoint id and watermark. Persist those exact verified
+checkpoint bytes and watermark atomically before using the view; witness updates
+follow the external witness owner's contract. This API authenticates references
+and ordering, never referenced-record admission, action authority, enrollment
+publication or repository commits. Genesis authorization and witness authentication/storage
+remain activation requirements. Snapshot paging is a format direction only;
+over-capacity single snapshots refuse without truncation.
+
+Focused checks, with generated artifacts/logs in ignored `.tmp/`:
+
+```sh
+GOMAXPROCS=2 "$CURATOR_GO" test ./verifier -run '^Test(Registry|ServiceAttestationAPI|JournalBounds)' -count=1
+GOMAXPROCS=2 "$CURATOR_GO" test ./record -run '^TestRegistryDomains$' -count=1
+```

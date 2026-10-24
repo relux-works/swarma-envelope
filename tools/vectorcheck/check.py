@@ -306,7 +306,9 @@ def window(start, end, low, high):
 OWN_TAGS = {"message/1": "swarma-msg/2", "grant/1": "swarma-waggle grant/1",
             "operator-act/1": "swarma-waggle operator-act/1",
             "attestation/1": "swarma-attestation attestation/1",
-            "revocation/1": "swarma-attestation revocation/1"}
+            "revocation/1": "swarma-attestation revocation/1",
+            "journal-entry/1": "swarma-registry journal-entry/1",
+            "checkpoint/1": "swarma-registry checkpoint/1"}
 REGISTERED_TAGS = set(OWN_TAGS.values()) | {
     "swarma-registrar registration/1", "swarma-registrar enrollment/1",
     "swarma-credential-broker grant/1", "swarma-credential-broker revocation/1"}
@@ -435,9 +437,23 @@ def root_role_separation(f):
     service, registry = f.get("service_root"), f.get("agent_revocation_root")
     pins = [service.get("key") if type(service) is dict else None,
             registry.get("key") if type(registry) is dict else None,
-            f.get("operator_root"), f.get("root")]
+            f.get("operator_root"), f.get("root"), f.get("commit_signing_key"), f.get("enrollment_publisher")]
     present = [pin for pin in pins if type(pin) is str]
     require(len(present) == len(set(present)), "key_binding_invalid")
+
+    services = f.get("service_attestations")
+    agents, devices = f.get("active_generations"), f.get("operator_attestations")
+    for k in services if type(services) is dict else {}:
+        require(k not in present and not (type(agents) is dict and k in agents)
+                and not (type(devices) is dict and k in devices), "key_binding_invalid")
+    for role in ("commit_signing_key", "enrollment_publisher"):
+        if role in f:
+            try:
+                key_bytes(f[role])
+            except Refusal:
+                raise Refusal("key_binding_invalid") from None
+            require(not (type(agents) is dict and f[role] in agents)
+                    and not (type(devices) is dict and f[role] in devices), "key_binding_invalid")
 
 
 def signed_snapshot(f, root, ids, keys):
@@ -475,6 +491,8 @@ def signed_snapshot(f, root, ids, keys):
     # Validate the complete snapshot before matching; current time, never old iat.
     require(not any(when <= high and item in (keys if kind == "key" else ids)
                     for kind, item, when in effective_entries), "revoked")
+
+    return b
 
 
 def verify_attestation(key, f, device=False, check_revocation=True, reference=None):
@@ -585,9 +603,48 @@ def grant_root(f):
     return root
 
 
+def protocol_signer_excluded(key, expected, f):
+    if key in (f.get("commit_signing_key"), f.get("enrollment_publisher")):
+        return True
+    services = f.get("service_attestations")
+    return type(services) is dict and key in services and expected != "grant/1"
+
+
+def service_identity(key, f):
+    root_role_separation(f)
+    policy = evidence_exact(f.get("service_authority"), "key purpose owner")
+    require(policy["key"] == grant_root(f) and policy["purpose"] == "grant-service", "key_binding_invalid")
+    owner = bounded_text(policy["owner"])
+    services = evidence_object(f.get("service_attestations"))
+    e = signed_evidence(services.get(key), "attestation/1", policy["key"])
+    b = evidence_exact(e["body"], "type issuer subject key_class purpose roles actions iat exp binding")
+    subject = evidence_exact(b["subject"], "algorithm key_id public_bytes")
+    try:
+        algorithm, public = key_bytes(key)
+        require(algorithm == "ed25519", "key_binding_invalid")
+        point(public)
+        encoded = unb64(subject["public_bytes"], 32)
+        start, end = timestamp(b["iat"]), timestamp(b["exp"])
+    except Refusal:
+        raise Refusal("key_binding_invalid") from None
+    binding = evidence_exact(b["binding"], "owner")
+    require(bounded_text(binding["owner"]) == owner, "key_binding_invalid")
+    require(subject["algorithm"] == "Ed25519" and subject["key_id"] == key and encoded == public
+            and b["key_class"] == "service" and b["purpose"] == "grant-service"
+            and b["roles"] == ["author"] and b["actions"] == ["grant.sign"], "key_binding_invalid")
+    low, high = time_values(f)
+    require(0 < end-start <= 86400 and start <= low and high < end, "key_binding_invalid")
+    signed_snapshot(f, policy["key"], [e["id"]], [key])
+    return e
+
+
 def grant_key_binding(key, f, issuer=False):
     # Protected authority-root provenance is independent of algorithm/position.
     if key == grant_root(f):
+        return
+    services = f.get("service_attestations")
+    if type(services) is dict and key in services:
+        service_identity(key, f)
         return
     devices = evidence_object(f.get("operator_attestations"))
     if key in devices:
@@ -657,7 +714,7 @@ def envelope(raw, expected, f):
         service_root = f.get("service_root")
         if type(service_root) is dict:
             require(s["key"] != service_root.get("key"), "signature_profile_invalid")
-        require(allowed, "signature_profile_invalid")
+        require(allowed and not protocol_signer_excluded(s["key"], expected, f), "signature_profile_invalid")
         pre = signing_preimage(b, s["key"], s["role"], expected)
         if expected == "message/1":
             require(len(pre) <= 24576, "signature_preimage_too_large")
@@ -831,6 +888,146 @@ def operator(e, f):
         raise Refusal("act_a3_inactive")
 
 
+def journal_wire(raw, checkpoint):
+    try:
+        require(len(raw) <= 8192, "journal_malformed")
+        e = parse(raw)
+        names = "version body id signatures" if checkpoint else "version body id"
+        evidence_exact(e, names)
+        require(type(e["version"]) is str, "journal_malformed")
+        hash_id(e["id"])
+        b = e["body"]
+        body_names = "type registry owner seq at " + ("head snapshot" if checkpoint else "prev op record_type record")
+        require(type(b) is dict and set(b) == set(body_names.split()), "journal_malformed")
+        require(type(b["type"]) is str and type(b["seq"]) is int
+                and 1 <= b["seq"] <= 9007199254740991, "journal_malformed")
+        key_bytes(b["registry"])
+        bounded_text(b["owner"])
+        timestamp(b["at"])
+        if checkpoint:
+            hash_id(b["head"])
+            hash_id(b["snapshot"])
+            require(type(e["signatures"]) is list and 1 <= len(e["signatures"]) <= 8, "journal_malformed")
+            for s in e["signatures"]:
+                evidence_exact(s, "role key sig")
+                require(type(s["role"]) is str, "journal_malformed")
+                key_bytes(s["key"])
+                unb64(s["sig"], 64)
+        else:
+            require((b["seq"] == 1) == (b["prev"] is None), "journal_malformed")
+            if b["prev"] is not None:
+                hash_id(b["prev"])
+            require(type(b["op"]) is str and b["op"] in {"add", "revoke"}
+                    and type(b["record_type"]) is str
+                    and b["record_type"] in {"attestation/1", "grant/1", "revocation/1", "enrollment/1"}, "journal_malformed")
+            hash_id(b["record"])
+        return e
+    except Refusal:
+        raise Refusal("journal_malformed") from None
+
+
+def journal_policy(f):
+    try:
+        require(f.get("registry_owner") is not None, "key_binding_unavailable")
+        owner = bounded_text(f["registry_owner"])
+        registry = evidence_exact(f.get("agent_revocation_root"), "key purpose attestation_root")
+        service = evidence_exact(f.get("service_root"), "key purpose")
+        root_role_separation(f)
+        require(type(service["purpose"]) is int and service["purpose"] == 5
+                and registry["purpose"] == "registry-revocation"
+                and registry["attestation_root"] == service["key"], "key_binding_invalid")
+        key_bytes(service["key"])
+        key_bytes(registry["key"])
+        return registry["key"], owner
+    except Refusal as error:
+        raise Refusal("journal_unavailable" if str(error) == "key_binding_unavailable" else "journal_invalid") from None
+
+
+def current_checkpoint(e, root, owner, f):
+    b = e["body"]
+    try:
+        require(len(e["signatures"]) == 1, "checkpoint_invalid")
+        s = e["signatures"][0]
+        require(e["version"] == "swarm-envelope/2" and b["type"] == "checkpoint/1"
+                and b["registry"] == root and b["owner"] == owner
+                and s["key"] == root and s["role"] == "author", "checkpoint_invalid")
+        require(e["id"] == digest((OWN_TAGS["checkpoint/1"]+"\n").encode("ascii")+ccj(b)), "checkpoint_invalid")
+        verify_signature(root, unb64(s["sig"], 64), signing_preimage(b, root, "author", "checkpoint/1"))
+    except Refusal:
+        raise Refusal("checkpoint_invalid") from None
+    low, high = time_values(f)
+    at = timestamp(b["at"])
+    require(at <= low and high-at <= 60, "journal_unavailable")
+    try:
+        snapshot = signed_snapshot(f, root, [], [])
+    except Refusal as error:
+        if str(error) in {"time_unavailable", "watermark_unavailable"}:
+            raise
+        raise Refusal("journal_unavailable" if str(error) == "key_binding_unavailable" else "checkpoint_snapshot_invalid") from None
+    snapshot_id = digest((OWN_TAGS["revocation/1"]+"\n").encode("ascii")+ccj(snapshot))
+    require(b["snapshot"] == snapshot_id, "checkpoint_snapshot_invalid")
+    require(timestamp(snapshot["issued_at"]) <= at
+            and high-at <= f["revocations"][root]["max_age"], "journal_unavailable")
+
+
+def journal_witness(f, root, owner):
+    require(f.get("journal_witness") is not None, "journal_unavailable")
+    try:
+        w = f["journal_witness"]
+        require(type(w) is dict and set(w) == {"registry_id", "owner", "registry_seq", "registry_head", "checkpoint_id", "previous_checkpoint_id"}, "journal_witness_invalid")
+        require(w["registry_id"] == root and w["owner"] == owner and type(w["registry_seq"]) is int
+                and 1 <= w["registry_seq"] <= 9007199254740991, "journal_witness_invalid")
+        hash_id(w["registry_head"])
+        hash_id(w["checkpoint_id"])
+        if w["previous_checkpoint_id"] is not None:
+            hash_id(w["previous_checkpoint_id"])
+            require(w["previous_checkpoint_id"] != w["checkpoint_id"], "journal_witness_invalid")
+        return w
+    except Refusal:
+        raise Refusal("journal_witness_invalid") from None
+
+
+def identity_journal(inp, f):
+    # J1 parses the entire bounded suffix and both checkpoint structures before
+    # J2 policy; J3 authenticates both before J4 witness/J5 fork comparison.
+    require(type(inp["entries"]) is list and len(inp["entries"]) <= 64, "journal_malformed")
+    try:
+        raws = [unb64(value) for value in inp["entries"]]
+        raw_cp = unb64(inp["checkpoint"])
+        conflict = unb64(inp["conflict"]) if "conflict" in inp else b""
+        require(sum(map(len, raws)) + len(raw_cp) + len(conflict) <= 540672, "journal_malformed")
+    except Refusal:
+        raise Refusal("journal_malformed") from None
+    entries = [journal_wire(raw, False) for raw in raws]
+    cp = journal_wire(raw_cp, True)
+    other = journal_wire(conflict, True) if conflict else None
+    root, owner = journal_policy(f)
+    current_checkpoint(cp, root, owner, f)
+    if other is not None:
+        current_checkpoint(other, root, owner, f)
+    w = journal_witness(f, root, owner)
+    b = cp["body"]
+    if other is not None:
+        require(other["body"]["seq"] != b["seq"] or (other["body"]["head"] == b["head"] and other["id"] == cp["id"]), "journal_fork")
+    require(w["registry_seq"] != b["seq"] or (w["registry_head"] == b["head"] and w["checkpoint_id"] == cp["id"]), "journal_fork")
+    require(b["seq"] >= w["registry_seq"], "journal_rollback")
+    seq, head, at = w["registry_seq"], w["registry_head"], 0
+    for index, e in enumerate(entries):
+        entry = e["body"]
+        require(e["version"] == "swarm-envelope/2" and entry["type"] == "journal-entry/1"
+                and entry["registry"] == root and entry["owner"] == owner
+                and e["id"] == digest((OWN_TAGS["journal-entry/1"]+"\n").encode("ascii")+ccj(entry)), "journal_entry_invalid")
+        when = timestamp(entry["at"])
+        if index == 0 and entry["seq"] == seq:
+            require(e["id"] == head and when <= timestamp(b["at"]), "journal_chain_broken")
+            at = when
+            continue
+        require(entry["seq"] == seq+1 and entry["prev"] == head and at <= when <= timestamp(b["at"]), "journal_chain_broken")
+        seq, head, at = entry["seq"], e["id"], when
+    require(seq == b["seq"] and head == b["head"], "journal_chain_broken")
+    return [cp]
+
+
 def verdict(vector):
     f, inp, mode = vector["fixture"], vector["input"], vector["mode"]
     try:
@@ -838,7 +1035,9 @@ def verdict(vector):
             return {"code": "accept", "plan": signer_admission(unb64(inp["preimage"]), f)}
         if mode == "domain":
             return {"code": "accept", "plan": check_domain(inp, f)}
-        if mode == "grant":
+        if mode == "journal":
+            es = identity_journal(inp, f)
+        elif mode == "grant":
             es = grants(inp["chain"], f)
         else:
             es = [envelope(unb64(inp["envelope"]), "operator-act/1" if mode == "operator" else "message/1", f)]

@@ -17,9 +17,9 @@ GOMAXPROCS=2 "$CURATOR_GO" vet ./tools/vectors
 
 Run commands sequentially through the host's required resource runner where
 applicable. Logs and generated copies belong in ignored `.tmp/`. The default
-write command (`go run ./tools/vectors`) writes 674 named cases, the public keys
+write command (`go run ./tools/vectors`) writes 797 named cases, the public keys
 and sweep manifest/digest under `vectors/`; it does not materialize T/B/Z/U JSON.
-`-sweeps` adds those 1688 cases (2362 total: 2258 negative, 104 positive).
+`-sweeps` adds those 1688 cases (2485 total: 2371 negative, 114 positive).
 The inventory check also rejects unexpected JSON under both managed trees,
 including accidentally materialized sweeps when `-sweeps` is absent. Generation
 does not remove obsolete files; remove only reviewed stale paths explicitly.
@@ -201,3 +201,18 @@ compounds (Ed25519 and P-256), one disallowed-profile/invalid-subject compound,
 and two subject-only operands. Each record is correctly signed after the subject
 change. Existing PN02-grant and PG1 remain the accepted neighbors; no inherited
 fixture or sweep expectation changes. These rows follow E6/G2 directly.
+
+Registry-format construction lives in `registry.go`, independently of the
+library and Python checker. `N-SVC-*`/`P-SVC-chain` cover service identity and
+root→service→agent delegation, parent absence/depth, agent-profile substitution,
+message refusal, parent expiry/revocation, widening and exact owner/purpose/key
+binding. `N-JRN-*`/`P-JRN-*` cover unsigned entries, actual registry signatures,
+current snapshot reference, exact six-field projection scope and externally verified genesis, fork, rollback, sequence,
+prev, timestamp and final-head binding. `N-CAP-*`/`P-CAP-*` distinguish count and
+full received-byte capacity;64unique short key entries can fit while64longer
+record-id entries need not. `N-ORD-*` extends the U order matrix with named
+service/J1–J6 compounds without changing inherited U sweep bytes. `N-REG-*`
+adds38directed cross-domain pairs involving the two new tags,2own-domain math
+controls and exact message-signer refusals:110directed pairs among11tags.
+Witness tuples are protected interface facts only; no witness protocol, registry
+service, consumer integration or paged snapshot implementation is simulated.

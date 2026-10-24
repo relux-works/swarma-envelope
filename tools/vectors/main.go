@@ -74,6 +74,10 @@ func domain(t string) string {
 		return "swarma-attestation attestation/1"
 	case "revocation/1":
 		return "swarma-attestation revocation/1"
+	case "journal-entry/1":
+		return "swarma-registry journal-entry/1"
+	case "checkpoint/1":
+		return "swarma-registry checkpoint/1"
 	default:
 		panic("unregistered type")
 	}
@@ -240,7 +244,9 @@ func add(id, claim, pair, code string, v Vector) {
 		v.Expected["plan"] = M{"tag": v.Fixture["expected_tag"], "key": v.Input["key"]}
 	} else if code == "accept" {
 		ids := []any{}
-		if v.Mode == "grant" {
+		if v.Mode == "journal" {
+			ids = append(ids, decode(v.Input["checkpoint"].(string))["id"])
+		} else if v.Mode == "grant" {
 			for _, raw := range v.Input["chain"].([]any) {
 				ids = append(ids, decode(raw.(string))["id"])
 			}
@@ -626,6 +632,7 @@ func main() {
 	contextVectors()
 	signerBindingVectors()
 	e6OrderVectors()
+	registryVectors()
 	seeds, pubs := M{}, M{}
 	for i, k := range keys {
 		name := fmt.Sprintf("test-%d", i)

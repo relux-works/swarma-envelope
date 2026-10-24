@@ -64,7 +64,7 @@ func envelope(raw []byte, kind string, f facts) map[string]any {
 		allowed := kind == "message/1" && (r == "author" && alg == "ed25519" || r == "approver" && alg == "p256") || kind == "operator-act/1" && r == "approver" && alg == "p256" || kind == "grant/1" && r == "author" && (alg == "ed25519" || alg == "p256")
 		service := obj(f["service_root"])
 		need(service == nil || service["key"] != k, "signature_profile_invalid")
-		need(allowed, "signature_profile_invalid")
+		need(allowed && !excludedSigner(k, kind, f), "signature_profile_invalid")
 		pre := must(record.SigningPreimage(kind, k, r, b))
 		if kind == "message/1" {
 			need(len(pre) <= 24576, "signature_preimage_too_large")
