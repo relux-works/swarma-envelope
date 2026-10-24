@@ -50,9 +50,6 @@ func envelope(raw []byte, kind string, f facts) map[string]any {
 		need(len(sigs) == 1 && obj(sigs[0])["role"] == required, "envelope_role_invalid")
 	}
 	need(e["id"] == must(record.ContentID(kind, b)), "envelope_id_mismatch")
-	if kind == "grant/1" {
-		need(record.ValidateKey(str(b["subject"])) == nil, "envelope_signature_invalid")
-	}
 	for _, v := range sigs {
 		s := obj(v)
 		r, k := str(s["role"]), str(s["key"])
@@ -72,6 +69,10 @@ func envelope(raw []byte, kind string, f facts) map[string]any {
 		if kind == "message/1" {
 			need(len(pre) <= 24576, "signature_preimage_too_large")
 			mapped(func() bool { must(record.Parse(pre[len(record.Tag(kind))+1:], 24576, 12)); return true }, "*", "signature_preimage_invalid")
+		}
+		// Strict subject crypto follows E6 issuer/profile admission.
+		if kind == "grant/1" {
+			need(record.ValidateKey(str(b["subject"])) == nil, "envelope_signature_invalid")
 		}
 		signature := must(record.DecodeBase64(str(s["sig"]), 64))
 		if err := record.VerifySignature(k, signature, pre); err != nil {

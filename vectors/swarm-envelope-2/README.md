@@ -45,9 +45,9 @@ cryptography reports PENDING and exits 2; it never reports full conformance.
 No network is used by the checker. Go module resolution may download the pinned
 public registrar dependency. Neither tool imports the future production verifier.
 
-Only 669 named cases are tracked. All 1688 T/B/Z/U cases remain in the generator
+Only 674 named cases are tracked. All 1688 T/B/Z/U cases remain in the generator
 and committed `sweeps.tsv` / `sweeps.sha256`; `-sweeps` materializes them for the
-complete 2357-case check. See the [manifest format](../../tools/vectors/README.md).
+complete 2362-case check. See the [manifest format](../../tools/vectors/README.md).
 Commands must run sequentially through any host-required resource runner.
 
 Generator `-out DIR` writes named cases and the manifest; adding `-sweeps`
@@ -172,3 +172,9 @@ its representative bound columns and the earlier conditions it crosses.
 `operator-act/1` has no `issuer` or `author` member. Its signer-to-identity join
 is the device attestation and owner binding at O2; existing A29 / PO1 cover a
 valid device attested for a different owner and its valid neighbor.
+
+| Cases | E6 ordering within grant-link admission |
+| --- | --- |
+| N-E6-issuer-before-subject-ed25519 / -p256; PN02-grant | A correctly signed issuer mismatch wins over an invalid, canonically encoded subject point: `signer_unknown` at G2/E6. |
+| N-E6-profile-before-subject; PG1 | A matching issuer with a valid signature but a disallowed purpose-5 signing profile wins over invalid subject crypto: `signature_profile_invalid`. |
+| N-E6-subject-only-ed25519 / -p256; PN02-grant | With issuer and profile admission restored, those same invalid points refuse `envelope_signature_invalid`; moving crypto later never removes it. |

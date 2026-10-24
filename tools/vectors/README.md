@@ -17,9 +17,9 @@ GOMAXPROCS=2 "$CURATOR_GO" vet ./tools/vectors
 
 Run commands sequentially through the host's required resource runner where
 applicable. Logs and generated copies belong in ignored `.tmp/`. The default
-write command (`go run ./tools/vectors`) writes 669 named cases, the public keys
+write command (`go run ./tools/vectors`) writes 674 named cases, the public keys
 and sweep manifest/digest under `vectors/`; it does not materialize T/B/Z/U JSON.
-`-sweeps` adds those 1688 cases (2357 total: 2253 negative, 104 positive).
+`-sweeps` adds those 1688 cases (2362 total: 2258 negative, 104 positive).
 The inventory check also rejects unexpected JSON under both managed trees,
 including accidentally materialized sweeps when `-sweeps` is absent. Generation
 does not remove obsolete files; remove only reviewed stale paths explicitly.
@@ -195,3 +195,9 @@ compounds keep the context checks at their required rows. Mutations occur after
 signed evidence construction, so construction cannot refill an absent input.
 Availability-only interfaces refuse unusable state with their existing
 unavailable code; missing/null is never a permissive empty set or default pin.
+
+`N-E6-*` adds five named grant-link witnesses: two issuer/invalid-subject
+compounds (Ed25519 and P-256), one disallowed-profile/invalid-subject compound,
+and two subject-only operands. Each record is correctly signed after the subject
+change. Existing PN02-grant and PG1 remain the accepted neighbors; no inherited
+fixture or sweep expectation changes. These rows follow E6/G2 directly.

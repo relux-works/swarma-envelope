@@ -11,8 +11,8 @@ and exit status is 2, rather than success. It prints per-row mismatches and exit
 This is a conformance oracle for fixed offline inputs, not an importable public
 verifier API. It does not consult the generator or generated verdict code.
 Use the Go byte inventory check in addition to it to detect case removal and
-format drift. Default input contains 669 named semantic cases only. The complete
-2357-case gate must generate the 1688 T/B/Z/U sweeps first:
+format drift. Default input contains 674 named semantic cases only. The complete
+2362-case gate must generate the 1688 T/B/Z/U sweeps first:
 
 ```sh
 GOMAXPROCS=2 "$CURATOR_GO" run ./tools/vectors -check
@@ -116,3 +116,8 @@ already defined by earlier cases remain unchanged; missing members never leak
 Python lookup/attribute exceptions. The fixture runner metadata (mode, input,
 expected result and positive-control id) is the harness schema, separate from
 protected context. This oracle does not implement live provider or journal I/O.
+
+E6 follows the normative issuer/author match, allowed profile, message preimage
+size/depth, then strict crypto order. Grant subject-point crypto runs in the
+last stage, after issuer/profile admission. `N-E6-*` pairs isolate both earlier
+refusals and the subject-only strict-crypto operands with valid neighbors.

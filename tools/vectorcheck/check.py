@@ -642,16 +642,6 @@ def envelope(raw, expected, f):
     if expected in {"grant/1", "operator-act/1"}:
         require(len(sigs) == 1 and sigs[0]["role"] == ("author" if expected == "grant/1" else "approver"), "envelope_role_invalid")
     require(e["id"] == digest((OWN_TAGS[expected] + "\n").encode("ascii")+ccj(b)), "envelope_id_mismatch")
-    if expected == "grant/1":
-        alg, public = key_bytes(b["subject"])
-        if alg == "ed25519":
-            point(public)
-        else:
-            require(ec is not None, "PENDING_p256_cryptography_unavailable")
-            try:
-                ec.EllipticCurvePublicKey.from_encoded_point(ec.SECP256R1(), public)
-            except ValueError:
-                raise Refusal("envelope_signature_invalid") from None
     for s in sigs:
         if expected == "grant/1":
             require(s["key"] == b["issuer"], "signer_unknown")
@@ -675,6 +665,17 @@ def envelope(raw, expected, f):
                 values({"version": "swarm-envelope/2", "role": s["role"], "key": s["key"], "body": b}, max_depth=12)
             except Refusal:
                 raise Refusal("signature_preimage_invalid") from None
+        # E6 admits issuer and profile before checking any subject point.
+        if expected == "grant/1":
+            alg, public = key_bytes(b["subject"])
+            if alg == "ed25519":
+                point(public)
+            else:
+                require(ec is not None, "PENDING_p256_cryptography_unavailable")
+                try:
+                    ec.EllipticCurvePublicKey.from_encoded_point(ec.SECP256R1(), public)
+                except ValueError:
+                    raise Refusal("envelope_signature_invalid") from None
         verify_signature(s["key"], unb64(s["sig"], 64), pre)
     audience = f.get("audience")
     require(type(audience) is str and re.fullmatch(r"[!-~]{1,255}", audience), "audience_mismatch")

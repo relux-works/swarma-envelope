@@ -625,6 +625,7 @@ func main() {
 	rootAndApproverVectors()
 	contextVectors()
 	signerBindingVectors()
+	e6OrderVectors()
 	seeds, pubs := M{}, M{}
 	for i, k := range keys {
 		name := fmt.Sprintf("test-%d", i)
