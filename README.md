@@ -4,7 +4,7 @@ A secure agent coordination and communication protocol: signed messages between 
 
 ## Status
 
-**Draft design with offline conformance tooling.** The platform slice specifies `swarm-envelope/2`, general `grant/1`, `operator-act/1`, root-signed `attestation/1` and shared `revocation/1`. Its 2353 vectors (2251 negative, 102 positive) have a Go generator and independent Python checker. The tree retains 665 named semantic vectors; 1688 mechanical sweep cases are represented by a checked SHA-256 manifest and materialized on demand. No production verifier, consumer integration or activation is implemented. The Go module currently contains tools only; the public library is a later slice. Broker v0 retains static R1 admission; Keymaker persistent revoke remains gated on verifier integration. Attested agent messages provide A1 provenance; widening is inactive because v0 has no qualified A3 provider.
+**Draft design with a pure Go verifier and offline conformance tooling.** The platform slice specifies `swarm-envelope/2`, general `grant/1`, `operator-act/1`, root-signed `attestation/1` and shared `revocation/1`. Its 2353 vectors (2251 negative, 102 positive) have a Go generator and independent Python checker. The tree retains 665 named semantic vectors; 1688 mechanical sweep cases are represented by a checked SHA-256 manifest and materialized on demand. The public `record` and `verifier` packages implement the pure v0 verification pipelines; no consumer integration or activation is implemented. Broker v0 retains static R1 admission; Keymaker persistent revoke remains gated on verifier integration. Attested agent messages provide A1 provenance; widening is inactive because v0 has no qualified A3 provider.
 
 ## Layout
 
@@ -14,6 +14,8 @@ A secure agent coordination and communication protocol: signed messages between 
 | [`UNRESOLVED_QUESTIONS.md`](UNRESOLVED_QUESTIONS.md) | Adopted defaults and remaining publication/activation decisions |
 | [`vectors/swarm-envelope-2/`](vectors/swarm-envelope-2/) | Negative-first paired format and authorization witnesses |
 | [`vectors/keys/`](vectors/keys/) | Public test-only seeds and key provenance |
+| [`record/`](record/) | Public bounded codec, strict signatures, domains and message signer-provider admission |
+| [`verifier/`](verifier/) | Public immutable evidence, receiver, grant, operator and revocation pipelines, plans and Keymaker refusal mapping |
 | [`tools/vectors/`](tools/vectors/) | Deterministic Go fixture generator, signed-evidence builders and byte-for-byte inventory check |
 | [`tools/vectorcheck/`](tools/vectorcheck/) | Independent Python codec, strict crypto and ordered authorization checker |
 | [`spec/waggle.md`](spec/waggle.md) | the specification (draft v5.2): two layers; principals and roster, envelope and multi-signature, verification pipeline, signature policy, signer providers and key assurance, message classes, injection defense, conversation model, providers and their capabilities, delivery through the session host; coordination vocabulary and quorum decisions, scope leases, the protocol lab; phases; Amendment A1 for board processes (board acts, confirmations of process versions, signed external events, service principals, the hand-off result, user verification in board policy, the companion app, delegation) |
@@ -41,7 +43,13 @@ Python 3.14.4 and the already present cryptography 46.0.5 for P-256.
 | Go generator | `GOMAXPROCS=2 "$CURATOR_GO" run ./tools/vectors` | Writes named JSON, sweep manifest/digest and public keys under `vectors/` |
 | Go inventory check | `GOMAXPROCS=2 "$CURATOR_GO" run ./tools/vectors -check` | Regenerates all cases; compares named JSON and sweep manifest/digest without writing |
 | Independent Python checker | `python3 -B tools/vectorcheck/check.py` | Checks supplied cases (665 named by default); nonzero failure or PENDING |
+| Library conformance | `CURATOR_GO="$CURATOR_GO" GOMAXPROCS=2 "$CURATOR_GO" test ./verifier -run '^TestConformance$' -count=1 -v` | Generates a temporary full corpus; checks committed manifest hashes and all 2353 exact code/plan results |
+| Library tests and API inventories | `CURATOR_GO="$CURATOR_GO" GOMAXPROCS=2 "$CURATOR_GO" test ./... -p 1 -count=1` | Package examples, API name gates, conformance and extra negative controls |
+| Concurrent verifier race check | `GOMAXPROCS=2 "$CURATOR_GO" test -race ./verifier -run '^TestConcurrentVerifier$' -count=1` | Race detection on concurrent immutable-verifier use |
+| Parser fuzz smoke | `GOMAXPROCS=2 "$CURATOR_GO" test ./record -run '^$' -fuzz '^FuzzParse$' -fuzztime=5s -parallel=2` | Bounded no-panic parser fuzzing; Go fuzz cache and failure corpus if any |
 | Go vet | `GOMAXPROCS=2 "$CURATOR_GO" vet ./tools/vectors` | Narrow tool validation; stdout/stderr and exit status |
+| Library vet | `GOMAXPROCS=2 "$CURATOR_GO" vet ./record ./verifier ./internal/apicheck` | Static checks for the public library and API test helper |
+| Library formatting | `"${CURATOR_GO%/go}/gofmt" -w record verifier internal/apicheck` | Formats library and test sources |
 | Go formatting | `"$CURATOR_GO" fmt ./tools/vectors` | Formats generator source |
 | Git | `git diff --check`, `git diff --stat` | Whitespace validation and scoped change review |
 
@@ -60,8 +68,9 @@ fixture root; `-sweeps` includes all T/B/Z/U JSON for independent implementation
 Keep logs and tamper controls in ignored `.tmp/`. The manifest format and
 signature/manifest/byte control procedures are documented in the
 [generator guide](tools/vectors/README.md) and
-[vector contract](vectors/swarm-envelope-2/README.md). No full project suite or
-consumer service is required for this specification-only slice.
+[vector contract](vectors/swarm-envelope-2/README.md). Full library conformance,
+multi-package tests, race and fuzz runs also use that runner sequentially. Store logs in ignored `.tmp/`; no consumer service is
+required. See the [public library API and evidence schemas](verifier/README.md).
 
 ## Consumers
 
