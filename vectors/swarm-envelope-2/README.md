@@ -44,9 +44,9 @@ cryptography reports PENDING and exits 2; it never reports full conformance.
 No network is used by the checker. Go module resolution may download the pinned
 public registrar dependency. Neither tool imports the future production verifier.
 
-Only 510 named cases are tracked. All 1227 T/B/Z cases remain in the generator
+Only 513 named cases are tracked. All 1630 T/B/Z/U cases remain in the generator
 and committed `sweeps.tsv` / `sweeps.sha256`; `-sweeps` materializes them for the
-complete 1737-case check. See the [manifest format](../../tools/vectors/README.md).
+complete 2143-case check. See the [manifest format](../../tools/vectors/README.md).
 Commands must run sequentially through any host-required resource runner.
 
 Generator `-out DIR` writes named cases and the manifest; adding `-sweeps`
@@ -133,10 +133,19 @@ valid device attested for another owner even when act and registration agree.
 | V/PV | Device owner byte-bound, required evidence/type and ordering regressions in message approver, grant device and narrowing act paths. Both inclusive bounds accept. |
 | H/PH | Independent principal text/UID bounds; snapshot integer age, complete/rollback booleans, 0/64/65 entries and invalid nonmatching entries; protected time, delivery identifiers and act binding types/bounds. |
 
-In a generated scratch tree, change one T/B/Z JSON byte without changing its
+In a generated scratch tree, change one T/B/Z/U JSON byte without changing its
 manifest, then run the generator with `-sweeps -out DIR -check`: it must report
 the named case's byte mismatch. Restore that one scratch file, alter one
 `sweeps.tsv` line and rerun: it must report `sweeps.tsv` byte mismatch. Changing
 `sweeps.sha256` also fails comparison. The generator regenerates all sweep bytes
 and the whole manifest before comparing; it never trusts a changed manifest to
 supply expected bytes. No fixture file is rewritten by `-check`.
+
+| Cases | Refusal precedence witnesses |
+| --- | --- |
+| N-O1-unknown-owner/epoch/target | Exact O16 signed input combined with each reported invalid protected binding; operation profile still wins. O16 and H-act-binding-* retain the two adjacent refusal controls; PO1 accepts. |
+| U (generated) | 403 order-matrix cases: 271 Cartesian combinations, six additional within-row combinations, 126 operand controls, with PE1/PE5/PO1/PG1 accepted controls. 256 compounds distinguish order by code; 21 same-code compounds only establish the required refusal. |
+
+The 1630 generated cases break down as T618/B462/Z147/U403; all are committed via
+manifest and materialized on demand. The generator guide documents each group,
+its representative bound columns and the earlier conditions it crosses.

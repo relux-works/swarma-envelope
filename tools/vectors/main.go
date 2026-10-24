@@ -253,7 +253,7 @@ func neg(id, claim, pair, code, mode string, fn func(*Vector)) {
 func main() {
 	out := flag.String("out", "vectors", "fixture root")
 	check := flag.Bool("check", false, "regenerate and compare managed bytes and sweep manifest without writing")
-	sweeps := flag.Bool("sweeps", false, "also materialize T/B/Z sweep JSON for independent checkers")
+	sweeps := flag.Bool("sweeps", false, "also materialize generated sweep JSON for independent checkers")
 	flag.Parse()
 	for i := 0; i < 6; i++ {
 		seed := sha256.Sum256([]byte(fmt.Sprintf("waggle public test seed %d", i)))
@@ -600,6 +600,7 @@ func main() {
 	for i := range cases {
 		materializeEvidence(&cases[i])
 	}
+	orderVectors()
 	seeds, pubs := M{}, M{}
 	for i, k := range keys {
 		name := fmt.Sprintf("test-%d", i)
@@ -626,7 +627,7 @@ func main() {
 		}
 		path := "swarm-envelope-2/" + dir + "/" + v.ID + ".json"
 		put(path, v)
-		if strings.HasPrefix(v.ID, "T") || strings.HasPrefix(v.ID, "B") || strings.HasPrefix(v.ID, "Z") {
+		if strings.HasPrefix(v.ID, "T") || strings.HasPrefix(v.ID, "B") || strings.HasPrefix(v.ID, "Z") || strings.HasPrefix(v.ID, "U-") {
 			sweepCount++
 			fmt.Fprintf(&manifest, "%s\t%s\t%x\n", v.ID, v.Expected["code"], sha256.Sum256(files[path]))
 			if !*sweeps {

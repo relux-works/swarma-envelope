@@ -11,8 +11,8 @@ and exit status is 2, rather than success. It prints per-row mismatches and exit
 This is a conformance oracle for fixed offline inputs, not an importable public
 verifier API. It does not consult the generator or generated verdict code.
 Use the Go byte inventory check in addition to it to detect case removal and
-format drift. Default input contains 510 named semantic cases only. The complete
-1737-case gate must generate the 1227 T/B/Z sweeps first:
+format drift. Default input contains 513 named semantic cases only. The complete
+2143-case gate must generate the 1630 T/B/Z/U sweeps first:
 
 ```sh
 GOMAXPROCS=2 "$CURATOR_GO" run ./tools/vectors -check
@@ -81,3 +81,11 @@ cases cover independent principal strings/UIDs, snapshot age/entry bounds,
 nonmatching invalid entries, protected delivery/act bindings and time decisions.
 These cases qualify the oracle's comparison behavior; they do not qualify live
 provider adapters or unspecified store cardinality limits.
+
+The generated U family checks refusal precedence with independent earlier-only,
+bound-only and accepted-source controls. Run the documented full `-sweeps` gate
+to include all 403 matrix cases. Three committed N-O1-unknown-* cases retain the
+exact O16 signed unknown operation while separately invalidating protected
+owner, epoch or target. They must return act_operation_unknown before any
+act_binding_mismatch. See the [matrix inventory](../vectors/README.md#refusal-order-matrix)
+for group counts, cross-row/within-row coverage and same-code limits.

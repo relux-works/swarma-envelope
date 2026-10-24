@@ -726,15 +726,16 @@ def operator_key_current(f):
 
 
 def operator(e, f):
-    b, binding = e["body"], f.get("binding")
+    b = e["body"]
+    operations = {"revoke": ("registration", False), "grant.issue": ("account", True)}
+    require(b["operation"] in operations, "act_operation_unknown")
+    kind, widening = operations[b["operation"]]
+    binding = f.get("binding")
     require(type(binding) is dict and all(n in binding for n in ("operation", "target", "owner", "epoch", "arguments")), "act_binding_mismatch")
     bounded_text(binding["owner"], "act_binding_mismatch")
     require(type(binding["epoch"]) is str and re.fullmatch(r"[!-~]{1,255}", binding["epoch"])
             and type(binding["operation"]) is str and identifier(binding["operation"].replace(".", "/"))
             and target(binding["target"], operator=True) and type(binding["arguments"]) is dict, "act_binding_mismatch")
-    operations = {"revoke": ("registration", False), "grant.issue": ("account", True)}
-    require(b["operation"] in operations, "act_operation_unknown")
-    kind, widening = operations[b["operation"]]
     require(b["operation"] == binding["operation"] and b["target"] == binding["target"]
             and b["target"]["kind"] == kind and b["owner"] == binding["owner"]
             and b["epoch"] == binding["epoch"]
