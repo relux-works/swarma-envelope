@@ -23,6 +23,17 @@ waggle owns these formats and the future verifier. Consumers MUST pin a reviewed
 main commit and change that pin through their own review. No library API is
 published by this slice; §6 is the required behavior for the next slice.
 
+Owner decision, 2026-10-24: the owner registry and rollback witness are to run
+on one separately administered trust node outside the agent platform's
+administrative domain. The platform has no administrative access there;
+agents have no root access. The registry is the only authoritative writer of
+keys, attestations, grants, revocations and identity journals: it stores, orders
+and publishes records, preserving their original signers as specified in §2.6.
+Consumers receive signed snapshots no older than 60 seconds, with the existing
+stricter protected age and continuity requirements. Until this node exists,
+the current mode remains pinned roots and caller-supplied snapshots. This
+slice specifies that deployment boundary; it deploys no registry or witness.
+
 Public design inputs (pinned, informative except explicit consumer mappings):
 
 - [Registrar §2 and public packages](https://github.com/relux-works/swarma-registrar/blob/5f44ebf3f78829144aa7864ca2e4ad62bea43eb5/spec/registrar.md): CCJ-1 and key encodings.
@@ -369,6 +380,18 @@ fetch. A root pin includes its protected purpose; signing-service roots MUST
 have integer key purpose 5. The caller MUST NOT promote a subject to a root.
 Issuers MUST validate the same body/profile/time bounds before signing that
 verifiers enforce; offline fixtures do not qualify the live issuer.
+
+The registry-owner revocation root in D30 is the registry's signing key on
+§1's separate trust node. Its authoritative-writer role does not re-sign
+content: agent `attestation/1` retains the purpose-5 service signature, device
+attestations retain the operator-root signature, and grants retain the
+grant-owner signature. The registry key signs only `revocation/1` snapshots
+and, in a later reviewed profile, identity-journal checkpoints. Operator-device
+snapshots retain their existing operator-root signature rule; the registry
+may store and publish them without substituting its signature. D30's distinct
+keys remain mandatory even when roles are hosted on the same node. Neither
+registry storage nor publication can promote the registry key into a grant
+owner, operator or purpose-5 service root.
 
 Owner decision, 2026-10-24: operator-root recovery requires a separately held,
 pre-attested recovery means whose ONLY power is replacing or revoking the
@@ -911,6 +934,13 @@ OnlineAuthority.Check(exact_request) -> current | revoked | unavailable
   (application adapter contacts the authority owner immediately before a critical effect)
 ```
 
+The separate registry is an application-side source of the signed records
+and continuity evidence above, not an authority override or a network dependency
+inside the pure core. If the registry or a required snapshot is unavailable,
+its adapter MUST report `unavailable`; the existing fail-closed rules below
+apply with no new refusal code. Valid caller-supplied snapshots in the current
+mode remain subject to the same protected freshness and continuity checks.
+
 All errors and absent required evidence MUST become explicit decisions; absence
 is not false or an empty set. These are interface requirements, not storage or
 network implementations. An accept from the pure core MUST NOT be exposed as
@@ -1060,6 +1090,30 @@ threshold policy require separate review and qualification. No v0 record may
 perform recovery. The generic signature-list and root-policy contracts must
 preserve that extension path; current type-specific cardinalities are not a
 single-recovery-signer assumption.
+
+The separate trust node, registry/witness continuity, exclusive administrative
+boundary and publication pipeline require qualification before deployment.
+Compromise of the registry key alone can withhold or delay revocation visibility
+within the v0 snapshot bound and continuity rules; it cannot mint grants or
+attestations, whose original signing roots remain distinct. This bound starts
+only with the first-containing signed snapshot (§2.6); nothing here bounds
+withholding before publication or proves honest publication by a compromised
+registry. The co-located witness does not itself establish an independent
+administrative failure domain. Until deployment, pinned roots and
+caller-supplied snapshots remain unchanged; unavailable required evidence
+refuses under §6.
+
+S0 defines no emergency-stop record. A future emergency stop MUST NOT depend
+on a fresh registry snapshot or on registry availability. Restart MUST require
+separate current authority; an emergency stop is not a restart authorization.
+The mechanism and its reviewed record/profile remain future work.
+
+An identity journal is not defined in S0. It MUST have its own reviewed CCJ-1
+record type and tag, with a hash-chained sequence and registry-signed checkpoints
+cross-checked with the rollback witness. No tag is registered now. Git MAY be
+storage or transport, but authority is the signed chain, never repository
+commits. This future identity journal does not replace the existing caller's
+id-binding or replay journals, and no journal protocol is implemented here.
 
 Threats left open: compromised pinned roots/devices/providers, dishonest
 confirmation rendering, malicious consumers, stolen live credentials, denial of
