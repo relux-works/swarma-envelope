@@ -12,6 +12,9 @@ jobs:
   go:
     runs-on: ubuntu-26.04
     timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
     env:
       GOTOOLCHAIN: local
       GOMAXPROCS: '2'
@@ -28,8 +31,9 @@ jobs:
         run: go build ./...
       - name: Vet
         run: go vet ./...
+      # CI1 deviation: shared checked capture preserves gofmt errors before test.
       - name: Check formatting
-        run: test -z "$(gofmt -l .)"
+        run: bash --noprofile --norc -eo pipefail .github/scripts/check-format.sh
       # Prove the tools accept a valid control and detect the intended faults.
       - name: Verify vet and formatting controls
         run: |
@@ -38,7 +42,7 @@ jobs:
           printf '%s\n' 'module example.invalid/ci-control' '' 'go 1.26.0' > "$control_dir/go.mod"
           printf '%s\n' 'package control' '' 'func valid() {}' > "$control_dir/good.go"
           (cd "$control_dir" && go vet ./...)
-          test -z "$(gofmt -l "$control_dir")"
+          bash --noprofile --norc -eo pipefail .github/scripts/check-format.sh "$control_dir"
           printf '%s\n' 'package control' 'import "fmt"' 'func bad() { fmt.Printf("%d", "wrong") }' > "$control_dir/vet.go"
           vet_status=0
           (cd "$control_dir" && go vet ./...) > "$control_dir/vet.log" 2>&1 || vet_status=$?
@@ -47,10 +51,27 @@ jobs:
           rm "$control_dir/vet.go"
           printf '%s\n' 'package control' 'func unformatted( ){ }' > "$control_dir/format.go"
           format_status=0
-          test -z "$(gofmt -l "$control_dir")" || format_status=$?
+          bash --noprofile --norc -eo pipefail .github/scripts/check-format.sh "$control_dir" || format_status=$?
           test "$format_status" -eq 1
-          test "$(gofmt -l "$control_dir")" = "$control_dir/format.go"
+          format_output="$(gofmt -l "$control_dir")"
+          test "$format_output" = "$control_dir/format.go"
           printf 'Expected failures: vet=%s formatting=%s\n' "$vet_status" "$format_status"
+          rm "$control_dir/format.go"
+          printf '%s\n' '//go:build windows' '' 'package control' '' 'func broken(' > "$control_dir/bad_windows.go"
+          (cd "$control_dir" && go build ./... && go vet ./...)
+          formatter_status=0
+          gofmt -l "$control_dir" > "$control_dir/parse.out" 2> "$control_dir/parse.log" || formatter_status=$?
+          test "$formatter_status" -eq 2
+          test ! -s "$control_dir/parse.out"
+          grep -F 'bad_windows.go:' "$control_dir/parse.log"
+          parse_status=0
+          bash --noprofile --norc -eo pipefail .github/scripts/check-format.sh "$control_dir" > "$control_dir/parse-step.log" 2>&1 || parse_status=$?
+          if test "$parse_status" -ne 2; then
+            printf 'FAIL TestFormatCommandSubstitutionStatus: expected step exit 2, got %s\n' "$parse_status" >&2
+            exit 1
+          fi
+          grep -F 'bad_windows.go:' "$control_dir/parse-step.log"
+          printf 'PASS TestFormatCommandSubstitutionStatus: gofmt=%s step=%s\n' "$formatter_status" "$parse_status"
       - name: Prepare independent checker
         run: |
           python3 -c 'import sys; assert sys.version_info[:2] == (3, 14), sys.version'
@@ -69,5 +90,6 @@ jobs:
         run: '"$RUNNER_TEMP/checker-venv/bin/python" -B tools/vectorcheck/check.py --vectors "$RUNNER_TEMP/waggle-vectors"'
       - name: Test
         run: |
-          export CURATOR_GO="$(go env GOROOT)/bin/go"
+          go_root="$(go env GOROOT)"
+          export CURATOR_GO="$go_root/bin/go"
           go test -v -p 1 -count=1 ./...
