@@ -651,6 +651,7 @@ def service_identity(key, f):
             and b["key_class"] == "service" and b["purpose"] == "grant-service"
             and b["roles"] == ["author"] and b["actions"] == ["grant.sign"], "key_binding_invalid")
     low, high = time_values(f)
+    receipt_gate(f, low, high)
     require(0 < end-start <= 86400 and start <= low and high < end, "key_binding_invalid")
     signed_snapshot(f, policy["key"], [e["id"]], [key])
     return e
@@ -1362,6 +1363,9 @@ def receipt_verdict(inp, facts):
     if mode == "revocation":
         receipt_revocation_policy(f, operation["root"])
         signed_snapshot(f, operation["root"], operation["ids"], operation["keys"])
+        return {"code": "accept", "plan": {}}
+    if mode == "service":
+        service_identity(operation["key"], f)
         return {"code": "accept", "plan": {}}
     if mode == "grant":
         es = grants(operation["chain"], f)

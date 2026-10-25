@@ -964,16 +964,36 @@ snapshot change, premise change, re-anchor or process restart. `complete=true`
 is never proof of cumulative publication. The whole snapshot Evidence identity
 is conservatively bound, not just a snapshot id or a caller generation counter.
 
-`VerifyAttestation`, `VerifyMessage`, `Authorize`, `VerifyOperator` and
-`CheckRevocation` consume receipts through Context; signatures do not change.
-The shared `VerifyEnvelope` path applies the same R checks. With nil receipt and
-`RequireFreshnessReceipt=false`, legacy behavior and own-age refusal ordering
-are unchanged. Required absence refuses. Any supplied receipt selects receipt
-mode and must validate even when own-age would pass: no failure falls back to
-legacy admission. `VerifyAttestation(device=true)` and `VerifyOperator` still
-validate it, although their operator-domain snapshots gain no age waiver.
-`CheckRevocation` additionally requires its explicit root to equal the receipt
-root. `VerifyJournal` remains outside this mode and retains own-age checks.
+Verification signatures do not change. Receipt handling is classified by entry
+point, and a registry-root age waiver applies only when that path actually
+admits the bound registry snapshot:
+
+| Class | Entry points | Receipt behavior |
+| --- | --- | --- |
+| Consumers that may replace registry-root own-age | `VerifyAttestation` (agent), `VerifyMessage`, `Authorize`, `CheckRevocation`, `VerifyEnvelope` where applicable | Run R1–R3; only the bound registry snapshot can gain an age waiver |
+| Validate-only | `VerifyAttestation(device=true)`, `VerifyOperator`, `VerifyServiceAttestation` | Run R1–R3; operator-root and grant-root own-age remain mandatory |
+| Outside receipt mode | `VerifyJournal`, `VerifyFreshness`, `VerifyFreshnessReanchor` | Ignore Context receipt-consumption fields by design; independently run their complete verification contract |
+
+For consumers and validate-only entry points, nil receipt with
+`RequireFreshnessReceipt=false` retains legacy behavior and own-age refusal
+ordering. Required absence refuses. Any supplied receipt selects receipt mode
+and must validate even when own-age would pass: no failure falls back to legacy
+admission. R runs after the entry point's existing trusted-time gate and before
+validity continuation, including service identity admission. `CheckRevocation`
+additionally requires its explicit root to equal the receipt root.
+
+On outside-mode calls, `FreshnessReceipt`, `RequireFreshnessReceipt` and
+`FreshnessMarginSeconds` are ignored, even if supplied or invalid. `VerifyJournal`
+authenticates journal/checkpoint continuity and retains its snapshot own-age
+checks; a receipt cannot substitute full F admission into that API. The two F
+producers independently authenticate the complete normal/recovery proof, so a
+prior receipt is neither a prerequisite nor evidence for issuing a new one.
+They mint a new receipt only on full success. `New` only stores Context; the
+subsequent verification method determines receipt handling. Context-free
+`Present`, `Evidence.IsAvailable`, `OperatorRecordCode` and receipt
+Audit/JSON methods perform no receipt-consuming admission: Present and receipt
+JSON methods retain their receipt rejection rules, and Audit reports origin
+only, never current validity or an age waiver.
 
 R validates the protected registry root and owner; exact snapshot bytes/id and
 immutable Evidence premise; current witness registry/owner/checkpoint id,

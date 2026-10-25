@@ -37,6 +37,7 @@ func serviceAttestation(k string, f facts) map[string]any {
 	start := mapped(func() int64 { return stamp(b["iat"]) }, "*", "key_binding_invalid")
 	end := mapped(func() int64 { return stamp(b["exp"]) }, "*", "key_binding_invalid")
 	low, high := times(f)
+	receiptGate(f, low, high)
 	need(start < end && end-start <= 86400 && start <= low && high < end, "key_binding_invalid")
 	snapshot(f, policy["key"], []string{str(e["id"])}, []string{k})
 	return e
@@ -47,7 +48,7 @@ func serviceAttestation(k string, f facts) map[string]any {
 // Authorize must still verify the complete parent chain for any service link.
 func (v Verifier) VerifyServiceAttestation(key string) (a Attestation, err error) {
 	r := decide(func() Plan {
-		e := serviceAttestation(key, v.facts())
+		e := serviceAttestation(key, v.consumerFacts())
 		a = Attestation{ID: str(e["id"]), Key: key, Owner: str(obj(obj(e["body"])["binding"])["owner"])}
 		return Plan{}
 	})

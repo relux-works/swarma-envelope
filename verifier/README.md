@@ -92,7 +92,7 @@ conformance test generates its corpus with the existing generator in a Go test
 temporary directory. `CURATOR_GO` selects that child toolchain explicitly;
 otherwise it uses the runtime toolchain or Go on PATH. `WAGGLE_VECTORS` may
 select an already materialized corpus. The committed sweep digest, entire
-manifest, all 1688 sweep byte hashes, all 1052 named bytes and exact 2740
+manifest, all 1688 sweep byte hashes, all 1064 named bytes and exact 2752
 code/plan verdicts are checked. Generated sweeps are never committed. Fixture
 base64 transport and legacy field names are adapted only in the test.
 
@@ -225,21 +225,38 @@ on any snapshot or cumulative/rollback-safe premise change, including changes
 later returning to the same ids/booleans. Run F again after snapshot changes,
 premise changes, re-anchor or restart. `complete=true` does not prove cumulativity.
 
-VerifyAttestation, VerifyMessage, Authorize, VerifyOperator and CheckRevocation
-consume it without signature changes; the shared VerifyEnvelope path does too.
-Set RequireFreshnessReceipt to refuse absence. Nil plus false retains legacy
-own-age behavior. Any supplied receipt must validate, even if own-age passes;
-there is no fallback. Only the bound registry snapshot's age is renewed.
-Operator and grant own-age checks remain mandatory; device=true and operator
-calls still validate supplied receipts. CheckRevocation's explicit root must
-match. VerifyJournal keeps its own-age contract and does not consume receipts.
+Receipt behavior is explicit for every verification entry point:
+
+| Class | Entry points | Rule |
+| --- | --- | --- |
+| May waive bound registry-root own-age | VerifyAttestation (agent), VerifyMessage, Authorize, CheckRevocation, VerifyEnvelope where applicable | Validate R1–R3; waiver applies only to the bound registry snapshot actually used |
+| Validate-only | VerifyAttestation(device=true), VerifyOperator, VerifyServiceAttestation | Validate R1–R3; operator-root and grant-root own-age stay mandatory |
+| Outside receipt mode | VerifyJournal, VerifyFreshness, VerifyFreshnessReanchor | Ignore receipt-consumption fields and run their independent full contract |
+
+For consumers and validate-only calls, RequireFreshnessReceipt refuses absence.
+Nil plus false retains legacy own-age behavior. Any supplied receipt must
+validate, even if own-age passes; there is no fallback. CheckRevocation's
+explicit root must match. Service receipt validation runs after its first
+trusted-time gate and before service validity continuation; it never renews
+grant-root age. D42 remains open.
+
+Outside-mode calls ignore FreshnessReceipt, RequireFreshnessReceipt and
+FreshnessMarginSeconds even when supplied or invalid. VerifyJournal keeps
+journal/checkpoint continuity and snapshot own-age checks; it cannot replace
+those with a receipt. The full F producers require no earlier receipt and
+cannot use one to skip proof verification; they independently mint a new one
+only on full success. New stores Context without admission. Context-free
+Present/Evidence.IsAvailable, OperatorRecordCode and receipt Audit/JSON methods
+are not verification consumers: existing evidence/serialization rejection and
+origin-only audit semantics remain.
 
 R runs after existing trusted-time checks: presence/provenance/margin; exact
 root/owner/snapshot/Evidence/witness/admitted-anchor/read bindings; then expiry.
 The four codes are freshness_receipt_unavailable, freshness_receipt_invalid,
 freshness_receipt_binding_mismatch and freshness_receipt_expired, preserved
 through K1/G7/O2. CheckRevocation returns Unavailable plus the exact error;
-VerifyAttestation returns zero identity plus the exact error. Result refusals
+VerifyAttestation and VerifyServiceAttestation return zero identity plus the
+exact error. Result refusals
 have zero Plan and nil receipt. Full signed snapshot and effective-entry checks
 still run; a future-effective entry can become revoked before receipt expiry.
 

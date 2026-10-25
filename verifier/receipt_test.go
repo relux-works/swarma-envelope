@@ -76,6 +76,25 @@ func consumeReceipt(t *testing.T, v vector, c verifier.Context) verifier.Result 
 	lib := verifier.New(c)
 	var err error
 	switch op["mode"] {
+	case "service":
+		a, e := lib.VerifyServiceAttestation(in["key"].(string))
+		err = e
+		if err != nil && a != (verifier.Attestation{}) {
+			t.Fatal("refused service identity", a)
+		}
+		if err == nil {
+			raw, e := b64(v.Fixture["service_attestations"].(map[string]any)[in["key"].(string)])
+			if e != nil {
+				t.Fatal(e)
+			}
+			var signed map[string]any
+			if e := json.Unmarshal(raw, &signed); e != nil {
+				t.Fatal(e)
+			}
+			if a.ID != signed["id"] || a.Key != in["key"] || a.Owner != v.Fixture["service_authority"].(map[string]any)["owner"] {
+				t.Fatal("service identity binding", a)
+			}
+		}
 	case "attestation", "device":
 		a, e := lib.VerifyAttestation(in["key"].(string), in["reference"].(string), op["mode"] == "device")
 		err = e

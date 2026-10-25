@@ -249,7 +249,7 @@ func add(id, claim, pair, code string, v Vector) {
 		if v.Mode == "receipt" {
 			op := v.Input["consume"].(M)
 			in := op["input"].(M)
-			if op["mode"] == "attestation" || op["mode"] == "device" || op["mode"] == "revocation" {
+			if op["mode"] == "attestation" || op["mode"] == "device" || op["mode"] == "service" || op["mode"] == "revocation" {
 				cases = append(cases, v)
 				return
 			}

@@ -222,4 +222,5 @@ func receiptVectors() {
 	add("N-RC-reanchor-no-read", "Recovery cannot mint a receipt without authenticated read currency.", "P-RC-reanchor", "freshness_unavailable", v)
 	receiptPresenceVectors()
 	receiptNullableVectors()
+	receiptServiceVectors()
 }
