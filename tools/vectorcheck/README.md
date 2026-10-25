@@ -11,8 +11,8 @@ and exit status is 2, rather than success. It prints per-row mismatches and exit
 This is a conformance oracle for fixed offline inputs, not an importable public
 verifier API. It does not consult the generator or generated verdict code.
 Use the Go byte inventory check in addition to it to detect case removal and
-format drift. Default input contains 1009 named semantic cases only. The complete
-2697-case gate must generate the 1688 T/B/Z/U sweeps first:
+format drift. Default input contains 1042 named semantic cases only. The complete
+2730-case gate must generate the 1688 T/B/Z/U sweeps first:
 
 ```sh
 GOMAXPROCS=2 "$CURATOR_GO" run ./tools/vectors -check

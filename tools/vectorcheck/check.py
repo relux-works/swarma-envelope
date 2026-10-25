@@ -1243,6 +1243,13 @@ def fresh_revocation(inp, f, reanchor=False):
 _RECEIPT_CONTEXT = object()
 
 
+def receipt_presence(value, names, nullable=()):
+    # Inspect available members without classifying malformed containers yet.
+    if type(value) is dict:
+        for name in names.split():
+            require(name in value and (value[name] is not None or name in nullable), "freshness_receipt_unavailable")
+
+
 def receipt_gate(f, low, high):
     ctx = f.get(_RECEIPT_CONTEXT)
     if ctx is None:
@@ -1252,6 +1259,16 @@ def receipt_gate(f, low, high):
     require(type(margin) is int and 0 <= margin <= 60, "freshness_receipt_invalid")
     for name in ("agent_revocation_root", "registry_owner", "journal_witness", "freshness_anchor", "witness_read_at", "revocations"):
         require(f.get(name) is not None, "freshness_receipt_unavailable")
+    # R2 presence is complete before any key, schema or timestamp parser runs.
+    receipt_presence(f["agent_revocation_root"], "key purpose attestation_root")
+    receipt_presence(f["journal_witness"], "registry_id owner registry_seq registry_head checkpoint_id previous_checkpoint_id", ("previous_checkpoint_id",))
+    receipt_presence(f["freshness_anchor"], "registry_id owner publication_seq freshness_id issued_at snapshot registry_seq checkpoint_id", ("freshness_id", "issued_at"))
+    records = f["revocations"]
+    if type(records) is dict:
+        row = records.get(r["root"])
+        require(row is not None, "freshness_receipt_unavailable")
+        receipt_presence(row, "snapshot")
+    # R2 syntax follows the complete presence stage.
     try:
         policy = evidence_exact(f["agent_revocation_root"], "key purpose attestation_root")
         key_bytes(policy["key"]); key_bytes(policy["attestation_root"])
@@ -1267,12 +1284,9 @@ def receipt_gate(f, low, high):
         require(read <= low, "freshness_receipt_invalid")
     except Refusal:
         raise Refusal("freshness_receipt_invalid") from None
-    records = f["revocations"]
     require(type(records) is dict, "freshness_receipt_invalid")
     row = records.get(r["root"])
-    require(row is not None, "freshness_receipt_unavailable")
     require(type(row) is dict, "freshness_receipt_invalid")
-    require(row.get("snapshot") is not None, "freshness_receipt_unavailable")
     require(type(row["snapshot"]) is str, "freshness_receipt_invalid")
     require(policy["key"] == r["root"] and f["registry_owner"] == r["owner"], "freshness_receipt_binding_mismatch")
     require(identity is r["identity"], "freshness_receipt_binding_mismatch")

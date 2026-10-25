@@ -2,6 +2,7 @@ package verifier
 
 import (
 	"fmt"
+	"strings"
 )
 
 // FreshnessReceipt is immutable, process-local evidence from successful F
@@ -72,6 +73,20 @@ func (v Verifier) consumerFacts() facts {
 	return f
 }
 
+// Presence inspection deliberately defers wrong container types to syntax,
+// so a different missing required binding still wins. Explicit nullable values
+// remain present; their semantic constraints are checked in the syntax phase.
+func receiptPresence(value any, names, nullable string) {
+	m, ok := value.(map[string]any)
+	if !ok {
+		return
+	}
+	for _, name := range strings.Fields(names) {
+		v, present := m[name]
+		need(present && (v != nil || strings.Contains(" "+nullable+" ", " "+name+" ")), "freshness_receipt_unavailable")
+	}
+}
+
 // R runs immediately after the existing trusted-time gate in consumer paths.
 // Producers and VerifyJournal never receive this internal consumer marker.
 func receiptGate(f facts, low, high int64) {
@@ -86,6 +101,17 @@ func receiptGate(f facts, low, high int64) {
 	for _, name := range []string{"agent_revocation_root", "registry_owner", "journal_witness", "freshness_anchor", "witness_read_at", "revocations"} {
 		need(f[name] != nil, "freshness_receipt_unavailable")
 	}
+	// R2 presence: inspect every required location before any syntax parser.
+	receiptPresence(f["agent_revocation_root"], "key purpose attestation_root", "")
+	receiptPresence(f["journal_witness"], "registry_id owner registry_seq registry_head checkpoint_id previous_checkpoint_id", "previous_checkpoint_id")
+	receiptPresence(f["freshness_anchor"], "registry_id owner publication_seq freshness_id issued_at snapshot registry_seq checkpoint_id", "freshness_id issued_at")
+	records, validRecords := f["revocations"].(map[string]any)
+	if validRecords {
+		value, present := records[r.audit.RegistryID]
+		need(present && value != nil, "freshness_receipt_unavailable")
+		receiptPresence(value, "snapshot", "")
+	}
+	// R2 syntax follows the complete presence stage.
 	var policy, witness, anchor map[string]any
 	var read int64
 	mapped(func() bool {
@@ -109,13 +135,9 @@ func receiptGate(f facts, low, high int64) {
 		return true
 	}, "*", "freshness_receipt_invalid")
 
-	records, validRecords := f["revocations"].(map[string]any)
 	need(validRecords, "freshness_receipt_invalid")
-	value, present := records[r.audit.RegistryID]
-	need(present && value != nil, "freshness_receipt_unavailable")
-	row, validRow := value.(map[string]any)
+	row, validRow := records[r.audit.RegistryID].(map[string]any)
 	need(validRow, "freshness_receipt_invalid")
-	need(row["snapshot"] != nil, "freshness_receipt_unavailable")
 	raw, valid := row["snapshot"].([]byte)
 	need(valid, "freshness_receipt_invalid")
 	need(policy["key"] == r.audit.RegistryID && f["registry_owner"] == r.audit.Owner, "freshness_receipt_binding_mismatch")

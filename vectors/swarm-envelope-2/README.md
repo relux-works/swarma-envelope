@@ -45,9 +45,9 @@ cryptography reports PENDING and exits 2; it never reports full conformance.
 No network is used by the checker. Go module resolution may download the pinned
 public registrar dependency. Neither tool imports the future production verifier.
 
-Only 1009 named cases are tracked. All 1688 T/B/Z/U cases remain in the generator
+Only 1042 named cases are tracked. All 1688 T/B/Z/U cases remain in the generator
 and committed `sweeps.tsv` / `sweeps.sha256`; `-sweeps` materializes them for the
-complete 2697-case check. See the [manifest format](../../tools/vectors/README.md).
+complete 2730-case check. See the [manifest format](../../tools/vectors/README.md).
 Commands must run sequentially through any host-required resource runner.
 
 Generator `-out DIR` writes named cases and the manifest; adding `-sweeps`
@@ -250,11 +250,15 @@ record/reissue entry (J6 `journal_chain_broken`), missing prior bytes (J5a
 candidate time before prior time (J5a `journal_rollback`). Record references
 remain publication evidence, not admission of the referenced authority.
 
-The65 `N-RC-*` / `P-RC-*` receipt cases run actual signed F admission before
+The 98 `N-RC-*` / `P-RC-*` receipt cases run actual signed F admission before
 a consuming operation. Mint facts are in `fixture`; `input.mint` names the
 producer proof, `input.consume` the consumer call, and `input.use` patches
 current protected facts. Receipt state is derived in memory, never serialized.
 The cases cover all five consumer APIs (including both attestation profiles),
 exact binding, Evidence rebuild, fixed exclusive expiry/no fallback, recovery
-read currency and retained domain-age/effective-revocation gates. See the
+read currency and retained domain-age/effective-revocation gates. The 33
+`RC-R2-*` cases check presence before syntax, including the combined missing
+snapshot/malformed read regression and its accept, missing-only and
+malformed-only controls, every required policy/witness/anchor member, and
+absent or null bound rows. See the
 [generator adapter description](../../tools/vectors/README.md).

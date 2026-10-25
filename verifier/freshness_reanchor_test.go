@@ -67,10 +67,9 @@ func TestFreshnessReanchorBounds(t *testing.T) {
 	}
 }
 
-// Freshness acceptance does not become a revocation receipt for another API:
-// old-base VerifyAttestation still refuses own-age, while a genuinely current
-// signed snapshot at the age boundary permits the same valid agent identity.
-// This demonstrates the unsupported composition, not a consumer workaround.
+// Without attaching a receipt, optional-absence legacy admission still checks
+// snapshot own-age: the old base refuses, while the genuinely current signed
+// snapshot at the age boundary permits the same valid agent identity.
 func TestFreshnessCompositionBoundary(t *testing.T) {
 	for _, tc := range []struct {
 		id     string

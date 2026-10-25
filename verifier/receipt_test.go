@@ -324,3 +324,19 @@ func TestFreshnessReceiptEvidenceRebuild(t *testing.T) {
 		t.Fatal("mutated retained evidence", got)
 	}
 }
+
+// Required R2 presence precedes all syntax: the combined regression and its
+// unchanged/missing-only/malformed-only controls run in the exact corpus oracle.
+// The remaining neighbors audit every required policy/witness/anchor member.
+func TestFreshnessReceiptPresenceOrder(t *testing.T) {
+	var paths []string
+	for _, p := range namedPaths(t, "../vectors") {
+		if strings.Contains(filepath.Base(p), "RC-R2-") {
+			paths = append(paths, p)
+		}
+	}
+	if len(paths) < 4 {
+		t.Fatal("missing presence regression and controls")
+	}
+	runVectors(t, paths)
+}
