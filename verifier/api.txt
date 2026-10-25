@@ -17,6 +17,8 @@ field Context.Delivery
 field Context.DeviceAttestations
 field Context.EnrollmentPublisher
 field Context.FreshnessAnchor
+field Context.FreshnessMarginSeconds
+field Context.FreshnessReceipt
 field Context.GrantRoot
 field Context.IDJournal
 field Context.IDJournalAvailable
@@ -26,6 +28,7 @@ field Context.OperatorOwner
 field Context.OperatorRoot
 field Context.RegistryOwner
 field Context.ReplayAvailable
+field Context.RequireFreshnessReceipt
 field Context.RequiredRoles
 field Context.ServiceAttestations
 field Context.ServiceAuthority
@@ -37,6 +40,14 @@ field Context.UsedActions
 field Context.Watermark
 field Context.WatermarkAvailable
 field Context.WitnessReadAt
+field FreshnessAudit.CheckpointID
+field FreshnessAudit.FreshnessID
+field FreshnessAudit.OldCheckpointID
+field FreshnessAudit.OldFreshnessID
+field FreshnessAudit.Owner
+field FreshnessAudit.Reanchored
+field FreshnessAudit.RegistryID
+field FreshnessAudit.SnapshotID
 field FreshnessReanchorPlan.NewCheckpointID
 field FreshnessReanchorPlan.NewFreshnessID
 field FreshnessReanchorPlan.OldCheckpointID
@@ -48,11 +59,15 @@ field Plan.IDs
 field Plan.Reanchor
 field Plan.Watermark
 field Result.Code
+field Result.FreshnessReceipt
 field Result.Plan
 func New
 func OperatorRecordCode
 func Present
 method Evidence.IsAvailable
+method FreshnessReceipt.Audit
+method FreshnessReceipt.MarshalJSON
+method FreshnessReceipt.UnmarshalJSON
 method Verifier.Authorize
 method Verifier.CheckRevocation
 method Verifier.VerifyAttestation
@@ -66,7 +81,9 @@ method Verifier.VerifyServiceAttestation
 type Attestation
 type Context
 type Evidence
+type FreshnessAudit
 type FreshnessReanchorPlan
+type FreshnessReceipt
 type Plan
 type Result
 type RevocationState

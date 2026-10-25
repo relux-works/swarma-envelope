@@ -188,11 +188,41 @@ for lost skipped-segment freshness-fork detection (§7); no revocation or
 authority relaxation. Witness outages fail closed. No live integration is
 implemented or qualified by these offline fixtures.
 
-Open consumer integration decision: the current API cannot compose old-base
-freshness acceptance into `VerifyAttestation` or the other entry points that
-independently require own-snapshot age. `TestFreshnessCompositionBoundary`
-retains the refusal and a genuinely current signed-snapshot positive control.
-An owner decision must select and review an explicit composition API/policy;
-no consumer may fake a younger Context or implement a second verifier. The
-pure recovery and publication fixtures do not resolve or qualify that
-integration. See §7 for the current boundary and cumulative-publication premise.
+D41 composition DECIDED: §2.10 adds an opaque process-local receipt minted only
+by successful full freshness verification. Consumers retain one immutable
+SignedSnapshots Evidence and admitted tip anchor; receipt failures never fall
+back. Only the bound registry snapshot's own-age test is renewed. Other root
+ages and every cryptographic/effective-revocation gate remain mandatory. Live
+consumer integration and qualified cumulative publication remain external.
+
+### D42 — OPEN: freshness for offline grant and operator roots
+
+Both grant root and operator root are offline and cannot re-sign a snapshot
+every60 seconds. The spec owner must choose among these options; S5 chooses
+none. Two consumers prefer (a); the registry service is neutral and contributed
+the format and custody considerations below.
+
+(a) Each domain root signs content only on change; the registry stores that
+snapshot in its journal and attests currency with its own freshness/1, with no
+right to change content. A compromised registry-owner key can withhold or delay
+a newer domain snapshot, hiding revocation. This is the same cost accepted for
+the registry domain. The witness and full retained history mitigate withholding
+only if the domain root itself verifies that its submission entered the journal,
+using an intake receipt plus the witness head; this is a root duty under (a).
+The existing freshness/1 binds one snapshot field, the registry-owner snapshot.
+Currency for other roots requires a later format change: a list of (root,
+snapshot id) pairs, or one record per root. That change is outside S5.
+
+(b) Each root maintains its own freshness/1 chain signed by itself, with its own
+witness or the registry journal as transport. The receipt binds that root,
+preserving D32 separation. The root must sign at least once per max age, which
+conflicts with offline roots unless it has an online freshness signer distinct
+from its content key.
+
+(c) The roots are online and reissue snapshots every interval no greater than
+max_age; this is a custody requirement.
+
+The spec owner's decision is required before the broker adapter, the signing
+service's persistent revoke path and the registry's grant/device intake. No
+implementation of these options is included here; both domain own-age checks
+remain unchanged.

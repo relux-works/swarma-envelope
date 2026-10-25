@@ -162,6 +162,9 @@ func context(t *testing.T, f map[string]any) verifier.Context {
 func derive(t *testing.T, v vector) expected {
 	t.Helper()
 	empty := func(c string) expected { return expected{c, map[string]any{}} }
+	if v.Mode == "receipt" {
+		return deriveReceipt(t, v)
+	}
 	input := v.Input
 	f := v.Fixture
 	if v.Mode == "signer" {
@@ -342,7 +345,7 @@ func runVectors(t *testing.T, paths []string) {
 // This is the named subset; TestConformance adds the manifest-bound sweeps.
 func TestNamed(t *testing.T) {
 	paths := namedPaths(t, "../vectors")
-	if len(paths) != 944 {
+	if len(paths) != 1009 {
 		t.Fatalf("named count %d", len(paths))
 	}
 	runVectors(t, paths)
@@ -424,10 +427,10 @@ func TestConformance(t *testing.T) {
 			t.Fatalf("named corpus bytes mismatch %s", p)
 		}
 	}
-	if count != 1688 || len(paths) != 2632 {
-		t.Fatalf("counts named944 sweeps%d total%d", count, len(paths))
+	if count != 1688 || len(paths) != 2697 {
+		t.Fatalf("counts named1009 sweeps%d total%d", count, len(paths))
 	}
-	t.Logf("named=944 generated=%s total=%d", strconv.Itoa(count), len(paths))
+	t.Logf("named=1009 generated=%s total=%d", strconv.Itoa(count), len(paths))
 	runVectors(t, paths)
 }
 

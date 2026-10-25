@@ -11,8 +11,8 @@ and exit status is 2, rather than success. It prints per-row mismatches and exit
 This is a conformance oracle for fixed offline inputs, not an importable public
 verifier API. It does not consult the generator or generated verdict code.
 Use the Go byte inventory check in addition to it to detect case removal and
-format drift. Default input contains 944 named semantic cases only. The complete
-2632-case gate must generate the 1688 T/B/Z/U sweeps first:
+format drift. Default input contains 1009 named semantic cases only. The complete
+2697-case gate must generate the 1688 T/B/Z/U sweeps first:
 
 ```sh
 GOMAXPROCS=2 "$CURATOR_GO" run ./tools/vectors -check
@@ -169,3 +169,15 @@ record/reissue entry (J6 `journal_chain_broken`), missing prior bytes (J5a
 `journal_unavailable`), wrong prior bytes (J5a `checkpoint_invalid`), or
 candidate time before prior time (J5a `journal_rollback`). Record references
 remain publication evidence, not admission of the referenced authority.
+
+`receipt` mode executes `fresh_revocation` on actual signed `input.mint`
+proofs first, then constructs a private in-memory value for the consuming
+operation. No serialized authority assertion is accepted. The adapter retains
+one snapshot Evidence identity unless `renew_evidence` or a snapshot-fact
+patch rebuilds it. The admitted tip becomes the consumer anchor before `use`
+patches apply. A private non-JSON dictionary key carries receipt state; fixture
+strings cannot supply it. R checks presence, binding/read consistency and fixed
+exclusive expiry before replacing only registry snapshot own-age. All other
+root ages and effective entry matching remain mandatory. Go-specific zero,
+reflection, copy, JSON and concurrency guarantees are tested in Go, rather than
+simulated as serialized receipt fields.

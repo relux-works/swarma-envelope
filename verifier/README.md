@@ -92,7 +92,7 @@ conformance test generates its corpus with the existing generator in a Go test
 temporary directory. `CURATOR_GO` selects that child toolchain explicitly;
 otherwise it uses the runtime toolchain or Go on PATH. `WAGGLE_VECTORS` may
 select an already materialized corpus. The committed sweep digest, entire
-manifest, all 1688 sweep byte hashes, all 944 named bytes and exact 2632
+manifest, all 1688 sweep byte hashes, all 1009 named bytes and exact 2697
 code/plan verdicts are checked. Generated sweeps are never committed. Fixture
 base64 transport and legacy field names are adapted only in the test.
 
@@ -171,8 +171,8 @@ Two additional protected Context values are required:
 `JournalWitness` retains its exact six-field verified projection. The current
 checkpoint may be old, but must match this freshly authenticated head exactly.
 The snapshot must equal both checkpoint.snapshot and tip.snapshot; its own age
-may exceed max_age only in this full API, whose current signed tip supplies the
-age clock. Signature, completeness, cumulative retention, future-entry rules,
+may exceed max_age in this full API and its receipt consumers below; the
+current signed tip supplies the age clock. Signature, completeness, cumulative retention, future-entry rules,
 rollback continuity and strict increasing snapshot issuance are unchanged.
 
 The proof has at most64 records and one checkpoint,8192bytes each,depth16,
@@ -208,26 +208,57 @@ hide revocation, extend authority or cancel revocation. An unavailable witness
 refuses every admission requiring current freshness. Live recovery integration
 and durable audit/storage remain unqualified by the pure library.
 
-Legacy `CheckRevocation`, message/grant/act and `VerifyJournal` methods keep
-own-snapshot/checkpoint-age rules. This API does not produce a weaker Context
-for them or convert its candidate plan into their effect authority. Consumers
-must explicitly adopt this full registry-revocation contract; existing platform
-consumer integration remains separate. Non-registry revocation domains keep
-their current profiles. Run focused tests with artifacts in ignored `.tmp/`:
+Receipt composition is specified in §2.10 of the envelope spec. Successful
+VerifyFreshness/VerifyFreshnessReanchor return `Result.FreshnessReceipt`, an
+opaque immutable pointer omitted from Result JSON. No constructor or accepted
+JSON decoding exists; direct receipt marshal/unmarshal and Present(receipt)
+refuse. Zero, reflection-allocated and concretely copied receipts are invalid.
+Only the original pointer can be shared concurrently. Audit returns detached
+FreshnessAudit metadata; its bool means authentic origin, not current validity.
+
+After atomically persisting the producer's admitted anchor, watermark and
+re-anchor audit, attach the pointer as Context.FreshnessReceipt with the admitted
+anchor, current witness/read/clock facts, and the same SignedSnapshots Evidence.
+Consumers MUST keep one immutable SignedSnapshots Evidence for the receipt's
+lifetime. Rebuilding it, even byte-identically, invalidates the receipt. Rebuild
+on any snapshot or cumulative/rollback-safe premise change, including changes
+later returning to the same ids/booleans. Run F again after snapshot changes,
+premise changes, re-anchor or restart. `complete=true` does not prove cumulativity.
+
+VerifyAttestation, VerifyMessage, Authorize, VerifyOperator and CheckRevocation
+consume it without signature changes; the shared VerifyEnvelope path does too.
+Set RequireFreshnessReceipt to refuse absence. Nil plus false retains legacy
+own-age behavior. Any supplied receipt must validate, even if own-age passes;
+there is no fallback. Only the bound registry snapshot's age is renewed.
+Operator and grant own-age checks remain mandatory; device=true and operator
+calls still validate supplied receipts. CheckRevocation's explicit root must
+match. VerifyJournal keeps its own-age contract and does not consume receipts.
+
+R runs after existing trusted-time checks: presence/provenance/margin; exact
+root/owner/snapshot/Evidence/witness/admitted-anchor/read bindings; then expiry.
+The four codes are freshness_receipt_unavailable, freshness_receipt_invalid,
+freshness_receipt_binding_mismatch and freshness_receipt_expired, preserved
+through K1/G7/O2. CheckRevocation returns Unavailable plus the exact error;
+VerifyAttestation returns zero identity plus the exact error. Result refusals
+have zero Plan and nil receipt. Full signed snapshot and effective-entry checks
+still run; a future-effective entry can become revoked before receipt expiry.
+
+Expiry is fixed at mint: E=min(tip.issued_at+max_age, issuing WitnessReadAt+max_age).
+Use requires max(now,W)<E-FreshnessMarginSeconds. Margin is0..60, default0;
+newer reads never extend E. Read must be non-future and no earlier than at mint.
+An F accept on its inherited inclusive age boundary can yield an already
+unusable receipt. Receipt evidence grants neither Commit nor effects.
+
+Real-F corpus fixtures carry signed mint inputs and consumer use contexts,
+never serialized receipts. Focused tests (run under the host's heavy-work lock
+when required) use ignored `.tmp/` for artifacts:
 
 ```sh
 GOMAXPROCS=2 "$CURATOR_GO" test ./verifier -run '^TestFreshness' -count=1
-GOMAXPROCS=2 "$CURATOR_GO" test ./record -run '^TestFreshnessDomain$' -count=1
+GOMAXPROCS=2 "$CURATOR_GO" test -race ./verifier -run '^TestFreshnessReceipt' -count=1
 ```
 
-Current API composition has a specific limit: a successful freshness plan is
-not a revocation receipt accepted by `VerifyAttestation`, `VerifyMessage`,
-`Authorize`, `VerifyOperator`, `CheckRevocation` or `VerifyJournal`. Each keeps
-its own snapshot-age checks, so the natural sequence "freshness verifies an old
-snapshot, then VerifyAttestation consumes that result" is unsupported.
-`TestFreshnessCompositionBoundary` exercises the old-base refusal alongside a
-genuinely current signed-snapshot control. An owner decision is needed for an
-explicit composition API/policy before consumers can use option B for those
-old-base checks. Do not fake a younger Context or implement a second verifier.
-Re-anchor comparisons and `complete=true` do not establish snapshot cumulativity;
-qualified rollback-safe cumulative-publication evidence remains required.
+The legacy TestFreshnessCompositionBoundary still covers optional-absence
+own-age refusal and a current-snapshot control. Live consumer adapters,
+cumulative publication, witness authentication and durable audit/effect
+serialization remain external. D42 records the open offline-root policy.

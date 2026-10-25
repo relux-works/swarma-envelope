@@ -246,6 +246,19 @@ func add(id, claim, pair, code string, v Vector) {
 		v.Expected["plan"] = M{"tag": v.Fixture["expected_tag"], "key": v.Input["key"]}
 	} else if code == "accept" {
 		ids := []any{}
+		if v.Mode == "receipt" {
+			op := v.Input["consume"].(M)
+			in := op["input"].(M)
+			if op["mode"] == "attestation" || op["mode"] == "device" || op["mode"] == "revocation" {
+				cases = append(cases, v)
+				return
+			}
+			c := Vector{Mode: op["mode"].(string), Input: in, Fixture: v.Fixture}
+			add(id, claim, pair, code, c)
+			v.Expected = cases[len(cases)-1].Expected
+			cases[len(cases)-1] = v
+			return
+		}
 		if v.Mode == "freshness" || v.Mode == "freshness-reanchor" {
 			for _, raw := range v.Input["chain"].([]any) {
 				ids = append(ids, decode(raw.(string))["id"])
@@ -651,6 +664,7 @@ func main() {
 	e6OrderVectors()
 	registryVectors()
 	freshnessVectors()
+	receiptVectors()
 	seeds, pubs := M{}, M{}
 	for i, k := range keys {
 		name := fmt.Sprintf("test-%d", i)

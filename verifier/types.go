@@ -13,6 +13,7 @@ import (
 type Evidence struct {
 	available bool
 	value     any
+	identity  *byte
 }
 
 // IsAvailable reports snapshot availability, not validity or authority.
@@ -29,7 +30,7 @@ func Present(value any) (Evidence, error) {
 	if err != nil {
 		return Evidence{}, err
 	}
-	return Evidence{available: true, value: v}, nil
+	return Evidence{available: true, value: v, identity: new(byte)}, nil
 }
 func freeze(value any, d int, budget *int) (any, error) {
 	if d > 32 || *budget < 0 {
@@ -105,39 +106,42 @@ func freeze(value any, d int, budget *int) (any, error) {
 // in this package's README; these are in-process snapshot values, not a new wire
 // or native request grammar. No field is inferred from a received signature.
 type Context struct {
-	FreshnessAnchor     Evidence
-	WitnessReadAt       Evidence
-	ServiceAuthority    Evidence
-	ServiceAttestations Evidence
-	RegistryOwner       Evidence
-	JournalWitness      Evidence
-	CommitSigningKey    Evidence
-	EnrollmentPublisher Evidence
-	Audience            Evidence
-	RequiredRoles       Evidence
-	AdmittedKeys        Evidence
-	GrantRoot           Evidence
-	ServiceRoot         Evidence
-	AgentRevocationRoot Evidence
-	OperatorRoot        Evidence
-	OperatorOwner       Evidence
-	Attestations        Evidence
-	AgentAttestationIDs Evidence
-	DeviceAttestations  Evidence
-	CurrentGenerations  Evidence
-	SignedSnapshots     Evidence
-	Time                Evidence
-	Now                 Evidence
-	WatermarkAvailable  Evidence
-	Watermark           Evidence
-	IDJournalAvailable  Evidence
-	IDJournal           Evidence
-	ReplayAvailable     Evidence
-	UsedActions         Evidence
-	SignerFacts         Evidence
-	Assurance           Evidence
-	Delivery            Evidence
-	ActBinding          Evidence
+	FreshnessReceipt        *FreshnessReceipt
+	RequireFreshnessReceipt bool
+	FreshnessMarginSeconds  int64
+	FreshnessAnchor         Evidence
+	WitnessReadAt           Evidence
+	ServiceAuthority        Evidence
+	ServiceAttestations     Evidence
+	RegistryOwner           Evidence
+	JournalWitness          Evidence
+	CommitSigningKey        Evidence
+	EnrollmentPublisher     Evidence
+	Audience                Evidence
+	RequiredRoles           Evidence
+	AdmittedKeys            Evidence
+	GrantRoot               Evidence
+	ServiceRoot             Evidence
+	AgentRevocationRoot     Evidence
+	OperatorRoot            Evidence
+	OperatorOwner           Evidence
+	Attestations            Evidence
+	AgentAttestationIDs     Evidence
+	DeviceAttestations      Evidence
+	CurrentGenerations      Evidence
+	SignedSnapshots         Evidence
+	Time                    Evidence
+	Now                     Evidence
+	WatermarkAvailable      Evidence
+	Watermark               Evidence
+	IDJournalAvailable      Evidence
+	IDJournal               Evidence
+	ReplayAvailable         Evidence
+	UsedActions             Evidence
+	SignerFacts             Evidence
+	Assurance               Evidence
+	Delivery                Evidence
+	ActBinding              Evidence
 }
 
 // FreshnessReanchorPlan records the explicit continuity waiver. SkippedPublications
@@ -163,8 +167,9 @@ type Plan struct {
 
 // Result holds the exact stable refusal code, or accept plus a candidate plan.
 type Result struct {
-	Code string `json:"code"`
-	Plan Plan   `json:"plan"`
+	FreshnessReceipt *FreshnessReceipt `json:"-"`
+	Code             string            `json:"code"`
+	Plan             Plan              `json:"plan"`
 }
 
 // Verifier holds only immutable snapshots and is safe for concurrent use.

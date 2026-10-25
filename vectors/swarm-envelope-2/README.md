@@ -45,9 +45,9 @@ cryptography reports PENDING and exits 2; it never reports full conformance.
 No network is used by the checker. Go module resolution may download the pinned
 public registrar dependency. Neither tool imports the future production verifier.
 
-Only 944 named cases are tracked. All 1688 T/B/Z/U cases remain in the generator
+Only 1009 named cases are tracked. All 1688 T/B/Z/U cases remain in the generator
 and committed `sweeps.tsv` / `sweeps.sha256`; `-sweeps` materializes them for the
-complete 2632-case check. See the [manifest format](../../tools/vectors/README.md).
+complete 2697-case check. See the [manifest format](../../tools/vectors/README.md).
 Commands must run sequentially through any host-required resource runner.
 
 Generator `-out DIR` writes named cases and the manifest; adding `-sweeps`
@@ -249,3 +249,12 @@ record/reissue entry (J6 `journal_chain_broken`), missing prior bytes (J5a
 `journal_unavailable`), wrong prior bytes (J5a `checkpoint_invalid`), or
 candidate time before prior time (J5a `journal_rollback`). Record references
 remain publication evidence, not admission of the referenced authority.
+
+The65 `N-RC-*` / `P-RC-*` receipt cases run actual signed F admission before
+a consuming operation. Mint facts are in `fixture`; `input.mint` names the
+producer proof, `input.consume` the consumer call, and `input.use` patches
+current protected facts. Receipt state is derived in memory, never serialized.
+The cases cover all five consumer APIs (including both attestation profiles),
+exact binding, Evidence rebuild, fixed exclusive expiry/no fallback, recovery
+read currency and retained domain-age/effective-revocation gates. See the
+[generator adapter description](../../tools/vectors/README.md).

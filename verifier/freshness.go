@@ -68,7 +68,7 @@ func freshnessAnchor(f facts, root, owner string) map[string]any {
 // proof signatures establish continuity, not historical effect authority.
 // Refusal has a zero plan. Acceptance is only a candidate transaction naming
 // the proof, checkpoint and snapshot; the caller persists state atomically.
-// Existing verification methods retain their snapshot-own-age contract.
+// Receipts renew only the bound registry snapshot in opted-in consumers.
 func (v Verifier) VerifyFreshness(chain [][]byte, checkpoint []byte, ids, keys []string) Result {
 	return v.verifyFreshness(chain, checkpoint, ids, keys, false)
 }
@@ -84,7 +84,8 @@ func (v Verifier) VerifyFreshnessReanchor(tip, checkpoint []byte, ids, keys []st
 }
 
 func (v Verifier) verifyFreshness(chain [][]byte, checkpoint []byte, ids, keys []string, reanchor bool) Result {
-	return decide(func() Plan {
+	var receipt *FreshnessReceipt
+	r := decide(func() Plan {
 		// F1: absent freshness refuses; all bounded wire parses precede policy.
 		need(len(chain) > 0, "freshness_unavailable")
 		need(len(chain) <= 64, "freshness_malformed")
@@ -220,6 +221,11 @@ func (v Verifier) verifyFreshness(chain [][]byte, checkpoint []byte, ids, keys [
 		admitted := append(es, cp, snap)
 		p := plan(admitted, f)
 		p.Reanchor = audit
+		receipt = mintReceipt(v.context, tip, cp, snap, maxAge, read, audit)
 		return p
 	})
+	if r.Code == "accept" {
+		r.FreshnessReceipt = receipt
+	}
+	return r
 }

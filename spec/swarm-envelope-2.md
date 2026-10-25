@@ -939,6 +939,71 @@ rollback on subsequent admission. No additional tail-discovery mechanism is
 defined here.
 Live publication/effect integration and witness authentication remain separate.
 
+### 2.10 Process-local freshness receipts (D41 composition)
+
+Successful `VerifyFreshness` and `VerifyFreshnessReanchor` return an opaque
+`*FreshnessReceipt` alongside the unchanged candidate Plan, only after every
+F gate including effective revocation passes. Refusals have a zero Plan and
+nil receipt. Only these producers mint receipts. The receipt is immutable,
+process-local, has no constructor or accepted decoding/persistence format,
+and cannot be supplied through `Present`. Result JSON omits it; direct receipt
+JSON encoding and decoding refuse. Zero values, reflection allocations and
+concrete struct copies lack provenance and refuse. Sharing the original pointer
+is supported concurrently. Unsafe process memory modification is outside this
+protected-process contract.
+
+After accepting the producer transaction, the consumer atomically persists the
+admitted tip anchor, watermark and any re-anchor audit, then supplies the pointer
+as `Context.FreshnessReceipt`, the **admitted** anchor (not the old mint anchor),
+the same immutable `SignedSnapshots` Evidence, and current protected facts.
+Consumers MUST retain one immutable SignedSnapshots Evidence for the receipt's
+lifetime. Rebuilding it, even byte-identically, invalidates the receipt. Rebuild
+it whenever snapshot content or cumulative/rollback-safe qualification changes,
+including a change later returning to the same ids or booleans. Re-run F after a
+snapshot change, premise change, re-anchor or process restart. `complete=true`
+is never proof of cumulative publication. The whole snapshot Evidence identity
+is conservatively bound, not just a snapshot id or a caller generation counter.
+
+`VerifyAttestation`, `VerifyMessage`, `Authorize`, `VerifyOperator` and
+`CheckRevocation` consume receipts through Context; signatures do not change.
+The shared `VerifyEnvelope` path applies the same R checks. With nil receipt and
+`RequireFreshnessReceipt=false`, legacy behavior and own-age refusal ordering
+are unchanged. Required absence refuses. Any supplied receipt selects receipt
+mode and must validate even when own-age would pass: no failure falls back to
+legacy admission. `VerifyAttestation(device=true)` and `VerifyOperator` still
+validate it, although their operator-domain snapshots gain no age waiver.
+`CheckRevocation` additionally requires its explicit root to equal the receipt
+root. `VerifyJournal` remains outside this mode and retains own-age checks.
+
+R validates the protected registry root and owner; exact snapshot bytes/id and
+immutable Evidence premise; current witness registry/owner/checkpoint id,
+sequence and head; and the admitted anchor's tip id/time/publication sequence,
+snapshot, checkpoint and registry sequence. Current `WitnessReadAt` must be
+well-formed, no later than min(now,W), and no earlier than its issuing read.
+Required missing current facts refuse; malformed facts and foreign bindings
+remain distinct. Normal snapshot signature, typed schema, completeness,
+rollback-safe qualification, all entry validation and effective matching stay
+mandatory. Only the bound **registry-root snapshot's own-age** test is replaced.
+Grant-root and operator-root own-age tests remain unchanged; D42 is open.
+
+Let A be the protected max_age at issuance, at most60 seconds. Store fixed
+`E=min(tip.issued_at+A, issuing WitnessReadAt+A)`. Receipt use requires
+`max(now,W) < E - delta`, where Context.FreshnessMarginSeconds is an integer
+0..60 (default0); a margin only tightens admission. Newer witness reads never
+extend E. All existing trusted clock/watermark and non-future checks apply;
+there is no ambient clock. F's inherited inclusive age boundary is unchanged:
+a receipt minted at exactly E is already unusable by a consumer.
+
+`receipt.Audit() (FreshnessAudit,bool)` returns detached registry/owner,
+snapshot/checkpoint/freshness ids, re-anchored status and old freshness/checkpoint
+ids when applicable. Current ids name the new endpoint; checkpoint ids commit
+both heads. The bool reports authentic origin only, never currency or authority.
+Changing the audit value cannot change admission. No receipt grants Commit or
+an effect permit; repeat current checks at the serialized effect boundary.
+Offline vectors contain actual signed F inputs plus mint/use contexts and a
+consumer operation. Both implementations run F and derive a receipt internally;
+serialized private receipt fields or a verified=true assertion confer nothing.
+
 ## 3. General grant/1
 
 ### 3.1 Closed v0 body
@@ -1341,6 +1406,15 @@ fields in the order stated. Envelope structure precedes semantic crypto; nested
 evidence follows the exact subpipeline in §2.6. Signature
 entries are checked in array order. Codes are distinct per listed substep:
 
+Receipt mode inserts R1–R3 immediately after the consuming path's existing
+trusted-time/watermark gate and before validity/admission continuation, including
+direct attestation/revocation APIs and operator-only paths. Earlier envelope or
+signed-evidence failures retain precedence. Snapshot crypto/schema/entry slots
+remain in place; exact snapshot id is rechecked at the replaced own-age slot.
+Receipt codes pass through K1/G7/O2 unchanged. VerifyAttestation returns zero
+identity plus the exact record.Error; CheckRevocation returns Unavailable plus
+that error. No-receipt legacy paths insert no R refusal.
+
 | Step | Check | Refusal |
 | --- | --- | --- |
 | E1 | Received size / depth and CCJ-1 lexical parsing | `envelope_too_large` / `envelope_malformed` |
@@ -1353,6 +1427,9 @@ entries are checked in array order. Codes are distinct per listed substep:
 | E7a | Required delivery room/recipient context, exact room, exact recipient | `message_context_unavailable` / `message_room_mismatch` / `message_recipient_mismatch` |
 | E7b | Delivered text present, valid UTF-8 bytes, exact digest | `message_text_unavailable` / `message_text_invalid` / `message_text_mismatch` |
 | T1 | Trusted/fresh provider authority, watermark availability | `time_unavailable` / `watermark_unavailable` |
+| R1 (receipt mode only, after T1) | Required presence, authentic original pointer, margin0..60 | `freshness_receipt_unavailable` / `freshness_receipt_invalid` |
+| R2 | Required current binding/read presence, then syntax, then exact premise/root/snapshot/witness/admitted-anchor/read consistency | missing: `freshness_receipt_unavailable`; malformed/future read: `freshness_receipt_invalid`; foreign binding, earlier read or rebuilt Evidence: `freshness_receipt_binding_mismatch` |
+| R3 | Exclusive fixed expiry max(now,W)<E-margin | `freshness_receipt_expired` |
 | T2 | Each expiry at max, then start at min | `expired` / `not_yet_valid` |
 | K1 | Before required signed evidence intake: distinct protected root roles; then required outer evidence/header and root, strict root signature, purpose-specific typed fields/current binding, profile/derivation, validity and scoped signed revocation; finally message author/reference equality after ALL author/approver evidence, or grant agent-issuer profile (§2.6) | `key_binding_unavailable` / `key_binding_invalid` / `revoked` / `author_attestation_mismatch` / `signature_profile_invalid` |
 | E8 | Id journal availability, then same id other bytes | `id_journal_unavailable` / `envelope_conflict` |
@@ -1552,18 +1629,13 @@ fresh authenticated head read, current policy and retained-state continuity.
 Old signed intermediates may establish hash-linked completeness for that new
 admission; they are not re-admitted as historical effects or authority.
 
-Consumers relying on option B must compose freshness revocation admission
-with every other required identity, message, grant and effect check through a
-documented supported API composition. `VerifyAttestation`, `VerifyMessage`,
-`Authorize`, `VerifyOperator`, `CheckRevocation` and `VerifyJournal` retain their
-current own-snapshot age checks; `VerifyFreshness` does not make them tolerant
-of an old snapshot. Consumers MUST NOT fake younger Context timestamps or
-snapshot bytes and MUST NOT implement a second verifier to bypass those gates.
-The current API has no supported way to pass a freshness-verified old snapshot
-as a revocation receipt into these entry points: `VerifyAttestation` still
-rechecks snapshot age, and a candidate Plan is not evidence accepted by Context.
-A composition API/policy requires a separate owner decision and review before
-option B can supply old-snapshot admission through those other methods.
+Consumers relying on option B compose F admission through the process-local
+receipt contract in §2.10. Its registry-only own-age waiver preserves every
+other identity, message, grant and effect check; VerifyJournal and other root
+domains retain own-age checks. Consumers MUST NOT fake younger Context time or
+snapshot bytes or implement a second verifier. Receipts are candidate evidence,
+not durable authority or a Commit/effect permit. Live adapter integration and
+the offline-root policy in D42 still require qualification.
 
 Without re-anchor, the64publication proof bound spans at most64new intervals
 when the stored anchor itself need not be resent, about21minutes20seconds at

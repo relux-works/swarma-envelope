@@ -84,6 +84,7 @@ func envelope(raw []byte, kind string, f facts) map[string]any {
 		delivery(b, f)
 	}
 	low, high := times(f)
+	receiptGate(f, low, high)
 	window(b, low, high)
 	if kind == "message/1" {
 		a := attestation(str(b["author"]), str(b["author_attestation"]), false, true, true, f)
@@ -125,7 +126,7 @@ func plan(es []map[string]any, f facts) Plan {
 // VerifyEnvelope runs E1–E8 for a caller-selected message, grant or operator
 // type. It does not replace grant-chain authorization or O1–O5 act validation.
 func (v Verifier) VerifyEnvelope(raw []byte, kind string) Result {
-	return decide(func() Plan { f := v.facts(); e := envelope(raw, kind, f); return plan([]map[string]any{e}, f) })
+	return decide(func() Plan { f := v.consumerFacts(); e := envelope(raw, kind, f); return plan([]map[string]any{e}, f) })
 }
 
 // VerifyMessage checks receiver identity, all approvers, delivery and exact text
@@ -136,7 +137,7 @@ func (v Verifier) VerifyMessage(raw []byte) Result { return v.VerifyEnvelope(raw
 // protected arguments/binding, currency, revocation, replay and closed widening.
 func (v Verifier) VerifyOperator(raw []byte) Result {
 	return decide(func() Plan {
-		f := v.facts()
+		f := v.consumerFacts()
 		e := envelope(raw, "operator-act/1", f)
 		b := obj(e["body"])
 		operation := str(b["operation"])
@@ -214,7 +215,7 @@ func actionKind(action string) string {
 // request {key,action,target}. request is protected authenticated caller input.
 func (v Verifier) Authorize(chain [][]byte, request Evidence) Result {
 	return decide(func() Plan {
-		f := v.facts()
+		f := v.consumerFacts()
 		need(len(chain) >= 1 && len(chain) <= 4, "grant_chain_malformed")
 		total := 0
 		for _, r := range chain {
@@ -296,6 +297,7 @@ func (v Verifier) Authorize(chain [][]byte, request Evidence) Result {
 			need(equal(kinds, targets), "grant_target_invalid")
 		}
 		low, high := times(f)
+		receiptGate(f, low, high)
 		for _, b := range bs {
 			a, z := effective(b)
 			need(high < z, "expired")

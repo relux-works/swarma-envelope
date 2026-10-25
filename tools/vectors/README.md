@@ -17,9 +17,9 @@ GOMAXPROCS=2 "$CURATOR_GO" vet ./tools/vectors
 
 Run commands sequentially through the host's required resource runner where
 applicable. Logs and generated copies belong in ignored `.tmp/`. The default
-write command (`go run ./tools/vectors`) writes 944 named cases, the public keys
+write command (`go run ./tools/vectors`) writes 1009 named cases, the public keys
 and sweep manifest/digest under `vectors/`; it does not materialize T/B/Z/U JSON.
-`-sweeps` adds those 1688 cases (2632 total: 2499 negative, 133 positive).
+`-sweeps` adds those 1688 cases (2697 total: 2553 negative, 144 positive).
 The inventory check also rejects unexpected JSON under both managed trees,
 including accidentally materialized sweeps when `-sweeps` is absent. Generation
 does not remove obsolete files; remove only reviewed stale paths explicitly.
@@ -251,3 +251,16 @@ record/reissue entry (J6 `journal_chain_broken`), missing prior bytes (J5a
 `journal_unavailable`), wrong prior bytes (J5a `checkpoint_invalid`), or
 candidate time before prior time (J5a `journal_rollback`). Record references
 remain publication evidence, not admission of the referenced authority.
+
+`receipt` mode (`N-RC-*` / `P-RC-*`) carries `input.mint={mode,input}` with
+real signed freshness/checkpoint proofs, the mint facts in `fixture`, and
+`input.consume={mode,input}`. `input.use` patches current protected facts after
+the admitted tip becomes the anchor. `attach`, `require`, `margin` and
+`renew_evidence` select consumer policy and snapshot Evidence reuse/rebuild.
+These are fixture adapter instructions, never a serialized receipt or a public
+request grammar. Each runner verifies the entire F proof before creating its
+private receipt; a failed mint returns that F refusal without a consumer call.
+The generator computes expected plans from the consumer inputs independently
+of the verifier. Byte-identical Evidence rebuild, fixed exclusive expiry,
+future-effective revocation, re-anchor read requirements and other domain ages
+have accepted neighbors. Direct Go tests cover pointer provenance and JSON.

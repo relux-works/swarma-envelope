@@ -474,6 +474,7 @@ def snapshot_header(f, root):
     except Refusal:
         raise Refusal("key_binding_invalid") from None
     low, high = time_values(f)
+    receipt_gate(f, low, high)
     require(b["complete"] and record["rollback_safe"] and issued <= low, "key_binding_unavailable")
     return b, issued, high, record["max_age"]
 
@@ -499,7 +500,8 @@ def snapshot_entries(b, high, ids, keys):
 
 def signed_snapshot(f, root, ids, keys):
     b, issued, high, max_age = snapshot_header(f, root)
-    require(high-issued <= max_age, "key_binding_unavailable")
+    if not receipt_snapshot(f, root, b):
+        require(high-issued <= max_age, "key_binding_unavailable")
     snapshot_entries(b, high, ids, keys)
     return b
 
@@ -510,9 +512,9 @@ def snapshot_base(f, root):
     return b, max_age
 
 
-def verify_attestation(key, f, device=False, check_revocation=True, reference=None):
+def verify_attestation(key, f, device=False, check_revocation=True, reference=None, direct=False):
     root_role_separation(f)
-    message_reference = reference is not None
+    message_reference = reference is not None and not direct
     collection = "operator_attestations" if device else "attestations"
     records = evidence_object(f.get(collection))
     lookup = key
@@ -586,6 +588,7 @@ def verify_attestation(key, f, device=False, check_revocation=True, reference=No
         require(type(current_binding["active"]) is bool and current_binding["active"]
                 and left == right, "key_binding_invalid")
     low, high = time_values(f)
+    receipt_gate(f, low, high)
     require(start <= low and high < end, "key_binding_invalid")
     if check_revocation:
         revoker = root
@@ -755,6 +758,7 @@ def envelope(raw, expected, f):
     if expected == "message/1":
         delivery_binding(b, f)
     low, high = time_values(f)
+    receipt_gate(f, low, high)
     window(b["iat"], b["exp"], low, high)
     if expected == "message/1":
         author = agent_binding(b["author"], f, reference=b["author_attestation"])
@@ -1235,9 +1239,130 @@ def fresh_revocation(inp, f, reanchor=False):
     return proof + [cp, {"id": snapshot_id}]
 
 
+
+_RECEIPT_CONTEXT = object()
+
+
+def receipt_gate(f, low, high):
+    ctx = f.get(_RECEIPT_CONTEXT)
+    if ctx is None:
+        return
+    r, margin, identity, explicit_root = ctx
+    require(r is not None, "freshness_receipt_unavailable")
+    require(type(margin) is int and 0 <= margin <= 60, "freshness_receipt_invalid")
+    for name in ("agent_revocation_root", "registry_owner", "journal_witness", "freshness_anchor", "witness_read_at", "revocations"):
+        require(f.get(name) is not None, "freshness_receipt_unavailable")
+    try:
+        policy = evidence_exact(f["agent_revocation_root"], "key purpose attestation_root")
+        key_bytes(policy["key"]); key_bytes(policy["attestation_root"])
+        require(policy["purpose"] == "registry-revocation", "freshness_receipt_invalid")
+        bounded_text(f["registry_owner"])
+        w = evidence_exact(f["journal_witness"], "registry_id owner registry_seq registry_head checkpoint_id previous_checkpoint_id")
+        key_bytes(w["registry_id"]); bounded_text(w["owner"])
+        witness = journal_witness(f, w["registry_id"], w["owner"])
+        a = evidence_exact(f["freshness_anchor"], "registry_id owner publication_seq freshness_id issued_at snapshot registry_seq checkpoint_id")
+        key_bytes(a["registry_id"]); bounded_text(a["owner"])
+        anchor = publication_anchor(f, a["registry_id"], a["owner"])
+        read = timestamp(f["witness_read_at"])
+        require(read <= low, "freshness_receipt_invalid")
+    except Refusal:
+        raise Refusal("freshness_receipt_invalid") from None
+    records = f["revocations"]
+    require(type(records) is dict, "freshness_receipt_invalid")
+    row = records.get(r["root"])
+    require(row is not None, "freshness_receipt_unavailable")
+    require(type(row) is dict, "freshness_receipt_invalid")
+    require(row.get("snapshot") is not None, "freshness_receipt_unavailable")
+    require(type(row["snapshot"]) is str, "freshness_receipt_invalid")
+    require(policy["key"] == r["root"] and f["registry_owner"] == r["owner"], "freshness_receipt_binding_mismatch")
+    require(identity is r["identity"], "freshness_receipt_binding_mismatch")
+    require(explicit_root is None or explicit_root == r["root"], "freshness_receipt_binding_mismatch")
+    require(all(witness[k] == value for k, value in r["witness"].items()), "freshness_receipt_binding_mismatch")
+    require(anchor == r["anchor"], "freshness_receipt_binding_mismatch")
+    require(unb64(row["snapshot"]) == r["snapshot"], "freshness_receipt_binding_mismatch")
+    require(read >= r["read"], "freshness_receipt_binding_mismatch")
+    require(high < r["expires"] - margin, "freshness_receipt_expired")
+
+
+def receipt_snapshot(f, root, body):
+    ctx = f.get(_RECEIPT_CONTEXT)
+    if ctx is None or ctx[0] is None or root != ctx[0]["root"]:
+        return False
+    require(digest((OWN_TAGS["revocation/1"]+"\n").encode("ascii")+ccj(body)) == ctx[0]["anchor"]["snapshot"], "freshness_receipt_binding_mismatch")
+    return True
+
+
+def receipt_revocation_policy(f, root):
+    # Direct CheckRevocation retains the existing pinned-domain header gate.
+    root_role_separation(f)
+    require(type(root) is str and bool(root), "key_binding_invalid")
+    service, registry = f.get("service_root"), f.get("agent_revocation_root")
+    require(type(service) is not dict or root != service.get("key"), "key_binding_invalid")
+    if type(registry) is dict and root == registry.get("key"):
+        policy = evidence_exact(registry, "key purpose attestation_root")
+        issuer = evidence_exact(service, "key purpose")
+        require(type(issuer["purpose"]) is int and issuer["purpose"] == 5
+                and policy["purpose"] == "registry-revocation" and policy["attestation_root"] == issuer["key"], "key_binding_invalid")
+        try:
+            key_bytes(issuer["key"]); key_bytes(policy["key"])
+        except Refusal:
+            raise Refusal("key_binding_invalid") from None
+    elif root not in (f.get("operator_root"), f.get("root")):
+        evidence_exact(registry, "key purpose attestation_root")
+        require(f.get("operator_root") is not None and f.get("root") is not None, "key_binding_unavailable")
+        raise Refusal("key_binding_invalid")
+
+
+def receipt_verdict(inp, facts):
+    # The complete real F pipeline, including signatures and revocation, runs
+    # before this private object exists. No decoded receipt assertion is trusted.
+    mint = inp["mint"]
+    es = fresh_revocation(mint["input"], facts, mint["mode"] == "freshness-reanchor")
+    tip, cp = es[-3], es[-2]
+    b, cb = tip["body"], cp["body"]
+    root = b["registry"]
+    row = facts["revocations"][root]
+    identity = object()
+    anchor = {"registry_id": root, "owner": b["owner"], "publication_seq": b["publication_seq"], "freshness_id": tip["id"], "issued_at": b["issued_at"], "snapshot": b["snapshot"], "registry_seq": b["registry_seq"], "checkpoint_id": b["checkpoint_id"]}
+    r = {"identity": identity, "root": root, "owner": b["owner"], "snapshot": unb64(row["snapshot"]),
+         "anchor": anchor, "witness": {k: facts["journal_witness"][k] for k in ("registry_id", "owner", "registry_seq", "registry_head", "checkpoint_id")},
+         "read": timestamp(facts["witness_read_at"]),
+         "expires": min(timestamp(b["issued_at"])+row["max_age"], timestamp(facts["witness_read_at"])+row["max_age"])}
+    f = dict(facts)
+    f["freshness_anchor"] = anchor
+    f.update(inp["use"])
+    if inp["renew_evidence"] or "revocations" in inp["use"]:
+        identity = object()
+    mode, operation = inp["consume"]["mode"], inp["consume"]["input"]
+    if inp["attach"] or inp["require"]:
+        f[_RECEIPT_CONTEXT] = (r if inp["attach"] else None, inp["margin"], identity, operation["root"] if mode == "revocation" else None)
+    if mode in ("attestation", "device"):
+        # This direct API uses an exact reference; device lookup remains by key.
+        require(mode == "device" or operation["reference"] != "", "key_binding_unavailable")
+        e = verify_attestation(operation["key"], f, mode == "device", True, operation["reference"] if mode == "attestation" else None, direct=True)
+        require(mode != "device" or operation["reference"] == "" or e["id"] == operation["reference"], "key_binding_invalid")
+        return {"code": "accept", "plan": {}}
+    if mode == "revocation":
+        receipt_revocation_policy(f, operation["root"])
+        signed_snapshot(f, operation["root"], operation["ids"], operation["keys"])
+        return {"code": "accept", "plan": {}}
+    if mode == "grant":
+        es = grants(operation["chain"], f)
+    else:
+        es = [envelope(unb64(operation["envelope"]), "operator-act/1" if mode == "operator" else "message/1", f)]
+        if mode == "operator":
+            operator(es[0], f)
+    plan = {"ids": [e["id"] for e in es], "watermark": max(f["now"], f["watermark"])}
+    if mode == "operator":
+        plan["action_id"] = es[0]["body"]["action_id"]
+    return {"code": "accept", "plan": plan}
+
+
 def verdict(vector):
     f, inp, mode = vector["fixture"], vector["input"], vector["mode"]
     try:
+        if mode == "receipt":
+            return receipt_verdict(inp, f)
         if mode == "signer":
             return {"code": "accept", "plan": signer_admission(unb64(inp["preimage"]), f)}
         if mode == "domain":

@@ -120,6 +120,7 @@ func snapshotHeader(f facts, root any) snapshotProof {
 	need(isBool(b["complete"]) && ok, "key_binding_invalid")
 	issued := mapped(func() int64 { return stamp(b["issued_at"]) }, "*", "key_binding_invalid")
 	low, high := times(f)
+	receiptGate(f, low, high)
 	need(b["complete"] == true && r["rollback_safe"] == true && issued <= low, "key_binding_unavailable")
 	return snapshotProof{verified, entries, issued, high, num(r["max_age"])}
 }
@@ -158,7 +159,9 @@ func snapshotEntries(p snapshotProof, ids, keys []string) {
 }
 func snapshot(f facts, root any, ids, keys []string) map[string]any {
 	p := snapshotHeader(f, root)
-	need(p.high-p.issued <= p.maxAge, "key_binding_unavailable")
+	if !receiptSnapshot(f, root, p.envelope) {
+		need(p.high-p.issued <= p.maxAge, "key_binding_unavailable")
+	}
 	snapshotEntries(p, ids, keys)
 	return p.envelope
 }
@@ -255,6 +258,7 @@ func attestation(keyID, reference string, device, revocations, message bool, f f
 		}
 	}
 	low, high := times(f)
+	receiptGate(f, low, high)
 	need(start <= low && high < end, "key_binding_invalid")
 	if revocations {
 		revoker := root
@@ -329,7 +333,12 @@ const (
 // operator or grant issuer; registry purpose/scope and D30 apply before lookup.
 // No historical-iat bypass exists.
 func (v Verifier) CheckRevocation(root string, ids, keys []string) (state RevocationState, err error) {
-	r := decide(func() Plan { snapshot(v.facts(), root, ids, keys); return Plan{} })
+	r := decide(func() Plan {
+		f := v.consumerFacts()
+		f["_receiptRoot"] = root
+		snapshot(f, root, ids, keys)
+		return Plan{}
+	})
 	switch r.Code {
 	case "accept":
 		return NotRevoked, nil
@@ -355,7 +364,7 @@ type Attestation struct {
 func (v Verifier) VerifyAttestation(key, reference string, device bool) (a Attestation, err error) {
 	r := decide(func() Plan {
 		need(device || reference != "", "key_binding_unavailable")
-		e := attestation(key, reference, device, true, false, v.facts())
+		e := attestation(key, reference, device, true, false, v.consumerFacts())
 		need(!device || reference == "" || e["id"] == reference, "key_binding_invalid")
 		b := obj(e["body"])
 		s := obj(b["subject"])
