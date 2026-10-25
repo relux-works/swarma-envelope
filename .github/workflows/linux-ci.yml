@@ -1,0 +1,73 @@
+name: Linux Go CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    env:
+      GOTOOLCHAIN: local
+      GOMAXPROCS: '2'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version: '1.26.10'
+      - name: Verify modules
+        run: go mod verify
+      - name: Build
+        run: go build ./...
+      - name: Vet
+        run: go vet ./...
+      - name: Check formatting
+        run: test -z "$(gofmt -l .)"
+      # Prove the tools accept a valid control and detect the intended faults.
+      - name: Verify vet and formatting controls
+        run: |
+          control_dir="$(mktemp -d)"
+          trap 'rm -rf "$control_dir"' EXIT
+          printf '%s\n' 'module example.invalid/ci-control' '' 'go 1.26.0' > "$control_dir/go.mod"
+          printf '%s\n' 'package control' '' 'func valid() {}' > "$control_dir/good.go"
+          (cd "$control_dir" && go vet ./...)
+          test -z "$(gofmt -l "$control_dir")"
+          printf '%s\n' 'package control' 'import "fmt"' 'func bad() { fmt.Printf("%d", "wrong") }' > "$control_dir/vet.go"
+          vet_status=0
+          (cd "$control_dir" && go vet ./...) > "$control_dir/vet.log" 2>&1 || vet_status=$?
+          test "$vet_status" -eq 1
+          grep -F 'fmt.Printf format %d has arg "wrong" of wrong type string' "$control_dir/vet.log"
+          rm "$control_dir/vet.go"
+          printf '%s\n' 'package control' 'func unformatted( ){ }' > "$control_dir/format.go"
+          format_status=0
+          test -z "$(gofmt -l "$control_dir")" || format_status=$?
+          test "$format_status" -eq 1
+          test "$(gofmt -l "$control_dir")" = "$control_dir/format.go"
+          printf 'Expected failures: vet=%s formatting=%s\n' "$vet_status" "$format_status"
+      - name: Prepare independent checker
+        run: |
+          python3 -c 'import sys; assert sys.version_info[:2] == (3, 14), sys.version'
+          python3 -m venv "$RUNNER_TEMP/checker-venv"
+          "$RUNNER_TEMP/checker-venv/bin/python" -m pip install --isolated --index-url https://pypi.org/simple --only-binary=:all: --require-hashes -r tools/vectorcheck/requirements-ci.txt
+      - name: Check committed corpus inventory
+        run: go run ./tools/vectors -check
+      - name: Materialize and check full corpus
+        run: |
+          go run ./tools/vectors -sweeps -out "$RUNNER_TEMP/waggle-vectors"
+          go run ./tools/vectors -sweeps -out "$RUNNER_TEMP/waggle-vectors" -check
+          cmp vectors/swarm-envelope-2/sweeps.sha256 "$RUNNER_TEMP/waggle-vectors/swarm-envelope-2/sweeps.sha256"
+          cmp vectors/swarm-envelope-2/sweeps.tsv "$RUNNER_TEMP/waggle-vectors/swarm-envelope-2/sweeps.tsv"
+      # Missing P-256 support returns PENDING/exit 2, which fails this step.
+      - name: Independent full-corpus check
+        run: '"$RUNNER_TEMP/checker-venv/bin/python" -B tools/vectorcheck/check.py --vectors "$RUNNER_TEMP/waggle-vectors"'
+      - name: Test
+        run: |
+          export CURATOR_GO="$(go env GOROOT)/bin/go"
+          go test -v -p 1 -count=1 ./...

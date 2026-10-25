@@ -51,6 +51,7 @@ Python 3.14.4 and the already present cryptography 46.0.5 for P-256.
 | Library vet | `GOMAXPROCS=2 "$CURATOR_GO" vet ./record ./verifier ./internal/apicheck` | Static checks for the public library and API test helper |
 | Library formatting | `"${CURATOR_GO%/go}/gofmt" -w record verifier internal/apicheck` | Formats library and test sources |
 | Go formatting | `"$CURATOR_GO" fmt ./tools/vectors` | Formats generator source |
+| Hosted Linux CI | `.github/workflows/linux-ci.yml` on pull requests and pushes to `main`; Go module/build/vet/format/tests, vet/format negative controls and the full generated corpus with a hash-pinned Python checker | GitHub Actions logs and runner-temporary corpus; supplements the full review gate and becomes required only after merging and passing on `main` |
 | Git | `git diff --check`, `git diff --stat` | Whitespace validation and scoped change review |
 
 The full conformance gate includes the generated sweeps:
