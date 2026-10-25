@@ -1876,14 +1876,14 @@ three paths in §2.5 and no further signer generation interpretation. Neither
 check proves actual creation time beyond the admissible message window; a signed `iat` is still a
 claim, and historical verification remains outside v0.
 
-The v0 revocation guarantee is only §2.6's signed-snapshot bound: no later than
+For the ordinary snapshot own-age profile, §2.6's revocation bound is no later than
 first-containing-snapshot issued_at + configured maximum age (at most 60 s)
 for an effective entry, never before `from`, hence max(issued_at+age,from) for
 future entries. It promises nothing before the issuer signs that snapshot.
 Owner decision, 2026-10-24: "revocation complete" means completion ONLY after a
 defined set of durable barriers and acknowledgements, OR proven expiry of ALL
 previously admitted authority. Before completion, only bounded propagation lag
-is permitted; the snapshot admission bound remains `S+A`, or `max(S+A,from)`
+is permitted; in that own-age profile the snapshot admission bound is `S+A`, or `max(S+A,from)`
 for future-effective entries, where S is the first-containing signed snapshot
 issuance and A its configured maximum age. After completion, NO admission
 window for the revoked right may remain. Critical effects additionally require
@@ -1911,10 +1911,11 @@ The separate trust node, registry/witness continuity, exclusive administrative
 boundary and publication pipeline require qualification before deployment.
 The separate signer under its own account in §1 MUST retain custody of the
 registry-owner key; the storage and ordering service MUST never hold it.
-Compromise of the registry key alone can withhold or delay revocation visibility
-within the v0 snapshot bound and continuity rules; it cannot mint grants or
-attestations, whose original signing roots remain distinct. This bound starts
-only with the first-containing signed snapshot (§2.6); nothing here bounds
+Compromise of the registry key alone can withhold or delay revocation visibility;
+own-age profiles retain their snapshot bound and continuity rules, while /2
+supplies only the observed-prefix guarantee above. It cannot mint grants or
+attestations, whose original signing roots remain distinct. The own-age bound
+starts only with the first-containing signed snapshot (§2.6); nothing here bounds
 withholding before publication or proves honest publication by a compromised
 registry. The registry and rollback witness on one node are one failure domain.
 They MUST use separate processes, accounts and streams; the registry writer
@@ -1951,10 +1952,11 @@ fresh authenticated head read, current policy and retained-state continuity.
 Old signed intermediates may establish hash-linked completeness for that new
 admission; they are not re-admitted as historical effects or authority.
 
-Consumers relying on option B compose F admission through the process-local
-receipt contract in §2.10. Its registry-only own-age waiver preserves every
-other identity, message, grant and effect check; VerifyJournal and other root
-domains retain own-age checks. Consumers MUST NOT fake younger Context time or
+Legacy /1 consumers relying on option B compose F admission through the
+process-local receipt contract in §2.10. Its registry-only own-age waiver
+preserves every other identity, message, grant and effect check; other root
+domains retain own-age checks and VerifyJournal remains an independent proof path.
+The /2 covered-root rules are defined separately above. Consumers MUST NOT fake younger Context time or
 snapshot bytes or implement a second verifier. Receipts are candidate evidence,
 not durable authority or a Commit/effect permit. Live adapter integration and
 the D42 /2 live consumer integration still require qualification.

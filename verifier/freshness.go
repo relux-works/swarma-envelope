@@ -68,7 +68,8 @@ func freshnessAnchor(f facts, root, owner string) map[string]any {
 // proof signatures establish continuity, not historical effect authority.
 // Refusal has a zero plan. Acceptance is only a candidate transaction naming
 // the proof, checkpoint and snapshot; the caller persists state atomically.
-// Receipts renew only the bound registry snapshot in opted-in consumers.
+// Legacy /1 receipts renew registry own-age; /2 receipts cover the exact
+// selected roots, backed by the complete-prefix index.
 func (v Verifier) VerifyFreshness(chain [][]byte, checkpoint []byte, ids, keys []string) Result {
 	return v.verifyFreshness(chain, checkpoint, ids, keys, false)
 }
