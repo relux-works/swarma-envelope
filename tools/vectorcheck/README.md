@@ -11,8 +11,8 @@ and exit status is 2, rather than success. It prints per-row mismatches and exit
 This is a conformance oracle for fixed offline inputs, not an importable public
 verifier API. It does not consult the generator or generated verdict code.
 Use the Go byte inventory check in addition to it to detect case removal and
-format drift. Default input contains 1064 named semantic cases only. The complete
-2752-case gate must generate the 1688 T/B/Z/U sweeps first:
+format drift. Default input contains 1157 named semantic cases only. The complete
+2845-case gate must generate the 1688 T/B/Z/U sweeps first:
 
 ```sh
 GOMAXPROCS=2 "$CURATOR_GO" run ./tools/vectors -check
@@ -181,3 +181,11 @@ exclusive expiry before replacing only registry snapshot own-age. All other
 root ages and effective entry matching remain mandatory. Go-specific zero,
 reflection, copy, JSON and concurrency guarantees are tested in Go, rather than
 simulated as serialized receipt fields.
+
+Root-currency CU cases use the same commands and transport. The /2 oracle checks
+original root signatures and derives the complete-prefix projection independently;
+matching registry-signed lists alone never establish latest-root selection.
+The supplied protected version selects /1 or /2 without negotiation. Both original
+Evidence identities are modeled across receipt mint/use, and omitted-root coverage
+runs its own-age check in the same call. Protocol and capacity details are in
+[the platform specification](../../spec/swarm-envelope-2.md).

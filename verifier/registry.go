@@ -123,8 +123,12 @@ func journalPriorCheckpoint(f facts, w map[string]any, root, owner string) map[s
 // against Context.JournalWitness, with optional second checkpoint fork evidence.
 // Witness facts must already be authenticated outside the registry's failure
 // domain; this method defines no witness wire protocol. References convey no
-// record/action authority. The plan names only the exact verified checkpoint.
+// record/action authority. The /1 plan names only the exact verified checkpoint; /2 also inventories
+// complete-prefix dependencies and returns its detached candidate index.
 func (v Verifier) VerifyJournal(entries [][]byte, checkpoint, conflict []byte) Result {
+	if v.context.RegistryCurrencyVersion != 0 && v.context.RegistryCurrencyVersion != 1 || currencyKind(checkpoint) == "checkpoint/2" {
+		return v.verifyJournal2(entries, checkpoint, conflict)
+	}
 	return decide(func() Plan {
 		need(len(entries) <= 64, "journal_malformed")
 		total := len(checkpoint) + len(conflict)

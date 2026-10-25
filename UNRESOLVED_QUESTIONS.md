@@ -22,7 +22,7 @@ activation decisions. The normative details are in
 | D14 — carrier | Completed bytes carried unchanged; no transport-specific authority. | Transport owner must publish actual Matrix event budget and authenticated bounded pointer form if needed. No pointer wire schema is invented here. |
 | D15 — size and retention | 65,536 bytes/envelope, 8,192/operator record, depth 16, chain 4; message signing preimage <=24,576 bytes and signed-record depth <=12. Consumed ids survive admissible replay/restore horizons. | Consumers must publish/qualify retention horizons and the complete native request budget. Time expiry alone cannot erase recovery evidence. |
 | D16 — key types and roles | Settled: agent keys Ed25519, operator device keys P-256 low-S. Agent author only; delegate has no v0 profile. Optional message approvers use P-256 device keys attested by the pinned operator root, never agent keys. | Review optional message-approver policy; it does not replace an operator act or automatically establish A3. |
-| D17 — exact tag registry | Twelve pairwise distinct published literal tags (including the D34 registry formats and decided D38 freshness); generic witness placeholder assigns no tag. Exact first-LF comparison, ASCII 0x20–0x7e, length 1–96; prefix uniqueness is not required. | Signing service publishes its witness tag by a later reviewed registry change. No other tag is admitted to the message signer. |
+| D17 — exact tag registry | Fourteen pairwise distinct published literal tags (including the D34 registry formats and decided D38 freshness); generic witness placeholder assigns no tag. Exact first-LF comparison, ASCII 0x20–0x7e, length 1–96; prefix uniqueness is not required. | Signing service publishes its witness tag by a later reviewed registry change. No other tag is admitted to the message signer. |
 | D18 — message signer budget | Provider checks length, exact message tag and canonical CCJ-1 remainder (including codec bounds), with the permitted caller-identity narrowing in D22, then signs original bytes. Base64url + <=4096 bytes metadata leaves a total frame <=36,868 bytes with header. | Native owner must publish the actual request grammar and enforce metadata/depth budgets; no field names or Keymaker implementation are invented here. |
 | D19 — superseded by R3 | S0 now defines and verifies root-signed CCJ-1 attestation/1 and shared revocation/1. No caller attestation-valid flag or direct device pin. Missing/null remains unavailable; wrong types remain invalid. Root provenance wins in every grant position. | Issuer publication/custody, protected active-generation evidence, snapshot continuity and consumer integration remain external activation gates. |
 
@@ -195,34 +195,57 @@ back. Only the bound registry snapshot's own-age test is renewed. Other root
 ages and every cryptographic/effective-revocation gate remain mandatory. Live
 consumer integration and qualified cumulative publication remain external.
 
-### D42 — OPEN: freshness for offline grant and operator roots
+### D42 — DECIDED (a), option I: offline root content and registry currency
 
-Both grant root and operator root are offline and cannot re-sign a snapshot
-every60 seconds. The spec owner must choose among these options; S5 chooses
-none. Two consumers prefer (a); the registry service is neutral and contributed
-the format and custody considerations below.
+Grant/operator roots sign revocation/1 content only when it changes. Registry
+checkpoint/2 and freshness/2 select the closed ordered root/snapshot set without
+content-modification authority. Use option I: a protected persistent complete-prefix
+index plus bounded SnapshotJournal, with full-history audit as a supplement.
+Option II (trusting matching registry-signed lists) is rejected: a compromised
+registry could otherwise keep selecting old content after a newer snapshot
+carrying a revocation is already in the witnessed journal. The index rejects it
+at admission. Section2.7 defines exact formats, version pin and qualification.
 
-(a) Each domain root signs content only on change; the registry stores that
-snapshot in its journal and attests currency with its own freshness/1, with no
-right to change content. A compromised registry-owner key can withhold or delay
-a newer domain snapshot, hiding revocation. This is the same cost accepted for
-the registry domain. The witness and full retained history mitigate withholding
-only if the domain root itself verifies that its submission entered the journal,
-using an intake receipt plus the witness head; this is a root duty under (a).
-The existing freshness/1 binds one snapshot field, the registry-owner snapshot.
-Currency for other roots requires a later format change: a list of (root,
-snapshot id) pairs, or one record per root. That change is outside S5.
+The root signing application verifies its own original submission's journal
+inclusion under the authenticated witness/checkpoint and retains full history
+(section7). Pre-journal withholding/delay remains the same accepted publication
+cost as for the registry domain; there is no external-root issuance-age or
+immediate global revocation guarantee. Existing receipts keep fixed expiry.
+Options(b) online per-root freshness signers and(c) periodic content re-signing
+are rejected because they defeat offline custody. Live publisher/consumer,
+witness, atomic state/restore/version-floor and provisioning integration remain
+activation requirements. Legacy /1 behavior and bytes are unchanged.
 
-(b) Each root maintains its own freshness/1 chain signed by itself, with its own
-witness or the registry journal as transport. The receipt binds that root,
-preserving D32 separation. The root must sign at least once per max age, which
-conflicts with offline roots unless it has an online freshness signer distinct
-from its content key.
+### D43 — DECIDED: monotone snapshot selection and duplicate adds
 
-(c) The roots are online and reissue snapshots every interval no greater than
-max_age; this is a custody requirement.
+Use the section2.6 cumulative relation, evaluated from both original signed
+snapshots: changed content strictly advances issued_at and retains every prior
+(kind,id) with non-later from, including future-effective entries. Missing
+originals refuse. Repeating the current id is a no-op keeping its first record_seq;
+re-adding an earlier id after newer content refuses. Revoke never reveals an
+older row. Keep rows for omitted roles and independently qualify complete-prefix
+and rollback/cumulative state; no signature or complete=true asserts qualification.
 
-The spec owner's decision is required before the broker adapter, the signing
-service's persistent revoke path and the registry's grant/device intake. No
-implementation of these options is included here; both domain own-age checks
-remain unchanged.
+### D44 — DECIDED: bounded catch-up without historical proof-only API
+
+The anchor counts toward64 raw envelopes, normally leaving63 new entries.
+Catch-up batches must satisfy all declared gates, including ordinary checkpoint
+age. Stale intermediate checkpoints are not a catch-up API. Longer gaps need
+consumer-owner-qualified complete-history provisioning bound to the final
+independently authenticated checkpoint/head; otherwise refuse. Never skip
+journal positions, fake time, lower a witness or expose incomplete authority.
+
+### D45 — DECIDED: aggregate /2 capacity and versioned persistence
+
+Section2.7 charges2,097,152 bytes across raw arguments and declared proof
+Evidence, including a65,536-byte metadata/output reserve, while preserving
+Present1,048,576/depth32 and record8192/depth16/count64 bounds. Canonical
+JSON/base64 storage ceiling16,777,216 and staging+committed ceiling33,554,432
+include expansion; smaller consumer carrier/store limits still apply. Preflight
+actual representation, staging and retained history before signing/commit;
+never truncate authenticated proof. These are per-call ceilings, not permission
+to evict durable history. Version2 state/audit fields are explicit and omitted
+on /1; legacy plan/audit/digest bytes remain stable. Persist version, pins,
+index, exact endpoints/history, watermarks and recovery sets atomically before
+receipt use. Both original Evidence identities survive that commit; the new
+persistent index does not replace the receipt's minting premise.

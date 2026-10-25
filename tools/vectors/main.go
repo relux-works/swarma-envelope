@@ -76,10 +76,10 @@ func domain(t string) string {
 		return "swarma-attestation revocation/1"
 	case "journal-entry/1":
 		return "swarma-registry journal-entry/1"
-	case "checkpoint/1":
-		return "swarma-registry checkpoint/1"
-	case "freshness/1":
-		return "swarma-registry freshness/1"
+	case "checkpoint/1", "checkpoint/2":
+		return "swarma-registry " + t
+	case "freshness/1", "freshness/2":
+		return "swarma-registry " + t
 	default:
 		panic("unregistered type")
 	}
@@ -265,7 +265,9 @@ func add(id, claim, pair, code string, v Vector) {
 			}
 			ids = append(ids, decode(v.Input["checkpoint"].(string))["id"])
 			root := v.Fixture["agent_revocation_root"].(M)["key"].(string)
-			ids = append(ids, decode(v.Fixture["revocations"].(M)[root].(M)["snapshot"].(string))["id"])
+			if !currencyProfile2(v) {
+				ids = append(ids, decode(v.Fixture["revocations"].(M)[root].(M)["snapshot"].(string))["id"])
+			}
 		} else if v.Mode == "journal" {
 			ids = append(ids, decode(v.Input["checkpoint"].(string))["id"])
 		} else if v.Mode == "grant" {
@@ -289,6 +291,9 @@ func add(id, claim, pair, code string, v Vector) {
 		}
 		if v.Mode == "operator" {
 			p["action_id"] = body(v)["action_id"]
+		}
+		if currencyProfile2(v) && (v.Mode == "journal" || v.Mode == "freshness" || v.Mode == "freshness-reanchor") {
+			p = currencyExpected(v, p)
 		}
 		v.Expected["plan"] = p
 	}
@@ -665,6 +670,7 @@ func main() {
 	registryVectors()
 	freshnessVectors()
 	receiptVectors()
+	currencyVectors()
 	seeds, pubs := M{}, M{}
 	for i, k := range keys {
 		name := fmt.Sprintf("test-%d", i)

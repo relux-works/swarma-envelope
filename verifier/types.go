@@ -14,6 +14,7 @@ type Evidence struct {
 	available bool
 	value     any
 	identity  *byte
+	cost      int
 }
 
 // IsAvailable reports snapshot availability, not validity or authority.
@@ -30,7 +31,7 @@ func Present(value any) (Evidence, error) {
 	if err != nil {
 		return Evidence{}, err
 	}
-	return Evidence{available: true, value: v, identity: new(byte)}, nil
+	return Evidence{available: true, value: v, identity: new(byte), cost: (1 << 20) - budget}, nil
 }
 func freeze(value any, d int, budget *int) (any, error) {
 	if d > 32 || *budget < 0 {
@@ -106,6 +107,8 @@ func freeze(value any, d int, budget *int) (any, error) {
 // in this package's README; these are in-process snapshot values, not a new wire
 // or native request grammar. No field is inferred from a received signature.
 type Context struct {
+	RegistryCurrencyVersion int
+	SnapshotJournal         Evidence
 	FreshnessReceipt        *FreshnessReceipt
 	RequireFreshnessReceipt bool
 	FreshnessMarginSeconds  int64
@@ -148,21 +151,26 @@ type Context struct {
 // counts positions strictly between the retained anchor and admitted tip.
 // Checkpoint IDs bind the corresponding registry heads by content hash.
 type FreshnessReanchorPlan struct {
-	Reanchored          bool   `json:"reanchored"`
-	SkippedPublications int64  `json:"skipped_publications"`
-	OldFreshnessID      string `json:"old_freshness_id"`
-	NewFreshnessID      string `json:"new_freshness_id"`
-	OldCheckpointID     string `json:"old_checkpoint_id"`
-	NewCheckpointID     string `json:"new_checkpoint_id"`
+	OldSnapshots               []SnapshotBinding `json:"old_snapshots,omitempty"`
+	NewSnapshots               []SnapshotBinding `json:"new_snapshots,omitempty"`
+	OldRegistryCurrencyVersion int               `json:"old_registry_currency_version,omitempty"`
+	NewRegistryCurrencyVersion int               `json:"new_registry_currency_version,omitempty"`
+	Reanchored                 bool              `json:"reanchored"`
+	SkippedPublications        int64             `json:"skipped_publications"`
+	OldFreshnessID             string            `json:"old_freshness_id"`
+	NewFreshnessID             string            `json:"new_freshness_id"`
+	OldCheckpointID            string            `json:"old_checkpoint_id"`
+	NewCheckpointID            string            `json:"new_checkpoint_id"`
 }
 
 // Plan is a candidate persistence transaction, not a committed effect permit.
 // Every refusal returns its zero value. IDs retain leaf-first order.
 type Plan struct {
-	Reanchor  *FreshnessReanchorPlan `json:"reanchor,omitempty"`
-	IDs       []string               `json:"ids,omitempty"`
-	Watermark string                 `json:"watermark,omitempty"`
-	ActionID  string                 `json:"action_id,omitempty"`
+	SnapshotJournal *SnapshotJournalState  `json:"snapshot_journal,omitempty"`
+	Reanchor        *FreshnessReanchorPlan `json:"reanchor,omitempty"`
+	IDs             []string               `json:"ids,omitempty"`
+	Watermark       string                 `json:"watermark,omitempty"`
+	ActionID        string                 `json:"action_id,omitempty"`
 }
 
 // Result holds the exact stable refusal code, or accept plus a candidate plan.
@@ -181,9 +189,9 @@ type Verifier struct{ context Context }
 func New(context Context) Verifier { return Verifier{context: context} }
 func (v Verifier) facts() facts {
 	c := v.context
-	f := facts{}
-	names := []string{"audience", "required_roles", "known_keys", "root", "service_root", "agent_revocation_root", "operator_root", "operator_owner", "attestations", "agent_attestation_ids", "operator_attestations", "active_generations", "revocations", "time", "now", "watermark_available", "watermark", "id_journal_available", "seen", "replay_available", "used_actions", "signer_facts", "assurance", "delivery", "binding", "service_authority", "service_attestations", "registry_owner", "journal_witness", "commit_signing_key", "enrollment_publisher", "freshness_anchor", "witness_read_at"}
-	values := []Evidence{c.Audience, c.RequiredRoles, c.AdmittedKeys, c.GrantRoot, c.ServiceRoot, c.AgentRevocationRoot, c.OperatorRoot, c.OperatorOwner, c.Attestations, c.AgentAttestationIDs, c.DeviceAttestations, c.CurrentGenerations, c.SignedSnapshots, c.Time, c.Now, c.WatermarkAvailable, c.Watermark, c.IDJournalAvailable, c.IDJournal, c.ReplayAvailable, c.UsedActions, c.SignerFacts, c.Assurance, c.Delivery, c.ActBinding, c.ServiceAuthority, c.ServiceAttestations, c.RegistryOwner, c.JournalWitness, c.CommitSigningKey, c.EnrollmentPublisher, c.FreshnessAnchor, c.WitnessReadAt}
+	f := facts{"_currencyVersion": c.RegistryCurrencyVersion}
+	names := []string{"audience", "required_roles", "known_keys", "root", "service_root", "agent_revocation_root", "operator_root", "operator_owner", "attestations", "agent_attestation_ids", "operator_attestations", "active_generations", "revocations", "time", "now", "watermark_available", "watermark", "id_journal_available", "seen", "replay_available", "used_actions", "signer_facts", "assurance", "delivery", "binding", "service_authority", "service_attestations", "registry_owner", "journal_witness", "commit_signing_key", "enrollment_publisher", "freshness_anchor", "witness_read_at", "snapshot_journal"}
+	values := []Evidence{c.Audience, c.RequiredRoles, c.AdmittedKeys, c.GrantRoot, c.ServiceRoot, c.AgentRevocationRoot, c.OperatorRoot, c.OperatorOwner, c.Attestations, c.AgentAttestationIDs, c.DeviceAttestations, c.CurrentGenerations, c.SignedSnapshots, c.Time, c.Now, c.WatermarkAvailable, c.Watermark, c.IDJournalAvailable, c.IDJournal, c.ReplayAvailable, c.UsedActions, c.SignerFacts, c.Assurance, c.Delivery, c.ActBinding, c.ServiceAuthority, c.ServiceAttestations, c.RegistryOwner, c.JournalWitness, c.CommitSigningKey, c.EnrollmentPublisher, c.FreshnessAnchor, c.WitnessReadAt, c.SnapshotJournal}
 	for i, e := range values {
 		if e.available {
 			f[names[i]] = e.value

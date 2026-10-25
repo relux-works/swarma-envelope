@@ -92,7 +92,7 @@ conformance test generates its corpus with the existing generator in a Go test
 temporary directory. `CURATOR_GO` selects that child toolchain explicitly;
 otherwise it uses the runtime toolchain or Go on PATH. `WAGGLE_VECTORS` may
 select an already materialized corpus. The committed sweep digest, entire
-manifest, all 1688 sweep byte hashes, all 1064 named bytes and exact 2752
+manifest, all 1688 sweep byte hashes, all 1157 named bytes and exact 2845
 code/plan verdicts are checked. Generated sweeps are never committed. Fixture
 base64 transport and legacy field names are adapted only in the test.
 
@@ -238,7 +238,7 @@ Nil plus false retains legacy own-age behavior. Any supplied receipt must
 validate, even if own-age passes; there is no fallback. CheckRevocation's
 explicit root must match. Service receipt validation runs after its first
 trusted-time gate and before service validity continuation; it never renews
-grant-root age. D42 remains open.
+grant-root age. D42(a) is implemented only by the explicit /2 profile described below.
 
 Outside-mode calls ignore FreshnessReceipt, RequireFreshnessReceipt and
 FreshnessMarginSeconds even when supplied or invalid. VerifyJournal keeps
@@ -278,4 +278,56 @@ GOMAXPROCS=2 "$CURATOR_GO" test -race ./verifier -run '^TestFreshnessReceipt' -c
 The legacy TestFreshnessCompositionBoundary still covers optional-absence
 own-age refusal and a current-snapshot control. Live consumer adapters,
 cumulative publication, witness authentication and durable audit/effect
-serialization remain external. D42 records the open offline-root policy.
+serialization remain external. D42 records the adopted offline-root currency policy; live integration remains external.
+
+### Root currency profile 2
+
+Set `Context.RegistryCurrencyVersion=2` explicitly;0/1 retains the exact legacy
+behavior. Current /1 records refuse under pin2, with qualified retained /1
+predecessor bytes allowed only as upgrade history. Protect the pin floor against
+restore/old processes externally. No new method signature or network/storage API.
+
+`Context.SnapshotJournal` is `Present(map[string]any{"anchor":...,"entries":[]any{rawEntryBytes,...}})`.
+Anchor is the complete-prefix, owner-qualified object described in spec section2.7:
+version2, registry_id,owner,registry_seq,registry_head,checkpoint_id,latest.
+Rows are sorted per configured role with root_role,root_key_id,snapshot_id,
+record_seq. Null/zero means proven absence, including all historical configured
+roles. Explicit qualified genesis uses seq0/null head/null checkpoint; returned
+state is positive and encodes strings for those endpoints. `IDJournal` resolves
+every scanned add/revocation original and every non-null anchor original.
+VerifyJournal uses its argument entries; F uses SnapshotJournal.entries.
+Re-anchor never skips the complete journal prefix. Ordinary journal verification
+retains checkpoint age; stale intermediate checkpoints cannot backfill a gap.
+
+Checkpoint/2 and freshness/2 bind the same whole sorted list of1..3
+`SnapshotBinding{RootRole,RootKeyID,SnapshotID}` values. Registry-owner mandatory;
+grant/operator optional. All configured roles retain index rows even when omitted
+from coverage. Derive latest monotonically using original cumulative snapshots;
+re-adding current id keeps first record_seq, regressing re-add refuses.
+Plan.SnapshotJournal is a detached version2 `*SnapshotJournalState` with
+`[]SnapshotJournalEntry`; each entry's `*string SnapshotID` is independently copied.
+Exact Evidence/state encoding, capacity accounting and Plan.IDs inventory are in
+spec2.7; the whole-call charge cap is2MiB including64KiB metadata reserve, while
+per-Evidence1MiB, per-record8192, journal64 and publication64 still apply.
+Canonical storage/staging ceilings16MiB/32MiB do not override smaller native limits.
+
+A /2 receipt binds original SignedSnapshots AND SnapshotJournal Evidence identities,
+complete set, derived index, version/pins and existing admitted/witness facts.
+Keep both original Evidence objects after atomically persisting the derived index;
+rebuilding either invalidates the receipt. Never serialize receipt authority.
+A=min(included root max_age), never an omitted root. Fixed exclusive expiry,
+non-extension by later reads and all effective revocation checks remain.
+Each entry point waives only its reached covered root's own-age (spec2.10 table).
+For a valid optional receipt missing a reached root, own-age runs in that same
+invocation. Required missing coverage refuses even with fresh own-age. Invalid
+supplied receipts never retry without the receipt. /1 classification is unchanged.
+
+Audit adds registry_currency_version2 and a detached snapshots list; legacy
+SnapshotID still means registry-owner. /2 re-anchor plans add detached old/new
+sets and currency versions. New fields are omitted on /1, retaining its eight
+original audit fields and plan bytes. A plan is a candidate transaction, not a
+commit acknowledgment. Persist version/pins/index/endpoints/history/watermarks/
+re-anchor audit crash-atomically before use and read the authenticated witness
+for each admission outside the final serialized window. These consumer duties,
+root-side intake checks, complete-history provisioning and activation are external.
+No issuance-age withdrawal bound is claimed for external-root /2 currency.

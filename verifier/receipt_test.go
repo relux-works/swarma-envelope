@@ -40,6 +40,11 @@ func receiptContext(t *testing.T, v vector) (verifier.Context, verifier.Result) 
 		f[k] = value
 	}
 	f["freshness_anchor"] = map[string]any{"registry_id": b["registry"], "owner": b["owner"], "publication_seq": b["publication_seq"], "freshness_id": tip["id"], "issued_at": b["issued_at"], "snapshot": b["snapshot"], "registry_seq": b["registry_seq"], "checkpoint_id": b["checkpoint_id"]}
+	if b["type"] == "freshness/2" {
+		a := f["freshness_anchor"].(map[string]any)
+		delete(a, "snapshot")
+		a["snapshots"] = b["snapshots"]
+	}
 	use := v.Input["use"].(map[string]any)
 	for k, value := range use {
 		f[k] = value
@@ -47,6 +52,9 @@ func receiptContext(t *testing.T, v vector) (verifier.Context, verifier.Result) 
 	consumer := context(t, f)
 	if _, changed := use["revocations"]; !changed && v.Input["renew_evidence"] != true {
 		consumer.SignedSnapshots = c.SignedSnapshots
+	}
+	if _, changed := use["snapshot_journal"]; !changed && v.Input["renew_journal_evidence"] != true {
+		consumer.SnapshotJournal = c.SnapshotJournal
 	}
 	if v.Input["attach"] == true {
 		consumer.FreshnessReceipt = r.FreshnessReceipt

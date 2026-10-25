@@ -31,7 +31,8 @@ keys, attestations, grants, revocations and identity journals: it stores, orders
 and publishes records, preserving their original signers as specified in §2.6.
 Owner decision, 2026-10-25: the registry-owner key is held by a separate
 signer process under its own account on the trust node. It signs only the
-pre-approved `revocation/1` snapshot, `checkpoint/1` and `freshness/1` profiles
+pre-approved `revocation/1` snapshot, `checkpoint/1`, `freshness/1`,
+`checkpoint/2` and `freshness/2` profiles
 and MUST refuse every other record type or profile, consistent with D30. The
 registry service process that stores and orders records MUST never hold that key.
 Consumers require currency within 60 seconds, with stricter protected age
@@ -219,9 +220,11 @@ closed table; caller configuration cannot register an alias.
 | `swarma-registry journal-entry/1` | Unsigned identity-journal content id; §2.7 | Refused |
 | `swarma-registry checkpoint/1` | Registry-signed checkpoint; §2.7 | Refused |
 | `swarma-registry freshness/1` | Registry-owner signed snapshot freshness (§2.9) | Refused |
+| `swarma-registry checkpoint/2` | Registry-owner signed root-set checkpoint (§2.7) | Refused |
+| `swarma-registry freshness/2` | Registry-owner signed root-set currency (§2.9) | Refused |
 | Unpublished signing-service witness domain (no literal assigned here) | Signing service owns publication; placeholder is NOT a registered tag | Refused until separately published; never implicitly admitted |
 
-All twelve published literals above MUST be pairwise distinct. Prefix uniqueness
+All fourteen published literals above MUST be pairwise distinct. Prefix uniqueness
 is not required: even if one tag is a prefix of another, at the shorter tag's
 end one preimage has LF while the other has a non-LF tag byte. Exact tag plus
 LF already separates them. In particular `swarma-msg/20` is not accepted merely
@@ -337,7 +340,7 @@ The provider may still sign a canonical record claiming `approver` or another
 body type under the fixed message tag, even after identity narrowing succeeds.
 That does not authorize the claim: receivers MUST enforce §2.4 and reconstruct
 the tag for their caller-selected type. Operator/grant verifiers cannot reuse
-that signature. PS5 and E13/D43/D44 distinguish these two responsibilities.
+that signature. PS5 and conformance vectors E13, D43 and D44 distinguish these two responsibilities.
 The operator device provider is separate: it signs the act domain using P-256
 low-S and satisfies §4's presence/confirmation obligations; it is never this
 message signer under another tag.
@@ -401,7 +404,7 @@ that the protected configuration makes present.
 | D30 role | Protected source | Admitted record language |
 | --- | --- | --- |
 | Purpose-5 signing-service root | service root key/purpose5 | Agent attestation/1 only |
-| Registry-owner root | registry-revocation root/purpose/scope | Scoped revocation/1, §2.7 checkpoint/1 and §2.9 freshness/1 only |
+| Registry-owner root | registry-revocation root/purpose/scope | Scoped revocation/1, §2.7 checkpoint/1 and checkpoint/2, §2.9 freshness/1 and freshness/2 only |
 | Operator root | operator pin | Operator-device attestations and its own snapshots |
 | Grant-owner root | grant pin; explicit grant-service purpose/owner for attestations | Grant/1, own revocation/1, explicitly configured service attestations |
 | Grant-service subject | Exact service-attestation collection and §2.6 profile | Parent-authorized grant/1 only |
@@ -417,7 +420,7 @@ publisher Ed25519 key; the registry service stores and serves them but MUST NOT
 sign them online. Online enrollment signing would require a separate registrar
 decision; this reference adds no S0 record profile or tag. The registry key
 signs only `revocation/1` snapshots, §2.7 identity-journal checkpoints and
-§2.9 freshness/1. Operator-device
+§2.9 freshness/1 and freshness/2. Operator-device
 snapshots retain their existing operator-root signature rule; the registry
 may store and publish them without substituting its signature. D30's distinct
 keys remain mandatory even when roles are hosted on the same node. Neither
@@ -755,6 +758,128 @@ gets its own journal entry/checkpoint and witness intent/commit) is rejected.
 Inherited journal vectors remain generic format witnesses, not a publication
 policy recommendation. Live publication transactions remain unqualified.
 
+#### Checkpoint/2 and the complete-prefix index (D42)
+
+The legacy /1 bodies above remain closed and byte-for-byte unchanged.
+`checkpoint/2` uses the normal swarm-envelope/2 signed envelope, exactly one
+registry-owner author signature, tag `swarma-registry checkpoint/2`, and the
+exact body `{type,registry,owner,seq,head,at,snapshots}`. Type is checkpoint/2;
+other scalar grammars are inherited. Content id is SHA-256(tag + LF +
+CCJ-1(body)); signing bytes are tag + LF + CCJ-1({body,key,role,version}).
+The registry signs currency selection, never another root's snapshot content.
+The registry isolated signer accepts these closed /2 profiles only with protected
+role pins; it never obtains pins from a received body.
+
+`snapshots` is a closed ordered set of 1..3 closed objects
+`{root_role,root_key_id,snapshot_id}`. Roles are exactly grant, operator and
+registry-owner, sorted ascending by ASCII `(root_role,root_key_id)` (thus grant,
+operator, registry-owner). Registry-owner is mandatory; the other two are
+optional. Duplicate roles or keys, extra members and unsorted arrays refuse.
+Every key must equal the corresponding protected GrantRoot, OperatorRoot or
+AgentRevocationRoot.key pin, with wider D30 separation preserved. Snapshot ids
+are canonical content ids. The CCJ-1 element byte template is
+`{"root_key_id":"K","root_role":"grant","snapshot_id":"S"}`; K/S denote
+substitutions, not literal valid ids. The array is these ordered elements joined
+by commas inside brackets, without whitespace. A missing optional role removes
+its whole element. No same-head freshness publication may change this set.
+
+Each root's content remains its original own-root-signed revocation/1, journaled
+as op=add, record_type=revocation/1, with its signature unchanged. Selected
+content MUST equal that root's derived latest row at checkpoint.seq. A signed
+list, matching freshness list, or witness head alone does not prove latest.
+Option I requires protected persistent complete-prefix state plus a bounded
+suffix. Option II, trusting the registry-signed list, is rejected: a compromised
+registry could otherwise keep selecting older content after a newer revocation
+is already in the authenticated journal, renewing the omission indefinitely.
+Full-history audit supplements this admission check.
+
+`Context.SnapshotJournal` is immutable Evidence with exactly `{anchor,entries}`.
+Entries are raw []byte journal-entry/1 envelopes. Anchor is exactly
+`{version,registry_id,owner,registry_seq,registry_head,checkpoint_id,latest}`,
+version integer2. Latest contains one ASCII-role-sorted closed row for EVERY
+configured D30 role, including roles omitted from the checkpoint:
+`{root_role,root_key_id,snapshot_id,record_seq}`. A null snapshot_id paired with
+record_seq0 means proven absence over the complete prefix, never an uninspected
+role; otherwise id is a content id and 1<=record_seq<=registry_seq. Pins are
+protected, pairwise distinct and exact. Changing configured roles/pins requires
+requalification of the complete prefix. In particular, a /1 checkpoint's
+registry-only coverage cannot seed missing grant/operator rows as absent.
+
+Positive anchors bind the exact retained authenticated checkpoint/head. Only
+explicit owner-qualified complete-prefix genesis uses integer registry_seq0,
+JSON null registry_head/checkpoint_id and all latest rows null/zero. There is no
+seq0 witness projection or automatic cold-store bootstrap. The exported
+SnapshotJournalState has Version2 and positive endpoint strings; its JSON fields
+are version,registry_id,owner,registry_seq,registry_head,checkpoint_id,latest,
+matching positive anchor Evidence. Exported SnapshotJournalEntry.SnapshotID is
+*string (nil encodes null); RecordSeq is int64. Genesis is constructed explicitly
+as the Evidence map above, not by converting empty endpoint strings to null.
+
+Resolve original signed bytes for every scanned add/revocation reference and
+every non-null anchor row from protected IDJournal; missing originals refuse.
+Verify id, issuer, signature, closed revocation/1 schema and entries. Non-role
+issuers gain no authority or index row. Process EVERY gap-free journal position
+through the exact target seq/head; originals in historical proof acquire no
+current effect authority. At a positive advancing anchor the first envelope is
+the already retained anchor entry and consumes one of64 positions, so normally
+63 new entries fit. The exact prior checkpoint (including a qualified archival
+checkpoint/1 during upgrade) authenticates its own time separately from the
+anchor entry. Empty same-head proof requires an already qualified exact index.
+
+D43: changed snapshots require strictly increasing issued_at and must extend
+section2.6: every old (kind,id) remains with a from no later than its old value,
+including future-effective entries. Both signed endpoint originals are required
+to evaluate this relation. An add of the CURRENT id is a no-op retaining its
+first record_seq. Re-adding an earlier id after newer content cannot pass the
+strict issuance/cumulative relation. A revoke operation never exposes an earlier
+row. Journal order alone and complete=true never prove cumulative continuity.
+Selected snapshots still require independently qualified rollback-safe premises.
+
+D44: longer catch-up uses batches satisfying all declared gates or external
+complete-history provisioning qualified by the consumer's owner and bound to
+the final independently authenticated checkpoint/head. No historical proof-only
+batch API is defined. Ordinary VerifyJournal retains checkpoint age checks and
+cannot qualify arbitrary stale intermediate checkpoints. No fabricated Now,
+lowered witness, truncated suffix, partially staged authority or journal skip is
+permitted; otherwise admission remains unavailable. Re-anchor skips only
+freshness-publication continuity. Public VerifyJournal uses its entries argument
+as the authoritative suffix; SnapshotJournal.entries is the F input, structurally
+bounded on J but not a substitute for that argument.
+
+D45 aggregate preflight: in addition to existing per-record8192/depth16,
+journal64 and publication64 limits, a /2 call has a 2,097,152-byte charge cap.
+Charge every raw argument occurrence, plus immutable Evidence costs for
+SnapshotJournal, SignedSnapshots, IDJournal, FreshnessAnchor, JournalWitness,
+AgentRevocationRoot, RegistryOwner, GrantRoot, OperatorRoot, ServiceRoot and
+WitnessReadAt. Evidence costs are Present's deterministic accounting:16 per
+value, UTF-8 bytes for strings/member names and raw length for byte slices,
+recursively; duplicated copies are charged separately. Reserve65,536 additional
+bytes inside the cap for endpoint/pin/index/audit/output inventory. Each Evidence
+still has its own1,048,576 accounting cap/depth32. Every raw record in the three
+snapshot/proof/original Evidence values is <=8192 bytes, including unused
+retained originals. Over-capacity or truncated proof refuses before any state
+advancement; individually maximal inputs need not fit together.
+For storage sizing, canonical JSON/base64 representation has a separate
+16,777,216-byte ceiling, and one staging plus one committed copy a33,554,432-byte
+ceiling; these conservative ceilings include JSON escaping/base64 expansion,
+not unbounded retained history. Consumers MUST preflight actual serialization,
+metadata, staging/recovery copies, history retention and their smaller native
+carrier/store quotas before signing or committing. The pure library enforces
+raw/Evidence bounds; it does not allocate or qualify a durable store. History
+retention cannot silently evict required proof to fit these per-call bounds.
+
+Accepted /2 Plan.SnapshotJournal is a detached candidate state with version2;
+all nested row pointers are copied. On /1 and every refusal it is nil/omitted.
+Plan.IDs is a first-occurrence-deduplicated inventory: supplied publications in
+order (F only), target checkpoint, selected snapshots in set order (F only),
+index-anchor checkpoint when positive, anchor-row original ids in role order,
+then suffix entry id and its add/revocation original id in journal order. J uses
+its argument entries for this inventory. Unresolved non-revocation references
+convey no record authority and are excluded; unrelated IDJournal originals are
+charged but excluded. Retained publication endpoints not consumed as wire proof
+remain independently required persistence/history dependencies, including the
+old re-anchor endpoint. This inventory grants no admission or persistence right.
+
 ### 2.8 Snapshot capacity decision
 
 The current domain still requires ONE complete cumulative signed snapshot,
@@ -944,6 +1069,58 @@ rollback on subsequent admission. No additional tail-discovery mechanism is
 defined here.
 Live publication/effect integration and witness authentication remain separate.
 
+#### Freshness/2 and one-way transition
+
+`freshness/2` uses tag `swarma-registry freshness/2`, the unchanged normal
+swarm-envelope/2 signing construction, one registry-owner author, and exactly
+`{type,registry,owner,publication_seq,prev,issued_at,snapshots,registry_seq,checkpoint_id}`.
+All scalar/publication rules are inherited. Snapshots has the checkpoint/2
+ordered-set grammar and MUST equal the checkpoint list in length and EVERY
+(role,key,id) element. All selected root originals pass signature/schema,
+complete and independent cumulative/rollback-safe qualification, with
+snapshot.issued_at<=checkpoint.at. They acquire only currency, never rewritten
+content. A=min(max_age of INCLUDED roots), each integer0<max_age<=60; omitted
+roots do not determine A. The current tip and authenticated witness read meet
+the existing F age/ordering rules using A. F9 ids/keys still query only the
+registry-owner snapshot; actual consumer grant/operator checks remain mandatory.
+Before current-head comparison derive the full index and reject every non-latest
+selected id, even when checkpoint and freshness agree on it.
+
+Protected Context.RegistryCurrencyVersion is int:0/1 selects unchanged legacy /1;
+2 selects /2 CURRENT CANDIDATE currency exclusively; other integers refuse at
+J2/F2. A supported wrong-profile candidate refuses
+registry_currency_version_mismatch at J1/F1 after bounded parsing. There is no
+negotiation, fallback or current /1 receipt under pin2. The exact qualified /1
+predecessor checkpoint and archived /1 publication bytes remain admissible only
+as retained transition/history evidence. Retry never relabels or re-signs a /1
+record. Producers construct new /2 records from the journal without editing
+closed /1 records, labels or vectors. The upgrade does not authorize synthetic
+journal changes or idle content reissue.
+
+Explicitly setting pin2 permits a qualified /1 FreshnessAnchor as the one-way
+upgrade predecessor. Singleton normalization describes its OLD registry coverage
+only; all configured index rows must already be qualified from the complete
+prefix. First checkpoint/2 advances registry_seq; another checkpoint at the same
+position is not a migration. On the normal path the first /2 publication is
+exactly old publication_seq+1, has later issued_at and prev=null on the advanced
+head. If missing positions include /1 publications, normal chaining refuses;
+explicit re-anchor may skip them with the existing positive-anchor/audit rules,
+but cannot skip journal positions. Persist /2 anchor state thereafter, replacing
+its old snapshot field by snapshots; other fields/genesis rules remain unchanged.
+Protecting the version floor and fencing old instances is a consumer duty (§7).
+
+Re-anchor /2 retains every F gate including the latest-prefix proof. At equal
+registry_seq, checkpoint id and whole set are identical; at a higher sequence
+the checkpoint changes and the qualified latest index covers that entire head.
+If a grant/operator snapshot changed inside the skipped publication segment,
+select its new latest id when included. Omission grants no waiver and cannot
+remove its persistent index row. Candidate Reanchor additionally has detached
+old_snapshots,new_snapshots,old_registry_currency_version and
+new_registry_currency_version (2); old version may be1 on explicit upgrade.
+These fields are omitted on /1. The original count and endpoint-id fields remain.
+The consumer retains exact endpoint originals/heads and complete history for
+later cross-check; skipped freshness forks are not proved absent.
+
 ### 2.10 Process-local freshness receipts (D41 composition)
 
 Successful `VerifyFreshness` and `VerifyFreshnessReanchor` return an opaque
@@ -1009,7 +1186,8 @@ Required missing current facts refuse; malformed facts and foreign bindings
 remain distinct. Normal snapshot signature, typed schema, completeness,
 rollback-safe qualification, all entry validation and effective matching stay
 mandatory. Only the bound **registry-root snapshot's own-age** test is replaced.
-Grant-root and operator-root own-age tests remain unchanged; D42 is open.
+These /1 grant-root and operator-root own-age tests remain unchanged.
+The separate /2 composition below implements D42(a).
 
 Let A be the protected max_age at issuance, at most60 seconds. Store fixed
 `E=min(tip.issued_at+A, issuing WitnessReadAt+A)`. Receipt use requires
@@ -1028,6 +1206,53 @@ an effect permit; repeat current checks at the serialized effect boundary.
 Offline vectors contain actual signed F inputs plus mint/use contexts and a
 consumer operation. Both implementations run F and derive a receipt internally;
 serialized private receipt fields or a verified=true assertion confer nothing.
+
+#### Root-specific /2 composition
+
+The /1 classification and JSON bytes above stay unchanged. Under pin2 the
+receipt binds version, protected pins/policies, the whole sorted set, exact
+selected bytes, the derived complete-prefix state, and BOTH original immutable
+Evidence identities (SignedSnapshots and SnapshotJournal), in addition to the
+existing witness/read and admitted-anchor bindings. Persist the derived index
+separately; advancing it never replaces the receipt's original proof premise.
+Rebuilding either Evidence, even to equal-looking values, invalidates that
+receipt. Reconstruct inputs and run full F to remint after restart or premise,
+head, version or pin changes. A returned candidate is not durable acknowledgment.
+
+| /2 consumer | Own-age slots eligible for exact covered-root waiver |
+| --- | --- |
+| VerifyAttestation, agent | Registry-owner |
+| VerifyAttestation, device | Operator |
+| VerifyMessage | Registry-owner and reached operator-device approvers |
+| Authorize | Grant and reached operator/registry-owner signer checks |
+| VerifyOperator | Operator |
+| VerifyServiceAttestation | Grant; direct consumerFacts route retained |
+| CheckRevocation | The explicit protected root |
+| VerifyEnvelope | Only its typed record's existing checks |
+| VerifyJournal, VerifyFreshness, VerifyFreshnessReanchor | Independent proof/producer paths; ignore receipt options |
+| New, Present, IsAvailable, Audit, serialization, OperatorRecordCode | No admission/waiver |
+
+A supplied receipt is globally validated through R before any own-age waiver,
+even when optional. At the checked root's own-age slot waive ONLY the exact
+covered root/id. A valid receipt missing that root refuses
+freshness_receipt_unavailable when required; if optional, that invocation's
+ordinary own-age check stays active. This is never a retry with the receipt
+removed. Invalid, expired, foreign or rebuilt-premise supplied receipts always
+refuse globally. All other authority, signature, cumulative, effective-revocation,
+generation and replay checks remain. Future-effective entries can become active
+while a receipt is still live. Fixed E=min(tip.issued_at+A,mint_read+A), exclusive
+max(now,W)<E-margin and no extension by later reads remain unchanged.
+
+Existing method signatures are unchanged. New Context members are
+RegistryCurrencyVersion int and SnapshotJournal Evidence; Plan adds
+SnapshotJournal *SnapshotJournalState. SnapshotBinding has RootRole,RootKeyID,
+SnapshotID strings. FreshnessAudit adds RegistryCurrencyVersion int and a detached
+Snapshots []SnapshotBinding; legacy SnapshotID continues to mean registry-owner
+only. Audit() (FreshnessAudit,bool) still reports origin, not authority. /2 audit
+JSON adds registry_currency_version:2 and snapshots; these members are omitted
+on /1, preserving its original eight members and serialization. /2 plan state
+uses its explicit version2 serialization; /1 plans and local /1 state-digest
+encoding MUST remain unchanged. Consumer state migration uses a versioned codec.
 
 ## 3. General grant/1
 
@@ -1501,6 +1726,26 @@ Freshness revocation intake (§2.9) is a separate ordered pipeline:
 | F8R (explicit recovery only, replaces publication loop at F8) | After unchanged tip/read currency and anchor validation: require positive stored publication; current registry seq lower/equal checkpoint fork, same-head snapshot binding or changed checkpoint on advance; strictly greater publication_seq, then strictly greater issued_at | `freshness_state_invalid`; `freshness_rollback` / `freshness_fork` / `freshness_binding_mismatch`; `freshness_rollback`; `freshness_rollback` |
 | F9 | Bounded valid content-id/key queries, then effective snapshot matches after ALL proof checks | `freshness_request_invalid`; existing `revoked` |
 
+The /1 table remains unchanged. /2 applies the same order with these additions:
+
+| Step | /2 check | Refusal |
+| --- | --- | --- |
+| J1/F1 | Bounded ordered-set wire shape, candidate version pin and aggregate preflight | journal_malformed / freshness_malformed; registry_currency_version_mismatch |
+| J2/F2 | Supported configured version; exact protected role/key mapping | journal_invalid / freshness_invalid (missing registry facts retain unavailable) |
+| J3/F4 | Every selected original and independent cumulative premise, without own-age | checkpoint_snapshot_invalid / freshness_snapshot_invalid; existing unavailable/time codes |
+| F6 | Full ordered set equality, target seq/checkpoint bindings | freshness_binding_mismatch |
+| J7, after J6 | Complete-prefix anchor, authoritative suffix, originals, no-regression derivation and latest selection | Missing originals/proof journal_unavailable; invalid index/regression journal_invalid; existing journal chain/anchor/rollback/fork and checkpoint-invalid codes; non-latest checkpoint_snapshot_invalid |
+| F6L, before F7 | Same derivation against the current target head | Missing proof/original freshness_unavailable; invalid or discontinuous proof freshness_state_invalid; non-latest freshness_binding_mismatch |
+| F8/F8R | Included-root minimum A, whole-set anchors/re-anchor and one-way upgrade | Existing F8/F8R codes |
+| R2 | All required presence before syntax, then exact version/pin/set/byte/two-Evidence/anchor/witness binding | freshness_receipt_unavailable / invalid / binding_mismatch |
+| Root own-age slot after global R | Required missing coverage, or optional ordinary own-age | freshness_receipt_unavailable; otherwise existing own-age refusal |
+
+R1 remains immediately after the first T1; R3 keeps fixed exclusive expiry.
+Malformed/invalid supplied receipts never trigger retry without the receipt.
+The only new refusal code is registry_currency_version_mismatch. All /2
+refusals have zero plans and nil receipts; direct identity/tri-state APIs retain
+their existing zero/unavailable error projections.
+
 All F refusals have a zero plan, including revoked. F rows do not alter legacy
 E/G/O/J ordering or own-snapshot freshness. Named N-ORD-FR compounds extend the
 U precedence coverage without changing inherited mechanical sweep bytes.
@@ -1549,6 +1794,56 @@ including external domains, and do not claim to implement external body schemas
 or admission gates.
 
 ## 7. Consumer gates and remaining risks
+
+**D42(a), option I obligations.** Grant and operator roots remain offline and
+sign snapshot CONTENT only on change. Online per-root freshness signers (b) and
+interval content re-signing (c) are rejected because they defeat offline custody.
+The root signing application retains its exact submission and independently
+checks the published op=add journal-entry/1, its gap-free inclusion chain to the
+signed checkpoint/2 seq/head, and an authenticated witness head/checkpoint id.
+When its root is selected it checks latest selection too. VerifyJournal /2
+supplies bounded journal/checkpoint/index checks; the application matches its
+own submission id and obtains witness authentication outside this library. An
+intake acknowledgment or a freshness receipt alone is insufficient. Publishers
+serve exact anchor entries, predecessor checkpoints, referenced original signed
+snapshots and complete retained journal/publication history without truncation.
+
+The currency guarantee is relative to the OBSERVED authenticated witnessed
+prefix. Once that prefix contains a newer cumulative root snapshot, a new /2
+admission cannot select its older predecessor. This supplies no external-root
+revocation deadline measured from snapshot signing/submission: withholding before
+journaling, an unpublished/unobserved tail, earlier receipts until fixed expiry,
+and immediate global revocation remain unproved. A compromised registry-owner
+can delay/withhold newer external content or omit optional coverage, the same
+publication cost accepted for its own domain. Used-root required coverage,
+root-side intake checks, independently retained witnessed heads and full-history
+audit mitigate it without granting registry content-signing authority. Existing
+issuance-age bounds apply only to their own-age profiles, not to external roots
+whose own-age is waived by /2. Separately qualify any publication latency bound.
+
+Before any receipt use the consumer makes ONE crash-atomic, recovery-qualified
+commit binding version and pin identity, the complete index, exact old/new
+endpoints and supporting history/originals, time watermarks and re-anchor
+sets/versions/audit. Stage dependencies durably before publishing that commitment;
+a Plan is only a candidate, never storage acknowledgment or an effect permit.
+Partial catch-up grants no authority. Preserve legacy /1 digests; explicitly
+version local /2 state. Keep the two original Evidence objects after commit and
+remint after restart. Every consumer protects a monotonic version/pin floor and
+installation/registry/transition identity outside relevant restore domains;
+missing, older or conflicting enrolled state refuses. Fence old serving binaries
+and instances that cannot enforce the floor. A normal configuration flag or an
+old process that ignores it does not protect against restore.
+
+An unavailable, unauthenticated, stale or conflicting witness refuses current
+freshness admission, including re-anchor and re-entry after asynchronous work.
+Read/authenticate the witness for EACH admission outside the final serialized
+consumer window; inside it compare exact head/state revision and enforce the
+qualified read age/deadline. A changed state requires new evidence outside the
+window. No network/provider acquisition belongs under final locks, no cached
+last-good fallback answers a failed required read, and no old receipt is a
+reusable effect/release permit. The pure verifier implements none of this live
+storage, witness transport, root application or consumer activation integration.
+
 
 | Consumer | Contract from this slice | Activation boundary |
 | --- | --- | --- |
@@ -1662,7 +1957,7 @@ other identity, message, grant and effect check; VerifyJournal and other root
 domains retain own-age checks. Consumers MUST NOT fake younger Context time or
 snapshot bytes or implement a second verifier. Receipts are candidate evidence,
 not durable authority or a Commit/effect permit. Live adapter integration and
-the offline-root policy in D42 still require qualification.
+the D42 /2 live consumer integration still require qualification.
 
 Without re-anchor, the64publication proof bound spans at most64new intervals
 when the stored anchor itself need not be resent, about21minutes20seconds at

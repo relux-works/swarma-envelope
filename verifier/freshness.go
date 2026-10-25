@@ -84,6 +84,9 @@ func (v Verifier) VerifyFreshnessReanchor(tip, checkpoint []byte, ids, keys []st
 }
 
 func (v Verifier) verifyFreshness(chain [][]byte, checkpoint []byte, ids, keys []string, reanchor bool) Result {
+	if v.context.RegistryCurrencyVersion != 0 && v.context.RegistryCurrencyVersion != 1 || currencyKind(checkpoint) == "checkpoint/2" || len(chain) > 0 && currencyKind(chain[0]) == "freshness/2" {
+		return v.verifyFreshness2(chain, checkpoint, ids, keys, reanchor)
+	}
 	var receipt *FreshnessReceipt
 	r := decide(func() Plan {
 		// F1: absent freshness refuses; all bounded wire parses precede policy.

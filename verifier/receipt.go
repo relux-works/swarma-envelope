@@ -7,11 +7,16 @@ import (
 
 // FreshnessReceipt is immutable, process-local evidence from successful F
 // verification. Only the original pointer is usable. It has no wire format and
-// grants neither persistence nor effects. Retain its SignedSnapshots Evidence.
+// grants neither persistence nor effects. Retain its SignedSnapshots Evidence and, for /2, SnapshotJournal Evidence.
 type FreshnessReceipt struct {
 	self                          *FreshnessReceipt
 	premise                       *byte
 	audit                         FreshnessAudit
+	journalPremise                *byte
+	snapshots                     map[string]string
+	pins                          map[string]string
+	pinFacts                      map[string]any
+	index                         *SnapshotJournalState
 	snapshot                      string
 	witness, anchor               map[string]any
 	issued, read, maxAge, expires int64
@@ -20,6 +25,8 @@ type FreshnessReceipt struct {
 // FreshnessAudit is detached origin metadata, never admission evidence.
 // Checkpoint IDs commit the corresponding registry heads.
 type FreshnessAudit struct {
+	RegistryCurrencyVersion                                  int               `json:"registry_currency_version,omitempty"`
+	Snapshots                                                []SnapshotBinding `json:"snapshots,omitempty"`
 	RegistryID, Owner, SnapshotID, CheckpointID, FreshnessID string
 	Reanchored                                               bool
 	OldFreshnessID, OldCheckpointID                          string
@@ -31,7 +38,9 @@ func (r *FreshnessReceipt) Audit() (FreshnessAudit, bool) {
 	if r == nil || r.self != r || r.premise == nil {
 		return FreshnessAudit{}, false
 	}
-	return r.audit, true
+	a := r.audit
+	a.Snapshots = append([]SnapshotBinding(nil), a.Snapshots...)
+	return a, true
 }
 
 // MarshalJSON refuses persistence of process-local authority.
@@ -95,6 +104,10 @@ func receiptGate(f facts, low, high int64) {
 		return
 	}
 	r := c.FreshnessReceipt
+	if c.RegistryCurrencyVersion == 2 || r != nil && r.audit.RegistryCurrencyVersion == 2 {
+		receiptGate2(f, low, high, c)
+		return
+	}
 	need(r != nil, "freshness_receipt_unavailable")
 	_, authentic := r.Audit()
 	need(authentic && c.FreshnessMarginSeconds >= 0 && c.FreshnessMarginSeconds <= 60, "freshness_receipt_invalid")
@@ -158,6 +171,9 @@ func receiptGate(f facts, low, high int64) {
 
 func receiptSnapshot(f facts, root any, snap map[string]any) bool {
 	c, ok := f["_receiptContext"].(*Context)
+	if ok && c.FreshnessReceipt != nil && c.FreshnessReceipt.audit.RegistryCurrencyVersion == 2 {
+		return receiptSnapshot2(c, root, snap)
+	}
 	if !ok || c.FreshnessReceipt == nil || root != c.FreshnessReceipt.audit.RegistryID {
 		return false
 	}
