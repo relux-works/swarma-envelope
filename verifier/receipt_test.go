@@ -340,3 +340,19 @@ func TestFreshnessReceiptPresenceOrder(t *testing.T) {
 	}
 	runVectors(t, paths)
 }
+
+// Authorized genesis nulls follow projection syntax, while absence refuses
+// unavailable and malformed or null-in-positive fields refuse invalid. A valid
+// foreign genesis anchor must reach exact binding mismatch, not syntax failure.
+func TestFreshnessReceiptNullableProjections(t *testing.T) {
+	var paths []string
+	for _, p := range namedPaths(t, "../vectors") {
+		if strings.Contains(filepath.Base(p), "RC-null-") || filepath.Base(p) == "P-RC-revocation.json" {
+			paths = append(paths, p)
+		}
+	}
+	if len(paths) != 11 {
+		t.Fatalf("nullable projection cases with ordinary control %d", len(paths))
+	}
+	runVectors(t, paths)
+}

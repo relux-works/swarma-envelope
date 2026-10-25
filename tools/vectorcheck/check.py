@@ -1274,10 +1274,13 @@ def receipt_gate(f, low, high):
         key_bytes(policy["key"]); key_bytes(policy["attestation_root"])
         require(policy["purpose"] == "registry-revocation", "freshness_receipt_invalid")
         bounded_text(f["registry_owner"])
-        w = evidence_exact(f["journal_witness"], "registry_id owner registry_seq registry_head checkpoint_id previous_checkpoint_id")
+        # Shape alone preserves permitted nulls for the projection validators.
+        w = f["journal_witness"]
+        exact(w, "registry_id owner registry_seq registry_head checkpoint_id previous_checkpoint_id")
         key_bytes(w["registry_id"]); bounded_text(w["owner"])
         witness = journal_witness(f, w["registry_id"], w["owner"])
-        a = evidence_exact(f["freshness_anchor"], "registry_id owner publication_seq freshness_id issued_at snapshot registry_seq checkpoint_id")
+        a = f["freshness_anchor"]
+        exact(a, "registry_id owner publication_seq freshness_id issued_at snapshot registry_seq checkpoint_id")
         key_bytes(a["registry_id"]); bounded_text(a["owner"])
         anchor = publication_anchor(f, a["registry_id"], a["owner"])
         read = timestamp(f["witness_read_at"])
