@@ -29,6 +29,11 @@ administrative domain. The platform has no administrative access there;
 agents have no root access. The registry is the only authoritative writer of
 keys, attestations, grants, revocations and identity journals: it stores, orders
 and publishes records, preserving their original signers as specified in §2.6.
+Owner decision, 2026-10-25: the registry-owner key is held by a separate
+signer process under its own account on the trust node. It signs only the
+pre-approved `revocation/1` snapshot, `checkpoint/1` and `freshness/1` profiles
+and MUST refuse every other record type or profile, consistent with D30. The
+registry service process that stores and orders records MUST never hold that key.
 Consumers require currency within 60 seconds, with stricter protected age
 and continuity policy: snapshot-own issuance under §2.6, or the complete
 §2.9 signed freshness and fresh authenticated witness read for an unchanged
@@ -1609,6 +1614,8 @@ single-recovery-signer assumption.
 
 The separate trust node, registry/witness continuity, exclusive administrative
 boundary and publication pipeline require qualification before deployment.
+The separate signer under its own account in §1 MUST retain custody of the
+registry-owner key; the storage and ordering service MUST never hold it.
 Compromise of the registry key alone can withhold or delay revocation visibility
 within the v0 snapshot bound and continuity rules; it cannot mint grants or
 attestations, whose original signing roots remain distinct. This bound starts
