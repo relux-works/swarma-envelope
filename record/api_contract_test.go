@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/relux-works/waggle/record"
+	"github.com/relux-works/swarma-envelope/record"
 )
 
 // Codec primitives bind exactly their advertised byte/domain fields. They

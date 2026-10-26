@@ -11,8 +11,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/relux-works/waggle/record"
-	"github.com/relux-works/waggle/verifier"
+	"github.com/relux-works/swarma-envelope/record"
+	"github.com/relux-works/swarma-envelope/verifier"
 )
 
 type currencyFixture struct {

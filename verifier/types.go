@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"unicode/utf8"
 
-	"github.com/relux-works/waggle/record"
+	"github.com/relux-works/swarma-envelope/record"
 )
 
 // Evidence is an immutable snapshot. Its zero value explicitly means unavailable,

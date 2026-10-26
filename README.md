@@ -1,6 +1,10 @@
-# waggle
+# Swarma Envelope
 
-A secure agent coordination and communication protocol: signed messages between agents. waggle defines one message envelope, one verification pipeline and one delivery model for agent orchestrators that share a project. Orchestrators coordinate with each other, first on one machine, then across a few operators over the internet, later with other organizations. Orchestrators also send one-way commands (clarify, reprioritize, cancel, halt) to their own workers; workers can never instruct orchestrators. The original repository/offline proposal uses SSHSIG. The proposed platform slice uses CCJ-1 records with role-bound signatures, grants and operator acts. Agent authors use Ed25519 under the exact `swarma-msg/2` tag; operator device keys use P-256. Consumers select their protocol explicitly.
+A secure agent coordination and communication protocol: signed messages between agents. Swarma Envelope defines one message envelope, one verification pipeline and one delivery model for agent orchestrators that share a project. Orchestrators coordinate with each other, first on one machine, then across a few operators over the internet, later with other organizations. Orchestrators also send one-way commands (clarify, reprioritize, cancel, halt) to their own workers; workers can never instruct orchestrators. The original repository/offline proposal uses SSHSIG. The proposed platform slice uses CCJ-1 records with role-bound signatures, grants and operator acts. Agent authors use Ed25519 under the exact `swarma-msg/2` tag; operator device keys use P-256. Consumers select their protocol explicitly.
+
+The Go module is `github.com/relux-works/swarma-envelope`. Historical SSHSIG
+proposal filenames, signed domain strings, configuration names and deterministic
+test seed labels retain their original spelling for compatibility.
 
 ## Status
 
@@ -77,7 +81,7 @@ required. See the [public library API and evidence schemas](verifier/README.md).
 
 - **task-board**: orchestrator and worker messaging through `task-board mail`. It will consume this module through `go.mod` at tags, the same way it consumes [skill-agents-management](https://github.com/relux-works/skill-agents-management).
 - **Apiary** (later): the agent host and coordinator of the Curator agent runtime.
-- **Process configuration** ([curator-playbook](https://github.com/relux-works/curator-playbook)): board approvals, delegated acts, confirmations of process versions, signed external events and hand-off results across boards (Amendment A1). What those acts mean — who counts as a person, the floor of a confirmation, narrowing acts — is the trust design in [curator-trust](https://github.com/relux-works/curator-trust) (`spec/trust.md`).
+- **Process configuration**: Amendment A1 describes board approvals, delegated acts, confirmations of process versions, signed external events and hand-off results across boards. A consuming board must define the authorized people, confirmation requirements and narrowing acts in its pinned policy; these wire forms do not supply that policy.
 
 ## Links
 

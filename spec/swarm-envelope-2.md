@@ -4,13 +4,13 @@ Status: proposed normative contract; no production verifier or consumer activati
 MUST, MUST NOT, SHOULD and MAY are requirement words. All byte counts refer to
 UTF-8 bytes, not characters. Refusal codes in §6 are stable within this draft.
 
-## 1. Scope, ownership and existing waggle
+## 1. Scope, ownership and original SSHSIG proposal
 
 This slice defines `swarm-envelope/2`, general `grant/1`, `operator-act/1`, `attestation/1`, shared `revocation/1`, unsigned `journal-entry/1` and registry-signed `checkpoint/1`.
 The platform choice of CCJ-1 plus an explicit domain tag is settled; SSHSIG is
 not the platform-service encoding. The exact v0 schemas remain under review.
 For platform services it supersedes the SSHSIG encoding and verification rules
-in [waggle v5.2 §§4, 19](https://github.com/relux-works/waggle/blob/c618202899a196a9d5a1f56fa5c003ebf3fd2d91/spec/waggle.md).
+in [original SSHSIG v5.2 §§4, 19](https://github.com/relux-works/waggle/blob/c618202899a196a9d5a1f56fa5c003ebf3fd2d91/spec/waggle.md).
 SSHSIG remains a separate repository/offline proposal, including board acts
 and role delegation in Amendment A1. A receiver MUST select its protocol from
 protected channel configuration. It MUST NOT try SSHSIG after this verifier
@@ -19,7 +19,7 @@ role/budget semantics into general grants. A1 policy is not implemented here.
 This boundary also supersedes v5.2's permissive dropping of invalid signatures:
 every attached signature in this slice MUST pass. Transport is not authority.
 
-waggle owns these formats and the future verifier. Consumers MUST pin a reviewed
+Swarma Envelope owns these formats and the future verifier. Consumers MUST pin a reviewed
 main commit and change that pin through their own review. The pure `record` and `verifier` packages implement the offline contract;
 §6 remains normative and no consumer activation is implied.
 
@@ -1374,7 +1374,7 @@ This is a proposal dependency, not a shipped API. The caller supplies a fresh
 `Sample`/`StartSample` decision: Now, AuthorityUntil, Uncertainty, Boot, Trusted,
 Fresh, and continuity evidence. Untrusted, stale, held, unavailable or expired
 samples MUST refuse. The provider owns source selection, stricter-only policy,
-NTS evidence, hold recovery and process continuity; waggle MUST NOT pick a
+NTS evidence, hold recovery and process continuity; Swarma Envelope MUST NOT pick a
 clock source or clear a hold. Re-check provider authority at effect admission.
 
 Let now be the sample time and W the durable watermark. Expiry is exclusive

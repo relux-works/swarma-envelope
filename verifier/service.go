@@ -3,7 +3,7 @@ package verifier
 import (
 	"bytes"
 
-	"github.com/relux-works/waggle/record"
+	"github.com/relux-works/swarma-envelope/record"
 )
 
 // Protocol-key roles come from protected configuration, never a claimed class.

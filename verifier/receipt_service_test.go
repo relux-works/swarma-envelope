@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/relux-works/waggle/verifier"
+	"github.com/relux-works/swarma-envelope/verifier"
 )
 
 // A service call validates R1-R3 without renewing grant-root age; time precedes

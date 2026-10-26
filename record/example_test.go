@@ -2,7 +2,7 @@ package record_test
 
 import (
 	"fmt"
-	"github.com/relux-works/waggle/record"
+	"github.com/relux-works/swarma-envelope/record"
 )
 
 // Codec-only provider admission signs no bytes and grants no receiver authority.

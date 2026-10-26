@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/relux-works/waggle/verifier"
+	"github.com/relux-works/swarma-envelope/verifier"
 )
 
 // Recovery fixtures assert exact audit plans and refusals with zero plans.

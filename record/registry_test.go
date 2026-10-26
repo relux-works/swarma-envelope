@@ -3,7 +3,7 @@ package record_test
 import (
 	"crypto/ed25519"
 	"encoding/base64"
-	"github.com/relux-works/waggle/record"
+	"github.com/relux-works/swarma-envelope/record"
 	"testing"
 )
 

@@ -1,6 +1,6 @@
 package verifier
 
-import "github.com/relux-works/waggle/record"
+import "github.com/relux-works/swarma-envelope/record"
 
 func freshnessWire(raw []byte) map[string]any {
 	return mapped(func() map[string]any {

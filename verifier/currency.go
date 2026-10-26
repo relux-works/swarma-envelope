@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/relux-works/waggle/record"
+	"github.com/relux-works/swarma-envelope/record"
 )
 
 // SnapshotBinding identifies content selected by a version 2 checkpoint.

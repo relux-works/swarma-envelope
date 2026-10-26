@@ -1,7 +1,7 @@
 package record_test
 
 import (
-	"github.com/relux-works/waggle/record"
+	"github.com/relux-works/swarma-envelope/record"
 	"testing"
 )
 

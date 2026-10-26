@@ -1,6 +1,6 @@
-# Track: waggle (agent communication)
+# Track: Swarma Envelope (agent communication)
 
-Status: **DRAFT v4.1**, 2026-09-24. Specification: `spec/waggle.md` (draft v5.2, with Amendment A1 for board processes and the command names of v5.2). Continues the task-board coordination-rooms epic. Research: three notes in the private task-board repository (`skill-project-management`): the task-board messaging map, the Apiary and ax messaging map, and the agent-messaging landscape. Roadmap: parallel track CM0–CM4, high priority, starts now.
+Status: **DRAFT v4.1**, 2026-09-24. Specification: `spec/waggle.md` (draft v5.2, with Amendment A1 for board processes and the command names of v5.2). Roadmap: parallel track CM0–CM4, high priority, starts now.
 
 ## Why
 
@@ -15,7 +15,7 @@ Orchestrators sharing a project cannot talk to each other, and an orchestrator r
 - **Lessons from SSH certificate practice.** Short-lived certificates as the main control, revocation lists for emergencies, CA keys on hardware, automatic issuance at session start, principals and namespaces restrict each key, certificates can be inspected, every acceptance is logged with key id, serial and CA; OpenSSH certificates are single-level, so chains are expressed by listing CA keys in the roster and by co-signatures.
 - **Sessions sign, agents compose.** The host creates a short-lived key per orchestrator session, certified by the operator's key; the agent writes content through `task-board mail send`, the host fills the sender and signs. A worker's certificate allows reports only, so a worker cannot produce a command or coordination message over any transport.
 - **Rooms, threads, participants.** Spaces (rooms, a mailbox per principal), threads and replies are fields of the signed payload, so no provider can move a message or detach a reply; membership is policy, checked on receipt.
-- **Delivery is a doorbell plus a pull.** A fixed-template doorbell goes into the agent loop; the agent pulls the content as tool output inside an untrusted-data frame. The doorbell is injected through the session-host module being extracted from task-board's session daemon (working name `agent-session-host`), so waggle carries no harness-specific code.
+- **Delivery is a doorbell plus a pull.** A fixed-template doorbell goes into the agent loop; the agent pulls the content as tool output inside an untrusted-data frame. The doorbell is injected through the session-host module being extracted from task-board's session daemon (working name `agent-session-host`), so Swarma Envelope carries no harness-specific code.
 - **Injection defense is layered.** Mandatory: authority outside the model (gates, scope leases, supervisor-executed cancel) and typed, framed messages. Optional: deterministic inspectors, a model-based guard, a quarantined extractor that turns free text into typed requests, quarantine with human release, rate limits. External senders get the optional layers by default.
 - **Scope leases decide, messages negotiate.** Each orchestrator leases a scope (Epics, Stories) with a term and token in a compare-and-set store; the kernel checks the lease at spawn, integrate and board commit. Group decisions are records carrying the supporters' signatures once a policy quorum is reached.
 - **Providers are untrusted pipes.** Every transport is an adapter behind one provider interface with a declared capability set (threads, history, size limit, federation, delivery guarantees). Carrier = stores and delivers signed envelopes with guarantees. Console = a place people watch and type (their input enters as low-authority `coord`). Gateway = a translator at the edge. Authority comes from signatures, the roster and the policy, never from the provider, so proprietary chats can be adapters but never the core.
@@ -25,13 +25,13 @@ Orchestrators sharing a project cannot talk to each other, and an orchestrator r
 
 | Step | Delivers | Thrown away later? |
 | --- | --- | --- |
-| F1 | `waggle` library: envelope, SSHSIG via `ssh-agent`, roster, verification pipeline, receipts | no |
+| F1 | `swarma-envelope` library: envelope, SSHSIG via `ssh-agent`, roster, verification pipeline, receipts | no |
 | F2 | local carrier, doorbell + pull through the session host, `task-board mail` commands; two orchestrators on one machine | no: the last delivery stage of every carrier |
-| F3 | NATS JetStream carrier as a separate tailnet-only service on a dedicated Mac mini on the operators' tailnet, clear of the host's shared ingress (the host also serves production traffic); NATS user per operator; workers never get NATS credentials; leases in JetStream KV | no: the internet carrier and the scale path |
+| F3 | NATS JetStream carrier as a separate service in a configurable development transport topology, isolated from shared ingress; NATS user per operator; workers never get NATS credentials; leases in JetStream KV | no: the internet carrier and the scale path |
 | F4 | scope leases enforced at write boundaries | no |
 | F5 (optional) | IRC bridge on Ergo for people | no: the console |
 
-Why NATS first for the internet: it already gives durable streams, acknowledgements, redelivery, deduplication, per-message TTL, compare-and-set KV and per-subject permissions, in one Go binary with a mature Go client, so nothing has to be built into the board server first. The team's tailnet already shares nodes between people, so the server can sit on a private address. The old board server is not revived as a mailbox: an assessment on 2026-09-24 put NATS at a few days and a board-server mailbox at a week and more plus security rework.
+Why NATS first for the internet: it already gives durable streams, acknowledgements, redelivery, deduplication, per-message TTL, compare-and-set KV and per-subject permissions, in one Go binary with a mature Go client, so nothing has to be built into the board server first. A development deployment may use a private overlay network; its topology and access policy are configurable. The old board server is not revived as a mailbox: an assessment on 2026-09-24 put NATS at a few days and a board-server mailbox at a week and more plus security rework.
 
 ## Roles of IRC, XMPP, A2A and other providers
 
@@ -45,7 +45,7 @@ Why NATS first for the internet: it already gives durable streams, acknowledgeme
 
 | # | Delivers | Done when |
 | --- | --- | --- |
-| CM0 | draft spec; `waggle` repository | merged as draft |
+| CM0 | draft spec; `swarma-envelope` repository | merged as draft |
 | CM1 | F1 + F2; child-environment leak in task-board spawns fixed; notices and directives mapped onto message classes; doorbell through the session host | two orchestrators on one machine coordinate in a room; each cancels only its own children |
 | Lab | protocol lab beside CM1–CM2 | candidate coordination types and lease rules documented with the runs that produced them |
 | CM2 | F3 + F4 (+ F5); coordination vocabulary refined by the lab; Amendment A1 for board processes; one accepting writer per board or collaboration, with epoch fencing (spec §12, decided 2026-09-28) | orchestrators of 2–3 operators in different locations split scopes and negotiate over the internet; a person can watch; a board accepts a signed approval bound to the element's declared fields, a signed external event, a delegated approval from the grantor's own session within a signed grant as its grantor's act, and a confirmer's signed confirmation of a process version, and a hand-off across boards returns a result signed in the `result` role by the receiving board's host |
@@ -54,15 +54,15 @@ Why NATS first for the internet: it already gives durable streams, acknowledgeme
 
 ## Priority in words
 
-Start now, in parallel with the migration off agents-infra. CM0–CM1 need nothing from the migration except the `waggle` repository and the session host's notice injection. The session-host module is extracted from task-board's session daemon for other reasons too (goals for more harnesses, one entry door for sessions), so CM1 lands with or right after that extraction, and their pull requests are sequenced. CM2 follows CM1 directly: internet coordination is the goal. The protocol lab runs beside them. CM3 lands with Apiary stage 1; CM4 comes with the first external organization.
+The delivery track can proceed in parallel with other platform work. CM0–CM1 need nothing from the migration except the `swarma-envelope` repository and the session host's notice injection. The session-host module is extracted from task-board's session daemon for other reasons too (goals for more harnesses, one entry door for sessions), so CM1 lands with or right after that extraction, and their pull requests are sequenced. CM2 follows CM1 directly: internet coordination is the goal. The protocol lab runs beside them. CM3 lands with Apiary stage 1; CM4 comes with the first external organization.
 
 ## Decisions
 
 | # | Question | Status |
 | --- | --- | --- |
-| 1 | Name | decided: `waggle`, its own public Go module and repository, consumed like `skill-agents-management` |
+| 1 | Name | decided: `swarma-envelope`, its own public Go module and repository, consumed like `skill-agents-management` |
 | 2 | Signature container | decided: SSHSIG with multi-signature by role; Apiary's authority wire gets an amendment |
-| 3 | First internet carrier | decided: NATS JetStream on a dedicated Mac mini on the operators' tailnet, a separate tailnet-only service clear of the host's shared ingress |
+| 3 | First internet carrier | decided: NATS JetStream as a separate service in a configurable development transport topology, isolated from shared ingress |
 | 4 | Console | decided 2026-09-24: own terminal UI first; IRC bridge optional |
 | 4b | Injection defense | decided: the layered model of the specification |
 | 5 | Federation | proposed: XMPP + A2A gateway |
@@ -72,4 +72,4 @@ Start now, in parallel with the migration off agents-infra. CM0–CM1 need nothi
 | 9 | Protocol lab | decided: findings feed the coordination layer through reviewed changes; production authority stays outside the model |
 | 10 | Delivery into sessions | decided: through the session-host module's notice injection |
 | 11 | Board-server mailbox | decided: not revived |
-| 12 | Board processes | direction decided 2026-09-24: Amendment A1 of the specification adds board acts (approvals, relaxations, human transitions), signed external events from service principals (`svc:`), the hand-off result signed by the receiving board's host, user verification in board policy (`required` by default for approvals, relaxations, delegations and halts once a project sets a signature policy, with `hardware-bound` keys as the floor), delegation of board acts, installs of audited skills included, to the grantor's own orchestrator sessions within grants the board verifies, confirmations of process changes as signed board acts under the fixed floor of curator-trust `spec/trust.md`, and roster changes made by a confirmed commit and confirmed against the roster of the version in force; implemented with CM2 |
+| 12 | Board processes | direction decided 2026-09-24: Amendment A1 of the specification adds board acts (approvals, relaxations, human transitions), signed external events from service principals (`svc:`), the hand-off result signed by the receiving board's host, user verification in board policy (`required` by default for approvals, relaxations, delegations and halts once a project sets a signature policy, with `hardware-bound` keys as the floor), delegation of board acts, installs of audited skills included, to the grantor's own orchestrator sessions within grants the board verifies, confirmations of process changes as signed board acts under the fixed confirmation floor requiring a person's presence, and roster changes made by a confirmed commit and confirmed against the roster of the version in force; implemented with CM2 |

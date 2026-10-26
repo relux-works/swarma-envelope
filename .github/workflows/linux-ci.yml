@@ -81,13 +81,13 @@ jobs:
         run: go run ./tools/vectors -check
       - name: Materialize and check full corpus
         run: |
-          go run ./tools/vectors -sweeps -out "$RUNNER_TEMP/waggle-vectors"
-          go run ./tools/vectors -sweeps -out "$RUNNER_TEMP/waggle-vectors" -check
-          cmp vectors/swarm-envelope-2/sweeps.sha256 "$RUNNER_TEMP/waggle-vectors/swarm-envelope-2/sweeps.sha256"
-          cmp vectors/swarm-envelope-2/sweeps.tsv "$RUNNER_TEMP/waggle-vectors/swarm-envelope-2/sweeps.tsv"
+          go run ./tools/vectors -sweeps -out "$RUNNER_TEMP/envelope-vectors"
+          go run ./tools/vectors -sweeps -out "$RUNNER_TEMP/envelope-vectors" -check
+          cmp vectors/swarm-envelope-2/sweeps.sha256 "$RUNNER_TEMP/envelope-vectors/swarm-envelope-2/sweeps.sha256"
+          cmp vectors/swarm-envelope-2/sweeps.tsv "$RUNNER_TEMP/envelope-vectors/swarm-envelope-2/sweeps.tsv"
       # Missing P-256 support returns PENDING/exit 2, which fails this step.
       - name: Independent full-corpus check
-        run: '"$RUNNER_TEMP/checker-venv/bin/python" -B tools/vectorcheck/check.py --vectors "$RUNNER_TEMP/waggle-vectors"'
+        run: '"$RUNNER_TEMP/checker-venv/bin/python" -B tools/vectorcheck/check.py --vectors "$RUNNER_TEMP/envelope-vectors"'
       - name: Test
         run: |
           go_root="$(go env GOROOT)"

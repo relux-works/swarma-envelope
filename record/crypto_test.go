@@ -10,7 +10,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/relux-works/waggle/record"
+	"github.com/relux-works/swarma-envelope/record"
 )
 
 // The Edwards base point is prime order. Adding (0,-1), the nontrivial

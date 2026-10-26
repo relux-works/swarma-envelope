@@ -1,10 +1,10 @@
-# waggle: agent communication specification
+# Swarma Envelope: agent communication specification
 
-Status: **DRAFT v5.2**, 2026-09-27. Not normative. Track document: `spec/track.md`. Evidence: research notes in the private task-board repository (`skill-project-management`): the task-board messaging map (*TM*), the Apiary and ax messaging map (*AX*) and the agent-messaging landscape (*LS*). Continues the task-board coordination-rooms epic. v5.1 adds Amendment A1 (§19) with what board processes need: signed approvals, relaxations and human transitions on a board; signed external events from service principals; the hand-off result; user verification in board policy; delegation of board acts to orchestrator roles. The direction of A1 is accepted, and it is implemented with CM2. v5 splits the protocol into a communication layer and a coordination layer, and adds the conversation model and the provider interface, the protocol lab, delivery through the session-host module and the placement of the internet carrier; v4 of the same day added signer providers.
+Status: **DRAFT v5.2**, 2026-09-27. Not normative. Track document: `spec/track.md`. v5.1 adds Amendment A1 (§19) with what board processes need: signed approvals, relaxations and human transitions on a board; signed external events from service principals; the hand-off result; user verification in board policy; delegation of board acts to orchestrator roles. The direction of A1 is accepted, and it is implemented with CM2. v5 splits the protocol into a communication layer and a coordination layer, and adds the conversation model and the provider interface, the protocol lab, delivery through the session-host module and the placement of the internet carrier; v4 of the same day added signer providers.
 
 Published as a draft for review; nothing here is implemented yet.
 
-Decided by the operator (2026-09-24): name **waggle**, a separate public Go module and repository consumed like `skill-agents-management`; **SSHSIG** signatures (amend Apiary's raw Ed25519 preimage); **multi-signature** envelopes; the layered injection defense of §7; the fast path F1–F3 of §14 with NATS on a dedicated Mac mini on the operators' tailnet first; **pluggable signer providers and key assurance** (§4.5): Apple Secure Enclave, FIDO, TPM, PIV, with a fallback to an ordinary key. Later the same day: **two layers**, communication and coordination (§2); a **conversation model and provider interface** in which providers are untrusted pipes, so proprietary chats are acceptable as adapters but never the core (§8, §9); IRC for a project that runs its own server, XMPP for federation; a **protocol lab** that feeds the coordination layer (§13); delivery into sessions through the **session-host module** (§10); NATS as a **separate tailnet-only service** that does not touch the host's shared ingress, and **no board-server mailbox** (§9.3).
+Repository/module identity: **Swarma Envelope**, a separate public Go module and repository consumed like `skill-agents-management`. Original design decisions (2026-09-24): **SSHSIG** signatures (amend Apiary's raw Ed25519 preimage); **multi-signature** envelopes; the layered injection defense of §7; the fast path F1–F3 of §14 with NATS in a configurable development transport topology first; **pluggable signer providers and key assurance** (§4.5): Apple Secure Enclave, FIDO, TPM, PIV, with a fallback to an ordinary key. Later the same day: **two layers**, communication and coordination (§2); a **conversation model and provider interface** in which providers are untrusted pipes, so proprietary chats are acceptable as adapters but never the core (§8, §9); IRC for a project that runs its own server, XMPP for federation; a **protocol lab** that feeds the coordination layer (§13); delivery into sessions through the **session-host module** (§10); NATS as a **separate access-controlled development service** that does not touch the host's shared ingress, and **no board-server mailbox** (§9.3).
 
 ---
 
@@ -17,13 +17,13 @@ One protocol, one message format and one delivery mechanism for:
 
 Transports are replaceable adapters; authority never comes from a transport. The protocol has two layers: the communication layer moves signed messages between principals, and the coordination layer, built on it, decides who works on what (§2).
 
-## 1. What exists (summary)
+## 1. Design requirements
 
-- Nothing sends messages between orchestrators; run notices reach the orchestrator (Claude: sanitized terminal paste, at most 160 characters, only with a client attached; Codex: `turn/steer` / `thread/queue/add`, unsanitized, one attempt); children get goal revisions and directives they must poll (TM §1-§3).
-- Nothing is signed; `TASK_BOARD_RUN_ID` is a convention; children can inherit the parent's manager variables (the child-environment leak in task-board spawns) (TM §6-§7).
-- Coordination-rooms research chose a durable inbox/outbox with a Session Manager delivery adapter and "never type room content into a terminal" (TM §4).
-- Apiary designed a transport-neutral signed envelope, closed receipts, deduplication, term + token fencing and "messages from other agents are data" (AX §1-§5); ax has no messaging (AX §6).
-- No transport signs messages per user; SSHSIG over exact bytes with `allowed_signers` does (LS §3).
+- Orchestrators need signed messaging; run notices and polled directives alone do not provide it.
+- Run identifiers and inherited process variables are not signing authority. Children must not inherit the parent's manager credentials.
+- Delivery uses a durable inbox/outbox and a session-host adapter; room content must never be typed directly into a terminal.
+- Envelopes are transport-neutral, with closed receipts, deduplication and term/token fencing. Messages from other agents remain data.
+- Per-user signatures cover exact bytes and can be verified offline with SSHSIG and `allowed_signers`.
 
 ## 2. Two layers
 
@@ -48,7 +48,7 @@ Transports are replaceable adapters; authority never comes from a transport. The
 
 - **The communication layer** answers "who said what to whom, who approved it, and did it arrive": principals and keys, the envelope and its signatures, verification, the conversation model, mailboxes, delivery into sessions, and the providers that carry bytes. It knows nothing about who owns which part of a project, except through one hook: step 4 of verification (§4.3) asks the coordination layer whether the author holds the authority a class requires.
 - **The coordination layer** answers "who works on what, and how do we agree": negotiation, claiming work, scope leases, leader election and quorum decisions. It speaks only through the communication layer and never bypasses its verification; its authority lives in leases and gates, never in a model's reading of a message.
-- The metaphor for the coordination layer is honeybee quorum sensing: when a swarm chooses a new home, scouts advertise candidate sites with waggle dances, support grows for the better sites, scouts inhibit dancers for competing sites, and the swarm commits once enough scouts gather at one site. waggle's decisions follow the same shape (§11).
+- The metaphor for the coordination layer is honeybee quorum sensing: when a swarm chooses a new home, scouts advertise candidate sites with waggle dances, support grows for the better sites, scouts inhibit dancers for competing sites, and the swarm commits once enough scouts gather at one site. Swarma Envelope's decisions follow the same shape (§11).
 
 ## 3. Principals, keys, certificates, roster
 
@@ -60,7 +60,7 @@ Transports are replaceable adapters; authority never comes from a transport. The
 | Host | `host:mini-1@acme` | machine key with a host certificate from the operator's key |
 | Partner (later) | `orch:*@partner` | partner CA, admitted for `coord` only |
 
-The **roster** is a stock OpenSSH `allowed_signers` file committed in the project (`.waggle/allowed_signers`), with a key revocation list (`.waggle/revoked`). Adding a teammate is a commit to the roster that a person confirms (Amendment A1; curator-trust `spec/trust.md` §3, §4); git hosting and pull requests are optional. A roster change takes effect only with a confirmation verified against the roster of the version in force, so no commit or batch admits its own signer, and a person's revocation takes effect at once (`spec/trust.md` §5). Hosts read the roster of the version in force, the pinned revision (process-configuration §2.4).
+The **roster** is a stock OpenSSH `allowed_signers` file committed in the project (`.waggle/allowed_signers`), with a key revocation list (`.waggle/revoked`). Adding a teammate is a commit to the roster that a person confirms (Amendment A1); git hosting and pull requests are optional. A roster change takes effect only with a confirmation verified against the roster of the version in force, so no commit or batch admits its own signer, and a person's revocation takes effect at once. Hosts read the roster of the version in force, the pinned revision.
 
 ```text
 # operators sign and approve directly
@@ -80,7 +80,7 @@ Amendment A1 adds the service principal kind `svc:` for bridges that sign extern
 
 ### 3.1 Lessons adopted from SSH certificate practice
 
-| Lesson | How waggle applies it |
+| Lesson | How Swarma Envelope applies it |
 | --- | --- |
 | Short expiry is the primary control; revocation lists are for emergencies because they must be distributed | session certificates 12 h, worker certificates end with the run, operator certificates (if a team CA is used) a few days; the revocation list lives in the repository and is checked on every verification |
 | The CA key is the crown jewel | CA keys (operator keys acting as CAs, the optional team CA) live on hardware or in a Touch-ID-gated agent and never on disk in clear; per-operator CAs limit the blast radius |
@@ -148,7 +148,7 @@ The payload:
 The same pipeline runs for every provider:
 
 1. Decode `payload`; the expected class comes from the channel, never from the envelope.
-2. For each entry in `sigs`: the principal is `payload.from` for `author`, `payload.signers.<role>` otherwise; verify the SSHSIG with namespace `<role prefix><class>.v1@waggle` against the roster at `issued_at` (certificates, validity windows, revocation list, waggle certificate extensions). Unverifiable entries are dropped and reported, never counted.
+2. For each entry in `sigs`: the principal is `payload.from` for `author`, `payload.signers.<role>` otherwise; verify the SSHSIG with namespace `<role prefix><class>.v1@waggle` against the roster at `issued_at` (certificates, validity windows, revocation list, Swarma Envelope certificate extensions). Unverifiable entries are dropped and reported, never counted.
 3. Apply the **signature policy** (§4.4): every required role present and verified, with the required key properties.
 4. Check the audience and space membership (§8.3), then class authority through the coordination layer (a `cmd` author must hold the scope lease of the target run's scope, §12; a `coord` author's `term` must match its lease when it speaks for a scope).
 5. Check expiry and skew; record the carrier's arrival time.
@@ -249,7 +249,7 @@ Trust tier (`own`, `team`, `external`) comes from the roster line that verified 
 
 ## 8. Conversation model
 
-People and agents think in rooms, threads and replies; waggle models them once, and every provider maps them onto its own features (§9).
+People and agents think in rooms, threads and replies; Swarma Envelope models them once, and every provider maps them onto its own features (§9).
 
 | Concept | Meaning | Where it lives |
 | --- | --- | --- |
@@ -299,7 +299,7 @@ type Provider interface {
 }
 ```
 
-`Capabilities` says what the provider can do natively and what waggle must emulate: threads, history, maximum message size, federation, delivery guarantees, and which roles it may play (carrier, console, or both). A message larger than the provider's limit travels in one of two ways:
+`Capabilities` says what the provider can do natively and what Swarma Envelope must emulate: threads, history, maximum message size, federation, delivery guarantees, and which roles it may play (carrier, console, or both). A message larger than the provider's limit travels in one of two ways:
 
 - **chunks**: the base64 envelope split into numbered parts carrying the envelope id and the digest of the whole; the receiver reassembles, checks the digest and only then verifies; a missing part means no delivery;
 - **pointer**: the message carries the envelope id, its SHA-256 digest and where to fetch it from a durable carrier; the receiver fetches and checks the digest before verification.
@@ -334,7 +334,7 @@ A provider plays one or more of three roles:
 | Role | Adapter | Use |
 | --- | --- | --- |
 | carrier, one machine | **local**: Maildir-style mailbox under the Session Manager state root (generalizes today's notice inbox) | orchestrators on one Mac; the final delivery stage of every other carrier |
-| carrier, internet (first) | **NATS JetStream** on a dedicated Mac mini on the operators' tailnet, run as a separate service reachable over the tailnet only; that host also serves production traffic, so the service never touches its shared ingress; streams per project; durable consumers per principal; `Nats-Msg-Id` = envelope id; `Nats-TTL` from expiry; leases in a JetStream KV bucket; one NATS user per operator | 2–3 operators in different locations |
+| carrier, internet (first) | **NATS JetStream** as a separate service in a configurable development transport topology, isolated from shared ingress; streams per project; durable consumers per principal; `Nats-Msg-Id` = envelope id; `Nats-TTL` from expiry; leases in a JetStream KV bucket; one NATS user per operator | 2–3 operators in different locations |
 | carrier, not planned | board server mailbox | not revived: an assessment on 2026-09-24 found a mailbox in the old board server would cost a week and more plus security rework (user-level tokens without scope or expiry, no push), against a few days for NATS |
 | carrier, federation | **XMPP (Prosody)**, envelopes in a namespaced element (`urn:apiary:envelope:1`), s2s certificates and allowlists, members-only rooms | other organizations with their own servers |
 | carrier or console, adapters | **Matrix**, **Slack**, **Telegram**, **email**: untrusted adapters under the rules of §9.1 and §9.2 | teams that already live there |
@@ -351,7 +351,7 @@ A provider plays one or more of three roles:
 3. The agent pulls with `task-board mail read` or a per-session MCP tool with a capability token; the tool records `read`.
 4. Doorbells coalesce; a stale-turn steer falls back to `next_turn`; with no client attached messages wait durably.
 
-**Through the session host.** Putting anything into a live agent session is not waggle code. Notice injection is one capability of the session-host module (working name `agent-session-host`) that is being extracted from task-board's session daemon, with one contract per harness: start or resume a session; apply, clear and acknowledge the exact revision of a goal; inject a notice; emit goal and usage events. waggle rings the doorbell through that contract and ships no harness-specific code. The mechanics in step 2 are today's implementations of the capability for Codex and Claude; a harness gains waggle delivery the day it gains a session-host adapter.
+**Through the session host.** Putting anything into a live agent session is not Swarma Envelope code. Notice injection is one capability of the session-host module (working name `agent-session-host`) that is being extracted from task-board's session daemon, with one contract per harness: start or resume a session; apply, clear and acknowledge the exact revision of a goal; inject a notice; emit goal and usage events. Swarma Envelope rings the doorbell through that contract and ships no harness-specific code. The mechanics in step 2 are today's implementations of the capability for Codex and Claude; a harness gains Swarma Envelope delivery the day it gains a session-host adapter.
 
 ## 11. Coordination: vocabulary and decisions
 
@@ -375,7 +375,7 @@ A lease says which orchestrator owns which part of the project right now: holder
 
 Example: Alpha (Alice) leases Epic Auth, Beta (Bob) leases Epic Billing. When Alpha tries to spawn a developer on a Billing story, task-board looks the lease up, sees Beta, and refuses with `scope_owned_by orch:beta`. To work there, Alpha sends `coord.handoff-offer` or a `coord.request`; if Beta accepts, the lease moves to Alpha with a higher term. If Alpha's session dies and comes back on another machine, the new session gets a higher term, and anything still signed under the old term is refused.
 
-The kernel checks leases at the three places where damage happens: **spawn** (starting work), **integrate** (landing code) and **board commit** (writing board state). Operators see them with `task-board lease list` and `task-board lease show <scope>`; only the kernel writes them. Messages alone cannot prevent two orchestrators from working on the same story at once (a finding of the earlier coordination-rooms research); the lease can.
+The kernel checks leases at the three places where damage happens: **spawn** (starting work), **integrate** (landing code) and **board commit** (writing board state). Operators see them with `task-board lease list` and `task-board lease show <scope>`; only the kernel writes them. Messages alone cannot prevent two orchestrators from working on the same story at once; the lease can.
 
 **One accepting writer, with epoch fencing** *(decided 2026-09-28)*. A board, or a collaboration on it, has one accepting writer at a time. Typed operations carry the actor, the board, the configuration version, the scope and its lease epoch (the lease's `term`), the expected revision and an operation id. The epoch is checked at spawn, at the board commit and at integration. An orchestrator that loses the authority pauses new writes.
 
@@ -395,9 +395,9 @@ Findings become candidate coordination message types and lease rules (§11); eac
 
 | Step | Delivers | Kept afterwards |
 | --- | --- | --- |
-| F1 | `waggle` module: envelope, multi-signature SSHSIG via `ssh-agent` (including FIDO user verification), roster and policy, verification pipeline, receipts, audit; interop tests against `ssh-keygen -Y verify` | yes |
+| F1 | `swarma-envelope` module: envelope, multi-signature SSHSIG via `ssh-agent` (including FIDO user verification), roster and policy, verification pipeline, receipts, audit; interop tests against `ssh-keygen -Y verify` | yes |
 | F2 | local carrier, doorbell + pull through the session host's notice injection, `task-board mail send\|read\|list\|show\|approve\|reject\|tail\|rooms` | yes |
-| F3 | NATS carrier as a separate tailnet-only service on a dedicated Mac mini on the operators' tailnet, clear of the host's shared ingress; NATS users per operator; workers never get NATS credentials | yes |
+| F3 | NATS carrier as a separate service in a configurable development transport topology, isolated from shared ingress; NATS users per operator; workers never get NATS credentials | yes |
 | F4 | scope leases enforced at spawn, integrate, board commit | yes |
 | F5 (optional) | IRC bridge on Ergo | yes, as a console |
 
@@ -412,13 +412,13 @@ Always: children never receive carrier credentials or the parent's manager varia
 
 ## 16. Module and repository
 
-`waggle` is its own public Go module and repository (`relux-works/waggle`), consumed by task-board through `go.mod` at tags exactly like `skill-agents-management`: no `replace`, a `go.work` only for local development, one tag per wave. Later consumers: Apiary's AgentHost and coordinator, and `curator-run` if it ever sends messages. For delivery into live sessions waggle consumes the session-host module's notice-injection contract (§10) and depends on no harness.
+`github.com/relux-works/swarma-envelope` is its own public Go module and repository (`relux-works/swarma-envelope`), consumed by task-board through `go.mod` at tags exactly like `skill-agents-management`: no `replace`, a `go.work` only for local development, one tag per wave. Later consumers: Apiary's AgentHost and coordinator, and `curator-run` if it ever sends messages. For delivery into live sessions Swarma Envelope consumes the session-host module's notice-injection contract (§10) and depends on no harness.
 
 ## 17. Phases
 
 | Phase | Delivers | Done when |
 | --- | --- | --- |
-| CM0 | this draft; `waggle` repository | merged as draft |
+| CM0 | this draft; `swarma-envelope` repository | merged as draft |
 | CM1 | F1 + F2; env-leak fix; notices and directives mapped onto classes; doorbell through the session host | two orchestrators on one machine coordinate in a room; each cancels only its own children; an operator approval with a FIDO touch halts a foreign worker |
 | Lab (parallel) | the protocol lab of §13 | candidate coordination types and lease rules documented with the runs that produced them |
 | CM2 | F3 + F4 (+ F5); coordination vocabulary refined by the lab; Amendment A1 (§19) | orchestrators of 2–3 operators in different locations split scopes and negotiate over the internet; a person watches in `mail tail`; a board accepts a signed approval and a signed external event, and a hand-off across boards returns its result |
@@ -429,10 +429,10 @@ Always: children never receive carrier credentials or the parent's manager varia
 
 | # | Question | Status |
 | --- | --- | --- |
-| 1 | Name, module, repository | decided: `waggle`, own public module and repository |
+| 1 | Name, module, repository | decided: `swarma-envelope`, own public module and repository |
 | 2 | Signature container | decided: SSHSIG, multi-signature by role; Apiary authority wire gets an amendment |
 | 3 | Injection defense | decided: §7 |
-| 4 | First internet carrier | decided: NATS JetStream on a dedicated Mac mini on the operators' tailnet, as a separate tailnet-only service clear of the host's shared ingress |
+| 4 | First internet carrier | decided: NATS JetStream as a separate service in a configurable development transport topology, isolated from shared ingress |
 | 5 | Console | decided 2026-09-24: own terminal UI first, IRC bridge optional |
 | 6 | Federation | proposed: XMPP + A2A gateway |
 | 7 | Priority | decided: start now, in parallel with the migration |
@@ -441,15 +441,15 @@ Always: children never receive carrier credentials or the parent's manager varia
 | 10 | Conversation model and providers | decided: spaces, threads, participants and messages; providers are untrusted pipes, so proprietary chats are adapters and never the core (§8, §9) |
 | 11 | IRC and XMPP | decided: both are providers; IRC for a project that runs its own server, XMPP for federation |
 | 12 | Protocol lab | decided: its findings feed the coordination layer through reviewed changes; production authority stays outside the model (§13) |
-| 13 | Delivery into sessions | decided: through the session-host module's notice injection (working name `agent-session-host`), no harness-specific code in waggle (§10) |
+| 13 | Delivery into sessions | decided: through the session-host module's notice injection (working name `agent-session-host`), no harness-specific code in Swarma Envelope (§10) |
 | 14 | Board-server mailbox | decided: not revived (§9.3) |
-| 15 | Board processes | direction decided 2026-09-24: Amendment A1 (§19), implemented with CM2: board acts (approvals, relaxations, human transitions), signed external events from service principals, the hand-off result signed by the receiving board's host, user verification in board policy, `required` by default for approvals, relaxations, delegations and halts once a project sets a signature policy, with `hardware-bound` keys as the floor, delegation of board acts, installs of audited skills included, to the grantor's own orchestrator sessions within grants the board verifies (§19.8), confirmations of process changes as signed board acts (`board.confirm`) under the fixed floor of curator-trust `spec/trust.md`, and roster changes made by a confirmed commit and confirmed against the roster of the version in force (§3); the hand-off result is signed in a new signer role, `result` (§19.4) |
+| 15 | Board processes | direction decided 2026-09-24: Amendment A1 (§19), implemented with CM2: board acts (approvals, relaxations, human transitions), signed external events from service principals, the hand-off result signed by the receiving board's host, user verification in board policy, `required` by default for approvals, relaxations, delegations and halts once a project sets a signature policy, with `hardware-bound` keys as the floor, delegation of board acts, installs of audited skills included, to the grantor's own orchestrator sessions within grants the board verifies (§19.8), confirmations of process changes as signed board acts (`board.confirm`) under the fixed confirmation floor requiring a person's presence, and roster changes made by a confirmed commit and confirmed against the roster of the version in force (§3); the hand-off result is signed in a new signer role, `result` (§19.4) |
 
 ## 19. Amendment A1: board processes
 
-Status: direction accepted 2026-09-24; implemented with CM2 (§17). Consumer: the process-configuration specification in [relux-works/curator-playbook](https://github.com/relux-works/curator-playbook) (`spec/process-configuration.md` §4.2, §6.4, §6.5, §6.9). The trust design in [relux-works/curator-trust](https://github.com/relux-works/curator-trust) (`spec/trust.md`) decides who counts as a person and what a confirmation, a person's narrowing act or a grant means. A1 keeps the wire forms; trust.md is their meaning. A1 adds two classes, one principal kind, one `coord` type signed in a new signer role, one policy field, a board type for confirming a version of a process and one for installing an audited skill, and delegation: two board types for granting and revoking it and one delegate namespace (§19.8). A1 changes §1–§18 in these places: §3, where a teammate is added by a confirmed commit and a roster change is confirmed against the roster of the version in force (curator-trust `spec/trust.md`); step 2 of §4.3, which gains the signer role `result` (§19.4); §4.4 and §4.5, which gain the operator companion app as a second way to show that a person acted, its signer provider and enrollment verifier, and the rule that every verifier re-checks enrollment evidence (§19.5). Nothing else in §1–§18 changes meaning.
+Status: direction accepted 2026-09-24; implemented with CM2 (§17). Consumer: a board process configuration. Its pinned policy defines authorized people and the meaning of confirmations, narrowing acts and grants; A1 supplies their wire forms. Public references may be added when available. A1 adds two classes, one principal kind, one `coord` type signed in a new signer role, one policy field, a board type for confirming a version of a process and one for installing an audited skill, and delegation: two board types for granting and revoking it and one delegate namespace (§19.8). A1 changes §1–§18 in these places: §3, where a teammate is added by a confirmed commit and a roster change is confirmed against the roster of the version in force; step 2 of §4.3, which gains the signer role `result` (§19.4); §4.4 and §4.5, which gain the operator companion app as a second way to show that a person acted, its signer provider and enrollment verifier, and the rule that every verifier re-checks enrollment evidence (§19.5). Nothing else in §1–§18 changes meaning.
 
-A process configuration lets a board decide who may move work: a person approves a purchase, a supplier's system confirms an order, another process returns its result. Before A1 none of these had a waggle form. A verifier following §4.3 had to refuse each of them, or the board had to verify them by rules waggle did not define.
+A process configuration lets a board decide who may move work: a person approves a purchase, a supplier's system confirms an order, another process returns its result. Before A1 none of these had a Swarma Envelope form. A verifier following §4.3 had to refuse each of them, or the board had to verify them by rules Swarma Envelope did not define.
 
 ### 19.1 Board acts: approvals, relaxations and human transitions
 
@@ -463,29 +463,29 @@ A new class, `board`, carries the acts of people on a board. Its author namespac
 | `board.delegate` | a person's grant of named board acts to an orchestrator role, with its conditions, scope, expiry and budgets (§19.8) | `delegations` |
 | `board.revoke` | the revocation of a delegation (§19.8) | `delegations` |
 | `board.install` | the installation of an audited skill from the Curator registry into the project, by a person or by a delegate (§19.8) | — (signed under a delegation, or where the project asks) |
-| `board.confirm` | a person's confirmation of a version of the process: the configuration digest of its resolved configuration at a named head (process-configuration §2.4) | none: a confirmation has a fixed floor, a key that requires a person's presence, that no project setting lowers (curator-trust `spec/trust.md` §4) |
+| `board.confirm` | a person's confirmation of a version of the process: the configuration digest of its resolved configuration at a named head | none: a confirmation has a fixed floor, a key that requires a person's presence, that no project setting lowers |
 
-- **The approver signature is the human act.** The author is whoever composed the request: usually the orchestrator session that asks for the approval. An operator acting alone signs both roles. The board counts only the `approver` signature, read against the project's process configuration at its pinned revision — the version in force (process-configuration §2.4) — and only from the approver set of the act's type:
+- **The approver signature is the human act.** The author is whoever composed the request: usually the orchestrator session that asks for the approval. An operator acting alone signs both roles. The board counts only the `approver` signature, read against the project's process configuration at its pinned revision — the version in force — and only from the approver set of the act's type:
   - `board.approve`: a principal in the group of the human role the approval is recorded as (the project's `people` map);
   - `board.relax`: the operator whose runs the exception covers, present in `people`; an exception never reaches another operator's runs;
   - `board.transition`: for a human-owned state, a principal in the group of the role that owns it; for an override of a tool- or process-owned state, or of a landing whose hosted checks could not run, any principal in `people`; for a transition marked with a `risk`, the group of the role that owns its source state, or any principal in `people` when an agent owns it;
   - `board.delegate`: a principal who may perform every act the grant covers, by the rules above and, for installs, any principal in `people`;
   - `board.revoke`: the grantor, or any principal in `people`, because a revocation only narrows authority;
   - `board.install`: any principal in `people`;
-  - `board.confirm`: a principal of the group that the project's `policy.confirmers` names in the version in force, or, without it, the board's anchor operator; it is verified against the roster, revocations and enrollments of the version it replaces, never the version being confirmed, and only a key that requires a person's presence counts (curator-trust `spec/trust.md` §3, §4).
+  - `board.confirm`: a principal of the group that the project's `policy.confirmers` names in the version in force, or, without it, the board's anchor operator; it is verified against the roster, revocations and enrollments of the version it replaces, never the version being confirmed, and only a key that requires a person's presence counts.
 
   A quorum counts distinct approver principals present in the roster at that revision.
 - **The payload binds everything the act depends on**, inside the signed bytes:
   - the board and the element;
   - the state the act concerns and that state's entry number;
   - the act itself: the role approved as, the transition, or the requirement relaxed with its scope and expiry;
-  - the evaluated revision: the configuration digest of the process version in force (process-configuration §2.4), and for work under a Change Request the revision under evaluation. The digest, not a commit, is bound: a commit that is not yet confirmed changes nothing, and a newly confirmed version whose digest is unchanged keeps a pending act valid;
+  - the evaluated revision: the configuration digest of the process version in force, and for work under a Change Request the revision under evaluation. The digest, not a commit, is bound: a commit that is not yet confirmed changes nothing, and a newly confirmed version whose digest is unchanged keeps a pending act valid;
   - the approver principal, in `signers.approver`;
   - every field the element's type declares, with its value (`shown`), and the digest of those fields (`fields_digest`), so the approver sees, and the signature binds, the whole element as it stood.
 
   An approval therefore cannot be replayed after the element enters the state again, against another configuration or revision, or after any declared field of the element changed: the board compares the bound digest with the digest of the element's current fields (§19.7).
 
-  A `board.confirm` concerns no element: it binds the board, the head it confirms, the configuration digest of that version and of the version it replaces, and the confirmation's sequence number in the board's chain, so it cannot be replayed for another version or revive after a revert (curator-trust `spec/trust.md` §4). The signing device computes both digests from the configurations it renders. A `board.install` binds the skill and the exact package identity installed.
+  A `board.confirm` concerns no element: it binds the board, the head it confirms, the configuration digest of that version and of the version it replaces, and the confirmation's sequence number in the board's chain, so it cannot be replayed for another version or revive after a revert. The signing device computes both digests from the configurations it renders. A `board.install` binds the skill and the exact package identity installed.
 - **What you see is what you sign.** A board act is signed only through the operator-facing approve command (§4.2, `task-board mail approve`). The command renders every body field, including the element fields shown, before the key signs. An agent never holds an operator key.
 - **Addressing.** A board act has no `to`. The board named in `body.board` consumes it, whether it arrives through that board's local command or over a carrier.
 
@@ -519,7 +519,7 @@ A new class, `event`, carries events from systems outside the project, such as a
 - **Body.** The board; the element; the event name the process configuration declares (`supplier.confirmed`, `payment.received`); the source, meaning the provider and the provider's own event identifier; typed, bounded data.
 - **Expiry.** `expires_at` is required. An event past it is refused as `expired` (§4.3 step 5).
 - **De-duplication.** The bridge derives the envelope `id` deterministically from the provider and its event identifier (a name-based UUID). A webhook the provider delivers twice therefore yields one envelope id, and step 6 of §4.3 drops the repeat. The same id with other bytes is `rejected:conflicting_duplicate`.
-- **Meaning.** Events reach the board through `task-board event post` or over a carrier. What an accepted event does is the board's rule (process-configuration §6.9): which transition it fires, and how long the board keeps it.
+- **Meaning.** Events reach the board through `task-board event post` or over a carrier. What an accepted event does is the board's rule: which transition it fires, and how long the board keeps it.
 
 ```json
 {
@@ -565,9 +565,9 @@ svc:*@acme cert-authority,namespaces="event.v1@waggle" ssh-ed25519 AAAA…
 - **Signer role and namespace.** A1 adds one signer role to step 2 of §4.3: `result`, whose namespace prefix is `result.`, so that it signs `coord.handoff-result` under `result.coord.v1@waggle`, and whose principal is `payload.signers.result`. A `coord.handoff-result` carries exactly one signature, in the role `result`, by a `host:` principal of the receiving board; its signature policy requires that role and refuses an `author` signature. Only `host:` roster lines admit the namespace, and `handoff-result` is the only type it signs: the verifier refuses a `handoff-result` signed in any other role, and a host signature on any other `coord` type.
 - **The host key.** An OS account other than the operator's, or a privileged service, holds the signing host key, whether or not it is `hardware-bound`, so that no process running as the operator can sign a result. A hardware-bound key in the operator's own account does not qualify: any process running as the operator can use it whenever it does not demand presence, and a host key signs unattended. A host whose key the operator's account can use does not sign results.
 - **Body.** The offer (`offer`, the id of the `handoff-offer`); the received element and its board; its final state and resolution; the receiving board's revision (its board-state commit) at the terminal transition; the envelope ids of the signed act or event that caused that transition, when one did; a bounded summary. `reply_to` is the id of the `handoff-accept`.
-- **Verification.** The offering board accepts the result only from a host principal that its committed project file binds to the receiving board (process-configuration §6.5; the binding form comes with cross-board hand-off).
+- **Verification.** The offering board accepts the result only from a host principal that its committed project file binds to the receiving board (the binding form comes with cross-board hand-off).
 - **One result per offer.** A second result for the same offer with other bytes is refused as a conflicting duplicate.
-- **Effect.** The offering board turns a verified `handoff-result` into the `process.returned` event on the offering element, whose `process.result` guards match the final state (process-configuration §6.5).
+- **Effect.** The offering board turns a verified `handoff-result` into the `process.returned` event on the offering element, whose `process.result` guards match the final state.
 
 ```json
 {
@@ -595,7 +595,7 @@ svc:*@acme cert-authority,namespaces="event.v1@waggle" ssh-ed25519 AAAA…
 
 ### 19.5 User verification in board policy
 
-The process configuration names which board acts need a signature (`policy.signatures`). It uses waggle's two key requirements (§4.4, §4.5): `min_assurance` (`software`, `hardware-bound`, `attested`) and `user_verified`:
+The process configuration names which board acts need a signature (`policy.signatures`). It uses Swarma Envelope's two key requirements (§4.4, §4.5): `min_assurance` (`software`, `hardware-bound`, `attested`) and `user_verified`:
 
 - `required`: the approver signature must be a FIDO2 signature whose authenticator flags say the user was verified (PIN or fingerprint), or a signature from an enrolled companion key (below). The FIDO2 form is the requirement §4.4 spells as `key = "sk"` with `user_verification = true`; new policies spell it `user_verified = "required"`.
 - `if-supported`: the flag is required when the signature format carries it; other signatures that meet `min_assurance` are accepted.
@@ -610,17 +610,17 @@ The project may set `user_verified` for every category at once or per category, 
 
 **Why the default is strict.** Only a FIDO2 signature with the user-verified flag, or a signature from an enrolled companion key (below), shows that a person acted. Any process running as the operator's OS user can obtain `software` signatures from `ssh-agent`, and `hardware-bound` ones whenever the key does not demand presence for each use. A Secure Enclave key protects the key, which cannot be copied, but not presence: a Touch ID prompt, when the key's policy asks for one, leaves no trace in the signature (§4.4, §4.5). An operator whose keys cannot show user verification approves with a FIDO key, or the project lowers the requirement.
 
-**The operator companion app** (decided 2026-09-24: people confirm through the phone in the common case) meets the floor of a confirmation, and is the way a headless node is served; it also meets `required` for board approvals and every other board act (decided 2026-09-25; curator-trust `spec/trust.md` §6). It is a signer provider (§4.5) on the operator's phone:
+**The operator companion app** (decided 2026-09-24: people confirm through the phone in the common case) meets the floor of a confirmation, and is the way a headless node is served; it also meets `required` for board approvals and every other board act (decided 2026-09-25). It is a signer provider (§4.5) on the operator's phone:
 
 - its key lives in the phone's Secure Enclave or Android Keystore under an access control that itself requires the person's biometric authentication, so that the phone's operating system, not only the app, refuses a use without the person; the app uses it only after the person has seen the rendered payload;
 - the key is enrolled with the platform's attestation that a genuine companion app, identified by its signed app identity, generated it in the phone's secure hardware with that access control, which gives it the assurance `attested`; its enrollment record carries `user_verification = "app-enforced"`. The evidence that proves `app-enforced` is that attestation chain, from the key to the platform vendor's root (Apple App Attest and key attestation, Android Key Attestation), naming the app and, where the platform attests it, the access control. Every verifier re-checks it against the vendor roots and never trusts the stored verification result alone;
-- the app is paired with the node at initialization through an out-of-band handshake that pins keys on both sides, under the pairing invariants of curator-trust `spec/trust.md` §8: the attestation checked at every pairing, a single-use short-lived QR secret kept out of transcripts and logs, no pairing from an agent session, and a confirmation for every later pairing. Requests reach the app over the operator's tailnet or a relay that sees only messages encrypted end to end to the pinned keys.
+- the app is paired with the node at initialization through an out-of-band handshake that pins keys on both sides, under these pairing invariants: the attestation checked at every pairing, a single-use short-lived QR secret kept out of transcripts and logs, no pairing from an agent session, and a confirmation for every later pairing. Requests reach the app over a configured private network or a relay that sees only messages encrypted end to end to the pinned keys.
 
-A signature from an enrolled companion key meets the confirmation floor: the user verification is enforced by the attested key and app rather than written into each signature, and the enrollment record says so. For board approvals and every other board act it meets `user_verified = "required"` as well (decided 2026-09-25; curator-trust `spec/trust.md` §6). The app's design and platforms are open (curator-trust `spec/trust.md` §8, §14; process-configuration §17.3).
+A signature from an enrolled companion key meets the confirmation floor: the user verification is enforced by the attested key and app rather than written into each signature, and the enrollment record says so. For board approvals and every other board act it meets `user_verified = "required"` as well (decided 2026-09-25). The app's design and platforms are open.
 
-**Before the app exists**, board acts are signed on the machine in a local session, where the operating system can prompt the person, or, for a headless node, from the operator's workstation: a client command fetches the complete payload from the node over SSH, computes what it signs and renders it on the workstation, signs it there with a FIDO2 key created with required user verification, and returns only the signature (curator-trust `spec/trust.md` §9). A key is never used through a forwarded `ssh-agent`: a forwarded agent lets any process of the operator's account on the node request signatures while the session lasts, and a key that shows nothing signs whichever request reaches it first.
+**Before the app exists**, board acts are signed on the machine in a local session, where the operating system can prompt the person, or, for a headless node, from the operator's workstation: a client command fetches the complete payload from the node over SSH, computes what it signs and renders it on the workstation, signs it there with a FIDO2 key created with required user verification, and returns only the signature. A key is never used through a forwarded `ssh-agent`: a forwarded agent lets any process of the operator's account on the node request signatures while the session lasts, and a key that shows nothing signs whichever request reaches it first.
 
-**Which policy applies.** For `board` types other than `board.confirm`, and for `cmd.halt` and `cmd.cancel` sent to runs of a process, the requirements come from the project's process configuration at its pinned revision, the version in force; `board.confirm` has the fixed floor of curator-trust `spec/trust.md` §4. Entries for the same types in `.waggle/policy.toml` may only add requirements; where both speak, the stricter wins.
+**Which policy applies.** For `board` types other than `board.confirm`, and for `cmd.halt` and `cmd.cancel` sent to runs of a process, the requirements come from the project's process configuration at its pinned revision, the version in force; `board.confirm` has the fixed confirmation floor requiring a person's presence. Entries for the same types in `.waggle/policy.toml` may only add requirements; where both speak, the stricter wins.
 
 ### 19.6 Roster and classes, summarized
 
@@ -637,7 +637,7 @@ A signature from an enrolled companion key meets the confirmation floor: the use
 
 ### 19.7 What stays with the board
 
-waggle provides the forms, verification and delivery. The board decides what they mean (process-configuration §4.2, §6.3–§6.5, §6.9):
+Swarma Envelope provides the forms, verification and delivery. The board decides what they mean:
 - which act a guard counts;
 - freshness: an approval counts only for the state entry it names, under a Change Request only for the revision it names, only while the configuration digest it binds is the one in force, and only while the element's declared fields still hash to the digest it binds;
 - quorum over distinct principals: each delegated act counts as at most one principal, its grantor, and one delegate session counts once, so a quorum above one needs distinct people acting directly or through distinct delegate sessions of distinct grantors;
@@ -648,19 +648,19 @@ waggle provides the forms, verification and delivery. The board decides what the
 
 ### 19.8 Delegated acts
 
-A person may delegate named board acts to an orchestrator: approvals of a role, transitions out of human-owned states, relaxations, and installs of audited skills from the Curator registry. The process configuration says what may be delegated, to which roles and under which ceilings (process-configuration §4.2). A delegation lets autonomous work go on without a person's signature on every step, while the person keeps what the delegation leaves out.
+A person may delegate named board acts to an orchestrator: approvals of a role, transitions out of human-owned states, relaxations, and installs of audited skills from the Curator registry. The process configuration says what may be delegated, to which roles and under which ceilings. A delegation lets autonomous work go on without a person's signature on every step, while the person keeps what the delegation leaves out.
 
-- **The grant.** A `board.delegate` act records the delegation: the grantor, the delegate role, the sessions that may act under it, the acts, their `field` conditions, a subtree scope, an expiry and optional budgets per period. By default only the grantor's own orchestrator sessions act under a grant: sessions whose certificates the grantor's key issued (§3). A grant may name other session principals explicitly, never a pattern. It is a human act: the grantor's approver signature, made through the approve command, is what counts, at the policy's assurance and user verification (§19.5) and never below the floor of a confirmation (curator-trust `spec/trust.md` §7). The board verifies the envelope once, when it records the grant; later delegated acts reference the recorded grant, so the envelope's `expires_at` bounds only its delivery and the grant's own expiry bounds its use.
+- **The grant.** A `board.delegate` act records the delegation: the grantor, the delegate role, the sessions that may act under it, the acts, their `field` conditions, a subtree scope, an expiry and optional budgets per period. By default only the grantor's own orchestrator sessions act under a grant: sessions whose certificates the grantor's key issued (§3). A grant may name other session principals explicitly, never a pattern. It is a human act: the grantor's approver signature, made through the approve command, is what counts, at the policy's assurance and user verification (§19.5) and never below the floor of a confirmation. The board verifies the envelope once, when it records the grant; later delegated acts reference the recorded grant, so the envelope's `expires_at` bounds only its delivery and the grant's own expiry bounds its use.
 - **The delegated act.** A `board.approve`, `board.relax`, `board.transition` or `board.install` made by a delegate carries no approver signature. The delegate's orchestrator session signs it in the `delegate` role, under the namespace `delegate.board.v1@waggle`, and the body names the grant: `on_behalf_of` holds the grantor and the envelope id of the `board.delegate`. A delegate signature is never an approver signature; the namespaces keep them apart.
 - **The chain the board verifies.** The board verifies:
   1. the `board.delegate` envelope and its approver signature;
   2. the delegate signature, made by a session whose certificate the grantor's key issued, or by a session principal the grant names, and whose certificate extension `waggle-role@relux.works` names the delegate role, checked against the role alias at the pinned revision;
   3. that the act falls inside the grant's acts, scope, conditions, budgets and expiry, and inside the project's ceilings at the pinned revision;
-  4. that the delegate session, or a run it spawned, wrote no declared field of the element, unless the project's rule allows self-approval (process-configuration §4.2).
+  4. that the delegate session, or a run it spawned, wrote no declared field of the element, unless the project's rule allows self-approval.
 
   The board's kernel alone counts budgets, from the delegated acts it has recorded; no signature carries budget state. Checking a budget and recording the act are one compare-and-set in the lease store (§12), so a board shared across machines needs the CM2 carrier's lease store for budgeted grants.
 - **Certificate form.** A grantor may instead certify the delegate's session key directly: an OpenSSH certificate signed by the grantor's key, whose key id names the delegation and whose critical option `delegation@waggle` carries the grant's envelope id. It is valid no later than the grant expires. A verifier accepts it only when the grantor's roster line admits certifying for `delegate.board.v1@waggle` and the certificate's constraints match the grant. The reference form works on every carrier; the certificate form lets a delegate prove its authority without the record being fetched.
-- **Revocation and expiry.** A `board.revoke` act, a person's narrowing act (curator-trust `spec/trust.md` §5), ends a delegation at once, like the grant's expiry. The board refuses delegated acts under it that arrive later, delegated approvals under it that no transition has used yet stop counting, and exceptions that a relaxation under it created end, while a run already working under one finishes; acts already consumed stay valid. Across machines a revocation takes effect through the lease store. In the certificate form, short certificate lifetimes bound the exposure further.
+- **Revocation and expiry.** A `board.revoke` act, a person's narrowing act, ends a delegation at once, like the grant's expiry. The board refuses delegated acts under it that arrive later, delegated approvals under it that no transition has used yet stop counting, and exceptions that a relaxation under it created end, while a run already working under one finishes; acts already consumed stay valid. Across machines a revocation takes effect through the lease store. In the certificate form, short certificate lifetimes bound the exposure further.
 - **Everything else waits for the person.** An act the delegation does not cover is not taken. The board notifies the grantor, and the grantor signs the act, or does not.
 
 ```json
@@ -692,7 +692,7 @@ A person may delegate named board acts to an orchestrator: approvals of a role, 
 With CM2 (§17):
 - the verification pipeline gains the `board` and `event` classes, the `svc:` kind and the `user_verified` policy field;
 - the board types `board.delegate` and `board.revoke`, the `delegate.board.v1@waggle` namespace, and verification of the delegation chain in both forms, with budgets and revocations in the carrier's lease store;
-- the board types `board.install` and `board.confirm`, the latter verified against the roster of the version it replaces under the fixed floor of curator-trust `spec/trust.md` §4 (a confirmation is a signed board record from PC3; `board.confirm` carries it over the CM2 carrier);
+- the board types `board.install` and `board.confirm`, the latter verified against the roster of the version it replaces under the fixed confirmation floor requiring a person's presence (a confirmation is a signed board record; `board.confirm` carries it over the CM2 carrier);
 - roster changes confirmed against the roster of the version in force, and enrollment evidence re-checked against the vendor roots, the companion verifier included;
 - the signer role `result` in step 2 of §4.3;
 - the approve command renders board acts;

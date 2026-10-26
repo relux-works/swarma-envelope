@@ -1,4 +1,4 @@
-module github.com/relux-works/waggle
+module github.com/relux-works/swarma-envelope
 
 go 1.26.0
 

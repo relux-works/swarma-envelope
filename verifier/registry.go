@@ -1,6 +1,6 @@
 package verifier
 
-import "github.com/relux-works/waggle/record"
+import "github.com/relux-works/swarma-envelope/record"
 
 // Parse all bounded wire structures before any protected policy or signature.
 func journalRecord(raw []byte, checkpoint bool) map[string]any {

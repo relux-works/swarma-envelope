@@ -1,6 +1,6 @@
 # Record bytes and signatures
 
-`github.com/relux-works/waggle/record` supplies bounded, duplicate-free parsing,
+`github.com/relux-works/swarma-envelope/record` supplies bounded, duplicate-free parsing,
 registrar CCJ-1 canonicalization, content ids, signed-record preimages, strict
 Ed25519 and P-256 verification, exact registered-domain probes, and message
 signer admission. All crypto is from the Go standard library; public Edwards

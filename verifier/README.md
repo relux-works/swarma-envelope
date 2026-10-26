@@ -1,6 +1,6 @@
 # Pure verifier
 
-`github.com/relux-works/waggle/verifier` implements the ordered platform v0
+`github.com/relux-works/swarma-envelope/verifier` implements the ordered platform v0
 pipelines. `record` contains the independent byte, domain, crypto and signer
 admission layer; this package adds protected evidence and authorization. This
 split keeps provider/state policy out of generic signature verification and

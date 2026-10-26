@@ -8,7 +8,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/relux-works/waggle/verifier"
+	"github.com/relux-works/swarma-envelope/verifier"
 )
 
 // The transport contains producer proofs, not serialized receipt authority.

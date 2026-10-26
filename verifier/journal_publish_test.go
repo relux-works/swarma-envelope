@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/relux-works/waggle/record"
+	"github.com/relux-works/swarma-envelope/record"
 )
 
 // The shared fixture is exactly anchor + agent attestation reference + reissue,

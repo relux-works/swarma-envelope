@@ -2,7 +2,7 @@ package verifier_test
 
 import (
 	"fmt"
-	"github.com/relux-works/waggle/verifier"
+	"github.com/relux-works/swarma-envelope/verifier"
 )
 
 // Missing protected facts cannot authorize an act or populate a plan.

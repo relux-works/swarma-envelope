@@ -1,7 +1,7 @@
 package record_test
 
 import (
-	"github.com/relux-works/waggle/internal/apicheck"
+	"github.com/relux-works/swarma-envelope/internal/apicheck"
 	"testing"
 )
 

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/relux-works/waggle/record"
+	"github.com/relux-works/swarma-envelope/record"
 )
 
 func refusalCode(e error) string {

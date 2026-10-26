@@ -9,7 +9,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/relux-works/waggle/verifier"
+	"github.com/relux-works/swarma-envelope/verifier"
 )
 
 func freshInputs(t *testing.T, v vector) ([][]byte, []byte, []string, []string) {
