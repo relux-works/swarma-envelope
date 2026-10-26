@@ -209,14 +209,17 @@ func (v Verifier) verifyJournal2(entries [][]byte, checkpoint, conflict []byte) 
 			total += len(raw)
 		}
 		need(total <= 540672, "journal_malformed")
+		// Both current checkpoint profiles precede either closed-body parse.
+		currencyVersion(checkpoint, "checkpoint/2")
+		if len(conflict) > 0 {
+			currencyVersion(conflict, "checkpoint/2")
+		}
 		for _, raw := range entries {
 			journalRecord(raw, false)
 		}
-		currencyVersion(checkpoint, "checkpoint/2")
 		cp := currencyWire(checkpoint, true)
 		var other map[string]any
 		if len(conflict) > 0 {
-			currencyVersion(conflict, "checkpoint/2")
 			other = currencyWire(conflict, true)
 		}
 		v.currencyCapacity(raws, "journal_malformed")

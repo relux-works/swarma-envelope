@@ -85,7 +85,7 @@ func (v Verifier) VerifyFreshnessReanchor(tip, checkpoint []byte, ids, keys []st
 }
 
 func (v Verifier) verifyFreshness(chain [][]byte, checkpoint []byte, ids, keys []string, reanchor bool) Result {
-	if v.context.RegistryCurrencyVersion != 0 && v.context.RegistryCurrencyVersion != 1 || currencyKind(checkpoint) == "checkpoint/2" || len(chain) > 0 && currencyKind(chain[0]) == "freshness/2" {
+	if v.context.RegistryCurrencyVersion != 0 && v.context.RegistryCurrencyVersion != 1 {
 		return v.verifyFreshness2(chain, checkpoint, ids, keys, reanchor)
 	}
 	var receipt *FreshnessReceipt
@@ -94,13 +94,21 @@ func (v Verifier) verifyFreshness(chain [][]byte, checkpoint []byte, ids, keys [
 		need(len(chain) > 0, "freshness_unavailable")
 		need(len(chain) <= 64, "freshness_malformed")
 		total := len(checkpoint)
-		es := make([]map[string]any, len(chain))
-		for i, raw := range chain {
+		for _, raw := range chain {
 			total += len(raw)
 			need(len(raw) <= 8192, "freshness_malformed")
-			es[i] = freshnessWire(raw)
 		}
 		need(total <= 532480, "freshness_malformed")
+		// Current candidates use the protected profile, not a positional probe.
+		// Retained archival predecessor bytes are checked separately at J5a/F8.
+		for _, raw := range chain {
+			currencyVersion(raw, "freshness/1")
+		}
+		currencyVersion(checkpoint, "checkpoint/1")
+		es := make([]map[string]any, len(chain))
+		for i, raw := range chain {
+			es[i] = freshnessWire(raw)
+		}
 		cp := mapped(func() map[string]any { return journalRecord(checkpoint, true) }, "*", "freshness_malformed")
 		f := v.facts()
 		var root, owner string

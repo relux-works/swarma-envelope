@@ -126,7 +126,7 @@ func journalPriorCheckpoint(f facts, w map[string]any, root, owner string) map[s
 // record/action authority. The /1 plan names only the exact verified checkpoint; /2 also inventories
 // complete-prefix dependencies and returns its detached candidate index.
 func (v Verifier) VerifyJournal(entries [][]byte, checkpoint, conflict []byte) Result {
-	if v.context.RegistryCurrencyVersion != 0 && v.context.RegistryCurrencyVersion != 1 || currencyKind(checkpoint) == "checkpoint/2" {
+	if v.context.RegistryCurrencyVersion != 0 && v.context.RegistryCurrencyVersion != 1 {
 		return v.verifyJournal2(entries, checkpoint, conflict)
 	}
 	return decide(func() Plan {
@@ -137,6 +137,10 @@ func (v Verifier) VerifyJournal(entries [][]byte, checkpoint, conflict []byte) R
 			total += len(raw)
 		}
 		need(total <= 540672, "journal_malformed")
+		currencyVersion(checkpoint, "checkpoint/1")
+		if len(conflict) > 0 {
+			currencyVersion(conflict, "checkpoint/1")
+		}
 		es := make([]map[string]any, len(entries))
 		for i, raw := range entries {
 			es[i] = journalRecord(raw, false)

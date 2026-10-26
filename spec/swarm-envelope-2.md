@@ -1089,7 +1089,10 @@ selected id, even when checkpoint and freshness agree on it.
 Protected Context.RegistryCurrencyVersion is int:0/1 selects unchanged legacy /1;
 2 selects /2 CURRENT CANDIDATE currency exclusively; other integers refuse at
 J2/F2. A supported wrong-profile candidate refuses
-registry_currency_version_mismatch at J1/F1 after bounded parsing. There is no
+registry_currency_version_mismatch at J1/F1 after bounded parsing. Preflight
+checks every received current publication and both current checkpoint arguments
+(primary and conflict) before closed-body validation. Dispatch uses the protected
+pin; no candidate position chooses the profile. There is no
 negotiation, fallback or current /1 receipt under pin2. The exact qualified /1
 predecessor checkpoint and archived /1 publication bytes remain admissible only
 as retained transition/history evidence. Retry never relabels or re-signs a /1
@@ -1726,11 +1729,12 @@ Freshness revocation intake (§2.9) is a separate ordered pipeline:
 | F8R (explicit recovery only, replaces publication loop at F8) | After unchanged tip/read currency and anchor validation: require positive stored publication; current registry seq lower/equal checkpoint fork, same-head snapshot binding or changed checkpoint on advance; strictly greater publication_seq, then strictly greater issued_at | `freshness_state_invalid`; `freshness_rollback` / `freshness_fork` / `freshness_binding_mismatch`; `freshness_rollback`; `freshness_rollback` |
 | F9 | Bounded valid content-id/key queries, then effective snapshot matches after ALL proof checks | `freshness_request_invalid`; existing `revoked` |
 
-The /1 table remains unchanged. /2 applies the same order with these additions:
+The /1 table retains its steps. The shared current-candidate version preflight
+applies at J1/F1 for either protected profile. /2 adds:
 
 | Step | /2 check | Refusal |
 | --- | --- | --- |
-| J1/F1 | Bounded ordered-set wire shape, candidate version pin and aggregate preflight | journal_malformed / freshness_malformed; registry_currency_version_mismatch |
+| J1/F1 | Input bounds; bounded version preflight for every current publication and both checkpoint arguments; closed ordered-set wire shape and aggregate proof preflight | journal_malformed / freshness_malformed; registry_currency_version_mismatch |
 | J2/F2 | Supported configured version; exact protected role/key mapping | journal_invalid / freshness_invalid (missing registry facts retain unavailable) |
 | J3/F4 | Every selected original and independent cumulative premise, without own-age | checkpoint_snapshot_invalid / freshness_snapshot_invalid; existing unavailable/time codes |
 | F6 | Full ordered set equality, target seq/checkpoint bindings | freshness_binding_mismatch |

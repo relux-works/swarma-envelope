@@ -308,6 +308,10 @@ func derive(t *testing.T, v vector) expected {
 			r = lib.VerifyMessage(raw)
 		}
 	}
+	// Every public refusal must erase candidate state and receipt authority.
+	if r.Code != "accept" && (!reflect.DeepEqual(r.Plan, verifier.Plan{}) || r.FreshnessReceipt != nil) {
+		t.Fatal("refusal retained authority", r)
+	}
 	b, e := json.Marshal(r.Plan)
 	if e != nil {
 		t.Fatal(e)
@@ -364,7 +368,7 @@ func runVectors(t *testing.T, paths []string) {
 // This is the named subset; TestConformance adds the manifest-bound sweeps.
 func TestNamed(t *testing.T) {
 	paths := namedPaths(t, "../vectors")
-	if len(paths) != 1157 {
+	if len(paths) != 1181 {
 		t.Fatalf("named count %d", len(paths))
 	}
 	runVectors(t, paths)
@@ -446,10 +450,10 @@ func TestConformance(t *testing.T) {
 			t.Fatalf("named corpus bytes mismatch %s", p)
 		}
 	}
-	if count != 1688 || len(paths) != 2845 {
-		t.Fatalf("counts named1157 sweeps%d total%d", count, len(paths))
+	if count != 1688 || len(paths) != 2869 {
+		t.Fatalf("counts named1181 sweeps%d total%d", count, len(paths))
 	}
-	t.Logf("named=1157 generated=%s total=%d", strconv.Itoa(count), len(paths))
+	t.Logf("named=1181 generated=%s total=%d", strconv.Itoa(count), len(paths))
 	runVectors(t, paths)
 }
 

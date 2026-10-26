@@ -51,27 +51,29 @@ func currencyKind(raw []byte) string {
 	return s
 }
 func currencyList(value any, code string) []SnapshotBinding {
-	xs, ok := value.([]any)
-	need(ok && len(xs) >= 1 && len(xs) <= 3, code)
-	out := make([]SnapshotBinding, 0, len(xs))
-	roles, keys := map[string]bool{}, map[string]bool{}
-	previous := ""
-	for _, x := range xs {
-		row := exact(x, "root_role root_key_id snapshot_id", code)
-		role := str(row["root_role"])
-		need(role == "grant" || role == "operator" || role == "registry-owner", code)
-		key(row["root_key_id"])
-		hashID(row["snapshot_id"])
-		k := str(row["root_key_id"])
-		order := role + "\x00" + k
-		need(!roles[role] && !keys[k] && order > previous, code)
-		previous = order
-		roles[role] = true
-		keys[k] = true
-		out = append(out, SnapshotBinding{role, k, str(row["snapshot_id"])})
-	}
-	need(roles["registry-owner"], code)
-	return out
+	return mapped(func() []SnapshotBinding {
+		xs, ok := value.([]any)
+		need(ok && len(xs) >= 1 && len(xs) <= 3, code)
+		out := make([]SnapshotBinding, 0, len(xs))
+		roles, keys := map[string]bool{}, map[string]bool{}
+		previous := ""
+		for _, x := range xs {
+			row := exact(x, "root_role root_key_id snapshot_id", code)
+			role := str(row["root_role"])
+			need(role == "grant" || role == "operator" || role == "registry-owner", code)
+			key(row["root_key_id"])
+			hashID(row["snapshot_id"])
+			k := str(row["root_key_id"])
+			order := role + "\x00" + k
+			need(!roles[role] && !keys[k] && order > previous, code)
+			previous = order
+			roles[role] = true
+			keys[k] = true
+			out = append(out, SnapshotBinding{role, k, str(row["snapshot_id"])})
+		}
+		need(roles["registry-owner"], code)
+		return out
+	}, "*", code)
 }
 func currencyPins(f facts) map[string]string {
 	distinct(f)

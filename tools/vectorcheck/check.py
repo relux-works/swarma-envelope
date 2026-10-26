@@ -1041,6 +1041,8 @@ def identity_journal(inp, f):
         require(sum(map(len, raws)) + len(raw_cp) + len(conflict) <= 540672, "journal_malformed")
     except Refusal:
         raise Refusal("journal_malformed") from None
+    currency_version(raw_cp, "checkpoint/1")
+    if conflict: currency_version(conflict, "checkpoint/1")
     entries = [journal_wire(raw, False) for raw in raws]
     cp = journal_wire(raw_cp, True)
     other = journal_wire(conflict, True) if conflict else None
@@ -1150,9 +1152,12 @@ def fresh_revocation(inp, f, reanchor=False):
         raws = [unb64(value) for value in inp["chain"]]
         checkpoint_raw = unb64(inp["checkpoint"])
         require(sum(map(len, raws))+len(checkpoint_raw) <= 532480, "freshness_malformed")
+        for raw in raws: currency_version(raw, "freshness/1")
+        currency_version(checkpoint_raw, "checkpoint/1")
         proof = [freshness_wire(raw) for raw in raws]
         cp = journal_wire(checkpoint_raw, True)
-    except Refusal:
+    except Refusal as error:
+        if str(error) == "registry_currency_version_mismatch": raise
         raise Refusal("freshness_malformed") from None
     try:
         root, owner = journal_policy(f)
@@ -1246,9 +1251,16 @@ def fresh_revocation(inp, f, reanchor=False):
 # Version 2 derives latest selection from protected complete-prefix state.
 # This implementation does not call Go or trust a registry-signed projection.
 def currency_kind(raw):
+    # The bounded discriminator is never a schema verdict or an untyped value.
+    if len(raw) > 8192:
+        return ""
     try:
-        return parse(raw).get("body", {}).get("type", "")
-    except (Refusal, AttributeError):
+        e = parse(raw)
+        if type(e) is not dict or type(e.get("body")) is not dict:
+            return ""
+        kind = e["body"].get("type")
+        return kind if type(kind) is str else ""
+    except Refusal:
         return ""
 
 
@@ -1459,7 +1471,9 @@ def currency_derive_inner(f, root, owner, pins, raws, cp):
         if x["op"] != "add" or x["record_type"] != "revocation/1": continue
         require(f.get("id_journal_available") is True and type(f.get("seen")) is dict, "journal_unavailable")
         original = f["seen"].get(x["record"]); require(original is not None, "journal_unavailable")
-        raw = unb64(original); body = parse(raw)["body"]; issuer = body.get("issuer"); key_bytes(issuer)
+        raw = unb64(original); e = parse(raw); exact(e, "version body id signatures")
+        body = e["body"]; require(type(body) is dict, "journal_invalid")
+        issuer = body.get("issuer"); key_bytes(issuer)
         next_record = currency_original(f, x["record"], issuer); new = next_record["body"]
         require(timestamp(new["issued_at"]) <= when, "journal_invalid")
         for row in state["latest"]:
@@ -1613,9 +1627,11 @@ def currency_journal(inp, f):
     require(type(inp["entries"]) is list and len(inp["entries"]) <= 64, "journal_malformed")
     raws = [unb64(x) for x in inp["entries"]]; raw_cp = unb64(inp["checkpoint"]); conflict = unb64(inp["conflict"]) if "conflict" in inp else b""
     require(all(len(x) <= 8192 for x in raws+[raw_cp, conflict]) and sum(map(len, raws+[raw_cp, conflict])) <= 540672, "journal_malformed")
+    currency_version(raw_cp, "checkpoint/2")
+    if conflict: currency_version(conflict, "checkpoint/2")
     for raw in raws: journal_wire(raw, False)
-    currency_version(raw_cp, "checkpoint/2"); cp = currency_wire(raw_cp, True); other = None
-    if conflict: currency_version(conflict, "checkpoint/2"); other = currency_wire(conflict, True)
+    cp = currency_wire(raw_cp, True); other = None
+    if conflict: other = currency_wire(conflict, True)
     currency_capacity(f, raws+[raw_cp, conflict], "journal_malformed")
     require(type(f.get("registry_currency_version", 0)) is int and f.get("registry_currency_version", 0) in {0, 1, 2}, "journal_invalid")
     require(f.get("registry_currency_version", 0) == 2, "registry_currency_version_mismatch")
@@ -1662,8 +1678,9 @@ def currency_proof_shape(value):
     for row in a["latest"]:
         exact(row, "root_role root_key_id snapshot_id record_seq")
         role = row["root_role"]
+        key_bytes(row["root_key_id"])
         require(role in ("grant", "operator", "registry-owner") and role > previous and row["root_key_id"] not in seen and type(row["record_seq"]) is int, "freshness_receipt_invalid")
-        key_bytes(row["root_key_id"]); previous = role; seen.add(row["root_key_id"])
+        previous = role; seen.add(row["root_key_id"])
         if row["snapshot_id"] is None:
             require(row["record_seq"] == 0, "freshness_receipt_invalid")
         else:
@@ -1903,7 +1920,7 @@ def verdict(vector):
             return {"code": "accept", "plan": signer_admission(unb64(inp["preimage"]), f)}
         if mode == "domain":
             return {"code": "accept", "plan": check_domain(inp, f)}
-        if mode in ("freshness", "freshness-reanchor", "journal") and (f.get("registry_currency_version", 0) not in (0, 1) or currency_kind(unb64(inp["checkpoint"])) == "checkpoint/2"):
+        if mode in ("freshness", "freshness-reanchor", "journal") and f.get("registry_currency_version", 0) not in (0, 1):
             plan = currency_journal(inp, f) if mode == "journal" else currency_fresh(inp, f, mode == "freshness-reanchor")[0]
             return {"code": "accept", "plan": plan}
         if mode in ("freshness", "freshness-reanchor"):

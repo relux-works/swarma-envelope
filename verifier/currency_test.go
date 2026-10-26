@@ -219,3 +219,19 @@ func TestCurrencyDetachedRecoveryAndConcurrent(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+// Fixed regression witnesses distinguish profile, retained-state and wire
+// refusals; each negative retains a valid neighbor. No live adapter is modeled.
+func TestCurrencyRefusalRegressions(t *testing.T) {
+	var paths []string
+	for _, p := range namedPaths(t, "../vectors") {
+		name := filepath.Base(p)
+		if strings.Contains(name, "-CU-r1-") || name == "P-CU-genesis.json" || name == "P-CU-version0.json" || name == "P-CU-version1.json" || name == "P-CU-journal-same.json" || name == "P-CU-check-registry-owner.json" {
+			paths = append(paths, p)
+		}
+	}
+	if len(paths) <= 5 {
+		t.Fatal("missing refusal regressions")
+	}
+	runVectors(t, paths)
+}

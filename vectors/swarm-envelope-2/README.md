@@ -45,9 +45,9 @@ cryptography reports PENDING and exits 2; it never reports full conformance.
 No network is used by the checker. Go module resolution may download the pinned
 public registrar dependency. Neither tool imports the future production verifier.
 
-Only 1157 named cases are tracked. All 1688 T/B/Z/U cases remain in the generator
+Only 1181 named cases are tracked. All 1688 T/B/Z/U cases remain in the generator
 and committed `sweeps.tsv` / `sweeps.sha256`; `-sweeps` materializes them for the
-complete 2845-case check. See the [manifest format](../../tools/vectors/README.md).
+complete 2869-case check. See the [manifest format](../../tools/vectors/README.md).
 Commands must run sequentially through any host-required resource runner.
 
 Generator `-out DIR` writes named cases and the manifest; adding `-sweeps`
@@ -270,7 +270,7 @@ grant-root own-age, service validity, effective revocation and current acceptanc
 
 ## Root currency profile 2
 
-CU adds 93 named witnesses while preserving every inherited JSON byte and verdict.
+CU adds 117 named witnesses while preserving every inherited JSON byte and verdict.
 The shared revocation/1 originals keep their issuing root signatures; signed
 checkpoint/2 and freshness/2 lists carry current currency. The complete-prefix
 projection covers configured omitted roots, genesis and archival /1 upgrade,
@@ -282,3 +282,11 @@ the Python oracle derives both independently. Six targeted mutants distinguish
 list equality, latest selection, cumulative regression, missing-root own-age,
 profile downgrade and the advancing-anchor 63/64 boundary. These offline cases
 do not qualify live provisioning, persistence, witness or effect integration.
+
+The 24 refusal regressions (22 negative, two positive) cover every current
+publication position and the conflict checkpoint at legacy pins 0/1, both
+checkpoint arguments before closed-body validation, retained anchor scalar errors, malformed referenced originals, array-valued profile
+discriminators and malformed receipt index keys. Both checkpoint versions are
+checked before either closed body. Invalid inputs return the specified refusal
+with an empty plan; the checker continues through the corpus without an exception.
+Archival /1 predecessors remain valid only as retained history.
