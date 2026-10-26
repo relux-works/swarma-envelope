@@ -93,6 +93,7 @@ func (v Verifier) verifyFreshness(chain [][]byte, checkpoint []byte, ids, keys [
 		// F1: absent freshness refuses; all bounded wire parses precede policy.
 		need(len(chain) > 0, "freshness_unavailable")
 		need(len(chain) <= 64, "freshness_malformed")
+		need(len(checkpoint) <= 8192, "freshness_malformed")
 		total := len(checkpoint)
 		for _, raw := range chain {
 			total += len(raw)

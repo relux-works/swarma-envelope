@@ -1038,6 +1038,7 @@ def identity_journal(inp, f):
         raws = [unb64(value) for value in inp["entries"]]
         raw_cp = unb64(inp["checkpoint"])
         conflict = unb64(inp["conflict"]) if "conflict" in inp else b""
+        require(all(len(raw) <= 8192 for raw in raws+[raw_cp, conflict]), "journal_malformed")
         require(sum(map(len, raws)) + len(raw_cp) + len(conflict) <= 540672, "journal_malformed")
     except Refusal:
         raise Refusal("journal_malformed") from None
@@ -1151,6 +1152,7 @@ def fresh_revocation(inp, f, reanchor=False):
     try:
         raws = [unb64(value) for value in inp["chain"]]
         checkpoint_raw = unb64(inp["checkpoint"])
+        require(all(len(raw) <= 8192 for raw in raws+[checkpoint_raw]), "freshness_malformed")
         require(sum(map(len, raws))+len(checkpoint_raw) <= 532480, "freshness_malformed")
         for raw in raws: currency_version(raw, "freshness/1")
         currency_version(checkpoint_raw, "checkpoint/1")
@@ -1545,7 +1547,7 @@ def currency_fresh(inp, f, reanchor=False):
     require(type(inp["chain"]) is list and bool(inp["chain"]), "freshness_unavailable")
     require(len(inp["chain"]) <= 64 and (not reanchor or len(inp["chain"]) == 1), "freshness_malformed")
     raws = [unb64(x) for x in inp["chain"]]; raw_cp = unb64(inp["checkpoint"])
-    require(all(len(x) <= 8192 for x in raws) and sum(map(len, raws))+len(raw_cp) <= 532480, "freshness_malformed")
+    require(all(len(x) <= 8192 for x in raws+[raw_cp]) and sum(map(len, raws))+len(raw_cp) <= 532480, "freshness_malformed")
     for raw in raws: currency_version(raw, "freshness/2")
     currency_version(raw_cp, "checkpoint/2")
     proof = [currency_wire(raw, False) for raw in raws]

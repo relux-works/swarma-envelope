@@ -382,6 +382,7 @@ func currencyVectors() {
 	currencyDeepVectors()
 	currencyBoundaryVectors()
 	currencyRefusalVectors()
+	currencyBoundVectors()
 }
 
 func currencyUpgrade() Vector {

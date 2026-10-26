@@ -235,3 +235,18 @@ func TestCurrencyRefusalRegressions(t *testing.T) {
 	}
 	runVectors(t, paths)
 }
+
+// An over-limit input dominates an opposite-profile candidate at every current
+// record position; each paired 8192-byte record must still accept at pins 0/1/2.
+func TestCurrencyInputBounds(t *testing.T) {
+	var paths []string
+	for _, p := range namedPaths(t, "../vectors") {
+		if strings.Contains(filepath.Base(p), "-CU-r2-") {
+			paths = append(paths, p)
+		}
+	}
+	if len(paths) != 30 {
+		t.Fatalf("byte-bound regression count %d", len(paths))
+	}
+	runVectors(t, paths)
+}

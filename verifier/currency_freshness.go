@@ -60,6 +60,7 @@ func (v Verifier) verifyFreshness2(chain [][]byte, checkpoint []byte, ids, keys 
 		// F1: bounded candidate structures, profile pin and whole-call capacity.
 		need(len(chain) > 0, "freshness_unavailable")
 		need(len(chain) <= 64, "freshness_malformed")
+		need(len(checkpoint) <= 8192, "freshness_malformed")
 		total := len(checkpoint)
 		for _, raw := range chain {
 			need(len(raw) <= 8192, "freshness_malformed")

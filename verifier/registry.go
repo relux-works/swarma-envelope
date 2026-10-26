@@ -131,6 +131,8 @@ func (v Verifier) VerifyJournal(entries [][]byte, checkpoint, conflict []byte) R
 	}
 	return decide(func() Plan {
 		need(len(entries) <= 64, "journal_malformed")
+		need(len(checkpoint) <= 8192, "journal_malformed")
+		need(len(conflict) <= 8192, "journal_malformed")
 		total := len(checkpoint) + len(conflict)
 		for _, raw := range entries {
 			need(len(raw) <= 8192, "journal_malformed")

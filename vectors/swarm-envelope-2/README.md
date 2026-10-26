@@ -45,9 +45,9 @@ cryptography reports PENDING and exits 2; it never reports full conformance.
 No network is used by the checker. Go module resolution may download the pinned
 public registrar dependency. Neither tool imports the future production verifier.
 
-Only 1181 named cases are tracked. All 1688 T/B/Z/U cases remain in the generator
+Only 1211 named cases are tracked. All 1688 T/B/Z/U cases remain in the generator
 and committed `sweeps.tsv` / `sweeps.sha256`; `-sweeps` materializes them for the
-complete 2869-case check. See the [manifest format](../../tools/vectors/README.md).
+complete 2899-case check. See the [manifest format](../../tools/vectors/README.md).
 Commands must run sequentially through any host-required resource runner.
 
 Generator `-out DIR` writes named cases and the manifest; adding `-sweeps`
@@ -270,7 +270,7 @@ grant-root own-age, service validity, effective revocation and current acceptanc
 
 ## Root currency profile 2
 
-CU adds 117 named witnesses while preserving every inherited JSON byte and verdict.
+CU adds 147 named witnesses while preserving every inherited JSON byte and verdict.
 The shared revocation/1 originals keep their issuing root signatures; signed
 checkpoint/2 and freshness/2 lists carry current currency. The complete-prefix
 projection covers configured omitted roots, genesis and archival /1 upgrade,
@@ -290,3 +290,10 @@ discriminators and malformed receipt index keys. Both checkpoint versions are
 checked before either closed body. Invalid inputs return the specified refusal
 with an empty plan; the checker continues through the corpus without an exception.
 Archival /1 predecessors remain valid only as retained history.
+
+Thirty byte-bound cases pair each over-limit compound input with an accepted
+8192-byte control. At pins 0/1/2 they cover freshness publications/checkpoints
+and journal entries/primary/conflict checkpoints. An 8193-byte input must
+return the malformed refusal before another candidate can trigger a profile
+mismatch. Count, individual byte and aggregate input bounds precede all current
+version probes; closed-body parsing and the /2 proof-capacity check follow.
