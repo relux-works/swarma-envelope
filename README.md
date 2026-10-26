@@ -88,4 +88,4 @@ required. See the [public library API and evidence schemas](verifier/README.md).
 
 ## License
 
-Licensed under the Apache License, Version 2.0; see [LICENSE](LICENSE).
+Licensed under the Apache License, Version 2.0; see [LICENSE](LICENSE) and [NOTICE](NOTICE).
