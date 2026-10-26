@@ -239,9 +239,14 @@ journal positions, fake time, lower a witness or expose incomplete authority.
 
 Section2.7 charges2,097,152 bytes across raw arguments and declared proof
 Evidence, including a65,536-byte metadata/output reserve, while preserving
-Present1,048,576/depth32 and record8192/depth16/count64 bounds. Canonical
-JSON/base64 storage ceiling16,777,216 and staging+committed ceiling33,554,432
-include expansion; smaller consumer carrier/store limits still apply. Preflight
+Present1,048,576/depth32 and record8192/depth16/count64 bounds. J1/F1 completes
+all input size bounds, including the full aggregate charge and embedded raw
+limits, before current version preflight or closed-body parsing. Raw lengths,
+retained Evidence costs and the reserve are all known up front; calculate without
+combined raw slices or body parsing, with no residual check deferred. Capacity
+wins over an opposite profile (freshness_malformed / journal_malformed).
+Canonical JSON/base64 storage ceiling16,777,216 and staging+committed
+ceiling33,554,432 include expansion; smaller consumer carrier/store limits still apply. Preflight
 actual representation, staging and retained history before signing/commit;
 never truncate authenticated proof. These are per-call ceilings, not permission
 to evict durable history. Version2 state/audit fields are explicit and omitted

@@ -67,6 +67,7 @@ func (v Verifier) verifyFreshness2(chain [][]byte, checkpoint []byte, ids, keys 
 			total += len(raw)
 		}
 		need(total <= 532480, "freshness_malformed")
+		v.currencyCapacity(total, "freshness_malformed")
 		for _, raw := range chain {
 			currencyVersion(raw, "freshness/2")
 		}
@@ -76,7 +77,6 @@ func (v Verifier) verifyFreshness2(chain [][]byte, checkpoint []byte, ids, keys 
 			es[i] = currencyWire(raw, false)
 		}
 		cp := mapped(func() map[string]any { return currencyWire(checkpoint, true) }, "*", "freshness_malformed")
-		v.currencyCapacity(append(append([][]byte{}, chain...), checkpoint), "freshness_malformed")
 		f := v.facts()
 		need(v.context.RegistryCurrencyVersion == 0 || v.context.RegistryCurrencyVersion == 1 || v.context.RegistryCurrencyVersion == 2, "freshness_invalid")
 		need(v.context.RegistryCurrencyVersion == 2, "registry_currency_version_mismatch")
@@ -203,13 +203,14 @@ func (v Verifier) verifyFreshness2(chain [][]byte, checkpoint []byte, ids, keys 
 func (v Verifier) verifyJournal2(entries [][]byte, checkpoint, conflict []byte) Result {
 	return decide(func() Plan {
 		need(len(entries) <= 64, "journal_malformed")
-		raws := append(append([][]byte{}, entries...), checkpoint, conflict)
-		total := 0
-		for _, raw := range raws {
+		need(len(checkpoint) <= 8192 && len(conflict) <= 8192, "journal_malformed")
+		total := len(checkpoint) + len(conflict)
+		for _, raw := range entries {
 			need(len(raw) <= 8192, "journal_malformed")
 			total += len(raw)
 		}
 		need(total <= 540672, "journal_malformed")
+		v.currencyCapacity(total, "journal_malformed")
 		// Both current checkpoint profiles precede either closed-body parse.
 		currencyVersion(checkpoint, "checkpoint/2")
 		if len(conflict) > 0 {
@@ -223,7 +224,6 @@ func (v Verifier) verifyJournal2(entries [][]byte, checkpoint, conflict []byte) 
 		if len(conflict) > 0 {
 			other = currencyWire(conflict, true)
 		}
-		v.currencyCapacity(raws, "journal_malformed")
 		currencyProfile(v.context)
 		need(v.context.RegistryCurrencyVersion == 2, "registry_currency_version_mismatch")
 		f := v.facts()

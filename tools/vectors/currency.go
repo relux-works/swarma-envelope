@@ -383,6 +383,7 @@ func currencyVectors() {
 	currencyBoundaryVectors()
 	currencyRefusalVectors()
 	currencyBoundVectors()
+	currencyCapacityVectors()
 }
 
 func currencyUpgrade() Vector {

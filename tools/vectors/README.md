@@ -17,9 +17,9 @@ GOMAXPROCS=2 "$CURATOR_GO" vet ./tools/vectors
 
 Run commands sequentially through the host's required resource runner where
 applicable. Logs and generated copies belong in ignored `.tmp/`. The default
-write command (`go run ./tools/vectors`) writes 1211 named cases, the public keys
+write command (`go run ./tools/vectors`) writes 1217 named cases, the public keys
 and sweep manifest/digest under `vectors/`; it does not materialize T/B/Z/U JSON.
-`-sweeps` adds those 1688 cases (2899 total: 2700 negative, 199 positive).
+`-sweeps` adds those 1688 cases (2905 total: 2706 negative, 199 positive).
 The inventory check also rejects unexpected JSON under both managed trees,
 including accidentally materialized sweeps when `-sweeps` is absent. Generation
 does not remove obsolete files; remove only reviewed stale paths explicitly.

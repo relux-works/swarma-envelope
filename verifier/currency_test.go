@@ -250,3 +250,19 @@ func TestCurrencyInputBounds(t *testing.T) {
 	}
 	runVectors(t, paths)
 }
+
+// Whole-call capacity wins over an opposite-profile candidate on all three
+// entry points; capacity-only refusals and valid controls retain their behavior.
+func TestCurrencyAggregateCapacity(t *testing.T) {
+	var paths []string
+	for _, p := range namedPaths(t, "../vectors") {
+		name := filepath.Base(p)
+		if strings.Contains(name, "-CU-r3-") || name == "P-CU-genesis.json" || name == "P-CU-reanchor-same.json" || name == "P-CU-journal-same.json" {
+			paths = append(paths, p)
+		}
+	}
+	if len(paths) != 9 {
+		t.Fatalf("aggregate regression count %d", len(paths))
+	}
+	runVectors(t, paths)
+}

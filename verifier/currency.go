@@ -154,15 +154,14 @@ func currencySignature(e map[string]any, kind, root, owner, code string) {
 
 // Raw bytes and the declared protected proof Evidence are charged, including repeated
 // copies. Metadata/output inventory reserves 64KiB within the 2MiB whole-call cap.
-func (v Verifier) currencyCapacity(raws [][]byte, code string) {
+func (v Verifier) currencyCapacity(rawBytes int, code string) {
 	c := v.context
-	total := 65536
-	for _, e := range []Evidence{c.SnapshotJournal, c.SignedSnapshots, c.IDJournal, c.FreshnessAnchor, c.JournalWitness, c.AgentRevocationRoot, c.RegistryOwner, c.GrantRoot, c.OperatorRoot, c.ServiceRoot, c.WitnessReadAt} {
-		total += e.cost
-	}
-	for _, raw := range raws {
-		total += len(raw)
-	}
+	// All charges are available before profile probes or body parsing. Evidence
+	// retains its immutable construction cost; raw inputs need only their lengths.
+	total := 65536 + rawBytes + c.SnapshotJournal.cost + c.SignedSnapshots.cost +
+		c.IDJournal.cost + c.FreshnessAnchor.cost + c.JournalWitness.cost +
+		c.AgentRevocationRoot.cost + c.RegistryOwner.cost + c.GrantRoot.cost +
+		c.OperatorRoot.cost + c.ServiceRoot.cost + c.WitnessReadAt.cost
 	need(total <= 2<<20, code)
 	var visit func(any)
 	visit = func(value any) {

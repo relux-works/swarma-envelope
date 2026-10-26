@@ -1350,7 +1350,9 @@ def currency_cost(value):
     return cost
 
 
-def currency_capacity(f, raws, code):
+def currency_capacity(f, raw_size, code):
+    # Decode fixture transport into per-Evidence charges, without parsing record bodies.
+    # Go retains these costs when Evidence is constructed; no raw lists are combined.
     def raw_value(v):
         if v is None: return None
         try: return unb64(v)
@@ -1365,7 +1367,7 @@ def currency_capacity(f, raws, code):
     names = ("snapshot_journal", "revocations", "seen", "freshness_anchor", "journal_witness",
              "agent_revocation_root", "registry_owner", "root", "operator_root", "service_root", "witness_read_at")
     values = {name: converted(name, f[name]) for name in names if name in f}
-    require(65536+sum(map(len, raws))+sum(currency_cost(v) for v in values.values()) <= 2*1024*1024, code)
+    require(65536+raw_size+sum(currency_cost(v) for v in values.values()) <= 2*1024*1024, code)
     def visit(value):
         if type(value) is bytes: require(len(value) <= 8192, code)
         elif type(value) is list:
@@ -1547,13 +1549,14 @@ def currency_fresh(inp, f, reanchor=False):
     require(type(inp["chain"]) is list and bool(inp["chain"]), "freshness_unavailable")
     require(len(inp["chain"]) <= 64 and (not reanchor or len(inp["chain"]) == 1), "freshness_malformed")
     raws = [unb64(x) for x in inp["chain"]]; raw_cp = unb64(inp["checkpoint"])
-    require(all(len(x) <= 8192 for x in raws+[raw_cp]) and sum(map(len, raws))+len(raw_cp) <= 532480, "freshness_malformed")
+    raw_size = sum(map(len, raws))+len(raw_cp)
+    require(len(raw_cp) <= 8192 and all(len(x) <= 8192 for x in raws) and raw_size <= 532480, "freshness_malformed")
+    currency_capacity(f, raw_size, "freshness_malformed")
     for raw in raws: currency_version(raw, "freshness/2")
     currency_version(raw_cp, "checkpoint/2")
     proof = [currency_wire(raw, False) for raw in raws]
     try: cp = currency_wire(raw_cp, True)
     except Refusal: raise Refusal("freshness_malformed") from None
-    currency_capacity(f, raws+[raw_cp], "freshness_malformed")
     require(type(f.get("registry_currency_version", 0)) is int and f.get("registry_currency_version", 0) in {0, 1, 2}, "freshness_invalid")
     require(f.get("registry_currency_version", 0) == 2, "registry_currency_version_mismatch")
     try: root, owner = journal_policy(f)
@@ -1628,13 +1631,14 @@ def currency_fresh(inp, f, reanchor=False):
 def currency_journal(inp, f):
     require(type(inp["entries"]) is list and len(inp["entries"]) <= 64, "journal_malformed")
     raws = [unb64(x) for x in inp["entries"]]; raw_cp = unb64(inp["checkpoint"]); conflict = unb64(inp["conflict"]) if "conflict" in inp else b""
-    require(all(len(x) <= 8192 for x in raws+[raw_cp, conflict]) and sum(map(len, raws+[raw_cp, conflict])) <= 540672, "journal_malformed")
+    raw_size = sum(map(len, raws))+len(raw_cp)+len(conflict)
+    require(len(raw_cp) <= 8192 and len(conflict) <= 8192 and all(len(x) <= 8192 for x in raws) and raw_size <= 540672, "journal_malformed")
+    currency_capacity(f, raw_size, "journal_malformed")
     currency_version(raw_cp, "checkpoint/2")
     if conflict: currency_version(conflict, "checkpoint/2")
     for raw in raws: journal_wire(raw, False)
     cp = currency_wire(raw_cp, True); other = None
     if conflict: other = currency_wire(conflict, True)
-    currency_capacity(f, raws+[raw_cp, conflict], "journal_malformed")
     require(type(f.get("registry_currency_version", 0)) is int and f.get("registry_currency_version", 0) in {0, 1, 2}, "journal_invalid")
     require(f.get("registry_currency_version", 0) == 2, "registry_currency_version_mismatch")
     root, owner = journal_policy(f)

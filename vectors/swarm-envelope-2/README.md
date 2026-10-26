@@ -45,9 +45,9 @@ cryptography reports PENDING and exits 2; it never reports full conformance.
 No network is used by the checker. Go module resolution may download the pinned
 public registrar dependency. Neither tool imports the future production verifier.
 
-Only 1211 named cases are tracked. All 1688 T/B/Z/U cases remain in the generator
+Only 1217 named cases are tracked. All 1688 T/B/Z/U cases remain in the generator
 and committed `sweeps.tsv` / `sweeps.sha256`; `-sweeps` materializes them for the
-complete 2899-case check. See the [manifest format](../../tools/vectors/README.md).
+complete 2905-case check. See the [manifest format](../../tools/vectors/README.md).
 Commands must run sequentially through any host-required resource runner.
 
 Generator `-out DIR` writes named cases and the manifest; adding `-sweeps`
@@ -270,7 +270,7 @@ grant-root own-age, service validity, effective revocation and current acceptanc
 
 ## Root currency profile 2
 
-CU adds 147 named witnesses while preserving every inherited JSON byte and verdict.
+CU adds 153 named witnesses while preserving every inherited JSON byte and verdict.
 The shared revocation/1 originals keep their issuing root signatures; signed
 checkpoint/2 and freshness/2 lists carry current currency. The complete-prefix
 projection covers configured omitted roots, genesis and archival /1 upgrade,
@@ -296,4 +296,13 @@ Thirty byte-bound cases pair each over-limit compound input with an accepted
 and journal entries/primary/conflict checkpoints. An 8193-byte input must
 return the malformed refusal before another candidate can trigger a profile
 mismatch. Count, individual byte and aggregate input bounds precede all current
-version probes; closed-body parsing and the /2 proof-capacity check follow.
+version probes, including the /2 full D45 charge; closed-body parsing follows.
+
+Six aggregate-capacity regressions cover freshness, explicit re-anchor and
+journal verification. Each opposite-profile checkpoint compound has an
+otherwise-valid same-profile capacity-only control and an inherited accepted
+neighbor. Every retained raw copy fits8192 bytes and each Evidence fits1MiB;
+together they exceed2MiB including the64KiB reserve. Moving the charge after
+version preflight yields the wrong profile refusal; omitting only that charge
+admits all three capacity-only controls. Both implementations detect these
+mutants by the named `N-CU-r3-profile-*` and `N-CU-r3-capacity-*` witnesses.

@@ -857,8 +857,15 @@ recursively; duplicated copies are charged separately. Reserve65,536 additional
 bytes inside the cap for endpoint/pin/index/audit/output inventory. Each Evidence
 still has its own1,048,576 accounting cap/depth32. Every raw record in the three
 snapshot/proof/original Evidence values is <=8192 bytes, including unused
-retained originals. Over-capacity or truncated proof refuses before any state
-advancement; individually maximal inputs need not fit together.
+retained originals. At J1/F1, complete every input size bound, including this
+full charge and the embedded raw limits, before any current-candidate version
+preflight or closed-body parsing. Use raw argument lengths and retained immutable
+Evidence costs plus the reserve; do not build combined raw slices or parse
+record bodies to calculate the charge. Every component is knowable up front;
+there is no deferred residual charge. Over-capacity refuses freshness_malformed
+for freshness/re-anchor or journal_malformed for journal, even with an
+opposite-profile candidate. Over-capacity or truncated proof refuses before any
+state advancement; individually maximal inputs need not fit together.
 For storage sizing, canonical JSON/base64 representation has a separate
 16,777,216-byte ceiling, and one staging plus one committed copy a33,554,432-byte
 ceiling; these conservative ceilings include JSON escaping/base64 expansion,
@@ -1734,7 +1741,7 @@ applies at J1/F1 for either protected profile. /2 adds:
 
 | Step | /2 check | Refusal |
 | --- | --- | --- |
-| J1/F1 | Input bounds; bounded version preflight for every current publication and both checkpoint arguments; closed ordered-set wire shape and aggregate proof preflight | journal_malformed / freshness_malformed; registry_currency_version_mismatch |
+| J1/F1 | All input size bounds, including full D45 aggregate charge and embedded raw limits; bounded version preflight for every current publication and both checkpoint arguments; closed ordered-set wire shape | journal_malformed / freshness_malformed; registry_currency_version_mismatch |
 | J2/F2 | Supported configured version; exact protected role/key mapping | journal_invalid / freshness_invalid (missing registry facts retain unavailable) |
 | J3/F4 | Every selected original and independent cumulative premise, without own-age | checkpoint_snapshot_invalid / freshness_snapshot_invalid; existing unavailable/time codes |
 | F6 | Full ordered set equality, target seq/checkpoint bindings | freshness_binding_mismatch |
@@ -1743,6 +1750,28 @@ applies at J1/F1 for either protected profile. /2 adds:
 | F8/F8R | Included-root minimum A, whole-set anchors/re-anchor and one-way upgrade | Existing F8/F8R codes |
 | R2 | All required presence before syntax, then exact version/pin/set/byte/two-Evidence/anchor/witness binding | freshness_receipt_unavailable / invalid / binding_mismatch |
 | Root own-age slot after global R | Required missing coverage, or optional ordinary own-age | freshness_receipt_unavailable; otherwise existing own-age refusal |
+
+The J1/F1-to-J2/F2 preflight order is:
+
+1. Dispatch uses only the protected currency pin, never a candidate record.
+2. Required input presence, then count bounds (an absent freshness chain is
+   freshness_unavailable; the re-anchor API supplies one publication).
+3. Every current raw record's8192-byte bound, including primary and supplied
+   conflict checkpoints, then total raw argument bytes (freshness532480;
+   journal540672).
+4. For /2, full D45 raw/Evidence charge plus65,536-byte reserve, then embedded
+   raw bounds, without current-body parsing or combining raw slices.
+5. Bounded current-candidate version probes: publications oldest-first then
+   checkpoint for F; primary then supplied nonempty conflict checkpoint for J.
+6. Closed wire parsing with existing duplicate/depth16 bounds: publications or
+   journal entries oldest-first, then primary and supplied conflict checkpoint.
+7. J2/F2 supported protected profile and role/pin policy; later signature,
+   proof, index, currency and receipt stages retain their stated order.
+
+Steps1–3 and5–7 retain the /1 behavior. Step4 applies to /2 only. Version probes
+are bounded record parses; an unparseable discriminator does not bypass the
+closed-wire refusal at step6. Archival predecessors remain later proof inputs,
+not current-candidate profile selectors.
 
 R1 remains immediately after the first T1; R3 keeps fixed exclusive expiry.
 Malformed/invalid supplied receipts never trigger retry without the receipt.

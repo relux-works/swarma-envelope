@@ -92,7 +92,7 @@ conformance test generates its corpus with the existing generator in a Go test
 temporary directory. `CURATOR_GO` selects that child toolchain explicitly;
 otherwise it uses the runtime toolchain or Go on PATH. `WAGGLE_VECTORS` may
 select an already materialized corpus. The committed sweep digest, entire
-manifest, all 1688 sweep byte hashes, all 1211 named bytes and exact 2899
+manifest, all 1688 sweep byte hashes, all 1217 named bytes and exact 2905
 code/plan verdicts are checked. Generated sweeps are never committed. Fixture
 base64 transport and legacy field names are adapted only in the test.
 
@@ -309,6 +309,10 @@ Plan.SnapshotJournal is a detached version2 `*SnapshotJournalState` with
 Exact Evidence/state encoding, capacity accounting and Plan.IDs inventory are in
 spec2.7; the whole-call charge cap is2MiB including64KiB metadata reserve, while
 per-Evidence1MiB, per-record8192, journal64 and publication64 still apply.
+All input size bounds, including the full D45 charge, precede current candidate
+version preflight and closed-body parsing at J1/F1. Raw lengths plus retained
+Evidence costs and the reserve determine the entire charge; no combined raw
+slice or body parse is needed and no residual charge is deferred.
 Canonical storage/staging ceilings16MiB/32MiB do not override smaller native limits.
 
 A /2 receipt binds original SignedSnapshots AND SnapshotJournal Evidence identities,
