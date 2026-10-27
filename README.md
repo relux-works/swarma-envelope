@@ -40,7 +40,8 @@ at most 4096 bytes. It does not sign or verify an act.
 Outputs are mutable data, with independent byte buffers, rather than authority
 or an immutable signing plan. Protected state, current rights/time, received
 text matching, audience observation, replay and effects remain separate gates.
-The existing operator verifier still rejects the `owner-dm` target. See the
+The envelope verifier recognizes the `owner-dm` target grammar; its operations
+still refuse as `act_operation_unknown` in `VerifyOperator`. See the
 [package contract](owneracts/README.md) for inputs, bounds and local errors.
 
 ## Original SSHSIG proposal in brief

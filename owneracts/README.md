@@ -132,9 +132,10 @@ currency or replay safety, writes journals, enables effects or integrates a
 native/provider consumer. The mapper checks the supplied audience digest's
 format and binds its bytes; it does not establish equality to an observed
 roster. No signed-envelope size is checked because no envelope is input.
-The existing operator verifier still rejects the proposed `owner-dm` target;
-mapping success does not admit an act or open widening/native activation gates.
-Existing record/verifier schemas, algorithms and refusal order are unchanged.
+The envelope verifier recognizes the `owner-dm` target grammar, but its
+operations still refuse as `act_operation_unknown` in `VerifyOperator`.
+Mapping success does not admit an act or open widening/native activation gates.
+The mapper does not change record algorithms or verifier refusal order.
 
 ## Narrow validation
 

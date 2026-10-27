@@ -96,6 +96,18 @@ func ident(v any, pattern, single bool) bool {
 	}
 	return true
 }
+func ownerDMName(v any) bool {
+	s, ok := v.(string)
+	if !ok || len(s) < 1 || len(s) > 63 {
+		return false
+	}
+	for i, c := range []byte(s) {
+		if !(c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || i > 0 && c == '-') {
+			return false
+		}
+	}
+	return true
+}
 func target(v any, pattern, operator bool) bool {
 	m, ok := v.(map[string]any)
 	if !ok {
@@ -113,6 +125,9 @@ func target(v any, pattern, operator bool) bool {
 		return false
 	}
 	if operator {
+		if kind == "owner-dm" {
+			return ownerDMName(m["id"])
+		}
 		if kind != "registration" && kind != "account" {
 			return false
 		}

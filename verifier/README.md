@@ -60,6 +60,18 @@ Methods:
   original fine reason in local audit. An empty/missing verifier code maps to
   unavailable. Supply `state_unavailable` for a failed/unavailable Commit.
 
+Operator envelopes additionally recognize exactly the two-member target
+`{"kind":"owner-dm","id":NAME}`, where NAME matches
+`[a-z0-9][a-z0-9-]{0,62}`: 1–63 ASCII bytes, beginning with a lowercase letter
+or digit. Message and grant targets do not recognize this kind. Existing JSON
+intake permits whitespace, member order and valid escape variations as in
+wire specification §2.2; the decoded name must satisfy this grammar.
+`VerifyEnvelope` can return an envelope candidate for this target, while
+`VerifyOperator` still refuses `owner-dm.bind`, `owner-dm.unbind` and
+`owner-dm.mirror-enable` as `act_operation_unknown`. Reserved `launch.approve`
+and `host.change` remain closed. `revoke` still requires a registration target,
+and `grant.issue` an account target.
+
 `Result` returns the exact code and an empty `Plan` on refusal. Acceptance
 returns ordered ids, candidate watermark and, for an act, its single-use id.
 No method reserves, writes, commits, dispatches, performs effects or qualifies
