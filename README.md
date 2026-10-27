@@ -105,6 +105,28 @@ publication and lifecycle remain unimplemented. Neither a proposed `confirmed`
 bit nor these result bytes supply current enrollment, rights, qualified time,
 root-currency `/2`, replay/history, coordinator or consumer effect authority.
 
+## Native P-256 public-key representation
+
+`verifier.NativeP256KeyID(nativePublic)` converts exactly 65 binary bytes
+`04 || X[32] || Y[32]` to the ordinary canonical `p256:` ID containing a
+33-byte compressed SEC1 point in unpadded base64url. Length and prefix checks
+precede parsing or input-dependent allocation. Fixed standard-library P-256
+validation rejects infinity, off-curve and out-of-field coordinates; existing
+`record.ValidateKey` validates the result. Leading coordinate zeroes and binary
+control/space/CR/LF bytes remain data. P and -P retain distinct Y parity.
+No compressed/hybrid/text/DER/PEM wrapper, trimming, field reduction or alternate
+curve fallback is accepted. Every refusal returns an empty string and
+`*NativeP256PublicKeyError` spelling `native_public_key_invalid`.
+
+Caller bytes must remain stable during the synchronous call. No input is
+mutated or retained; the returned ordinary string has independent lifetime.
+This is mathematical representation only, without native origin, key custody,
+enrollment, expected selection, presence or consumer authority. Preparation
+and both assembly paths still independently match the original protected
+selection/key/plan/preimage. Received envelope keys remain compressed-only;
+raw/DER/native signature boundaries are unchanged. No native adapter or key
+operation is supplied.
+
 ## Bounded local owner-act frames
 
 `verifier.ParseOwnerActRequestFrame` accepts one whole `SEACT001` byte slice:
@@ -169,6 +191,7 @@ Python 3.14.4 and the already present cryptography 46.0.5 for P-256.
 | Owner-act verification tests | `GOMAXPROCS=2 "$CURATOR_GO" test ./verifier -run '^TestOwnerActs' -count=1 -v` | Focused profile controls, identity attacks and authority/currency/state regressions; stdout/stderr and exit status |
 | Signing preparation tests | `GOMAXPROCS=2 "$CURATOR_GO" test ./verifier -run '^Test(Prepare|APISurface)' -count=1 -v` | Exact unsigned association, immutable ownership, literal review and focused negatives; output in caller-owned `.temp/` logs |
 | Local framing tests | `GOMAXPROCS=2 "$CURATOR_GO" test ./verifier -run '^Test(OwnerActFrame|APISurface)' -count=1 -v` | Exact request/result layouts, strict parser delegation, owned bytes and bounded negative controls; caller-owned `.temp/` logs |
+| Native public-key tests | `GOMAXPROCS=2 "$CURATOR_GO" test ./verifier -run '^Test(NativeP256PublicKey|APISurface)' -count=1 -v` | Literal binary point identities, strict representation refusals, ownership and independent association; caller-owned `.temp/` logs |
 | Native result tests | `GOMAXPROCS=2 "$CURATOR_GO" test ./verifier -run '^Test(NativeP256|APISurface)' -count=1 -v` | Strict DER conversion, exact original signing bytes, canonical low-S intent and unchanged raw/wire refusals; caller-owned `.temp/` logs |
 | Verified assembly tests | `GOMAXPROCS=2 "$CURATOR_GO" test ./verifier -run '^Test(Assemble|APISurface)' -count=1 -v` | Exact raw-signature association, canonical output, ownership and focused negatives; caller-owned `.temp/` logs |
 | Owner-act build | `GOMAXPROCS=2 "$CURATOR_GO" build ./owneracts` | Compiles the parser and mapper; Go build cache |

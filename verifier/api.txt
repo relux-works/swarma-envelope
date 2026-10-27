@@ -127,6 +127,7 @@ field SnapshotJournalState.Version
 func AssembleOwnerAct
 func AssembleOwnerActNativeP256
 func EncodeOwnerActResultFrame
+func NativeP256KeyID
 func New
 func OperatorRecordCode
 func ParseOwnerActRequestFrame
@@ -136,6 +137,7 @@ method Evidence.IsAvailable
 method FreshnessReceipt.Audit
 method FreshnessReceipt.MarshalJSON
 method FreshnessReceipt.UnmarshalJSON
+method NativeP256PublicKeyError.Error
 method OwnerActAssemblyError.Error
 method OwnerActFrameError.Error
 method OwnerActPreparationError.Error
@@ -158,6 +160,7 @@ type Evidence
 type FreshnessAudit
 type FreshnessReanchorPlan
 type FreshnessReceipt
+type NativeP256PublicKeyError
 type OwnerActAssemblyError
 type OwnerActContext
 type OwnerActFrameError
