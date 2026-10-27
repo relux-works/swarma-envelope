@@ -105,6 +105,44 @@ publication and lifecycle remain unimplemented. Neither a proposed `confirmed`
 bit nor these result bytes supply current enrollment, rights, qualified time,
 root-currency `/2`, replay/history, coordinator or consumer effect authority.
 
+## Bounded local owner-act frames
+
+`verifier.ParseOwnerActRequestFrame` accepts one whole `SEACT001` byte slice:
+8-byte magic/version, 32-byte correlation, 32-byte opaque enrollment hint,
+big-endian uint32 body and argument lengths, then exact canonical body/A.
+The outer cap is 16464 bytes; each length is 1..8192, with the stricter
+owner-acts/1 argument cap of 2048 and unchanged field/depth bounds. Lengths
+and exact total are checked before parsing or copying. Existing owneracts
+parsers decide the closed canonical grammar. Returned body/A buffers are owned,
+ordinary caller-mutable data. Inputs must stay stable during the synchronous
+call. Both opaque fields retain every byte, including zeroes and non-UTF8.
+
+Frame admission checks grammar only. A well-formed body/A mismatch may parse;
+`PrepareOwnerAct` must still recompute and match all mapping and independently
+protected selection associations. The hint resolves no enrollment, and the
+correlation authenticates nothing. A complete supplied slice does not observe
+actual pipe EOF. Native bounded collection through EOF before UI and all later
+provider stages remain unimplemented.
+
+`verifier.EncodeOwnerActResultFrame(correlation, status, envelope)` emits
+`SEOUT001`, the exact 32-byte correlation, big-endian uint32 status and length,
+then payload. Typed statuses are `OwnerActResultSuccess=0`, `Rejected=1`,
+`Canceled=2`, `Busy=3`, `Unavailable=4` (each with the `OwnerActResult` prefix).
+Success requires the existing usable immutable `VerifiedOwnerActEnvelope`,
+not raw bytes, a request, a plan or detached snapshot. Its complete original
+canonical bytes are copied unchanged (1..8192, outer total <=8240).
+Each nonzero status requires nil envelope and emits exactly 48 bytes with zero
+payload. Unknown/inconsistent statuses refuse. Both functions use only
+`*OwnerActFrameError` with the fixed spelling `frame_invalid`; failures return
+entirely zero request data or nil result bytes, without partial/error payload.
+Every successful encode owns a fresh buffer. The tighter current schemas attain
+request 4171 and result 2396 bytes, rather than the outer protocol ceilings.
+
+These pure operations may repeat. They grant no native key reuse, enrollment,
+confirmation, presence, current rights, publication or consumer effect authority.
+The result remains signed intent, not once-consuming Finalize. No IO endpoint,
+request encoder, result decoder, native adapter or lifecycle is supplied.
+
 ## Original SSHSIG proposal in brief
 
 - **Signatures travel inside every message.** An envelope is the exact payload bytes plus one or more SSHSIG signatures, each with a role: `author`, `approver` or `endorser`. The signature namespace binds message class and role, so a signature made in one role or for one class cannot be reused for another.
@@ -130,6 +168,7 @@ Python 3.14.4 and the already present cryptography 46.0.5 for P-256.
 | Owner-act tests | `GOMAXPROCS=2 "$CURATOR_GO" test ./owneracts -p 1 -count=1` | Argument/body grammar, mapping and package API inventory; stdout/stderr and exit status |
 | Owner-act verification tests | `GOMAXPROCS=2 "$CURATOR_GO" test ./verifier -run '^TestOwnerActs' -count=1 -v` | Focused profile controls, identity attacks and authority/currency/state regressions; stdout/stderr and exit status |
 | Signing preparation tests | `GOMAXPROCS=2 "$CURATOR_GO" test ./verifier -run '^Test(Prepare|APISurface)' -count=1 -v` | Exact unsigned association, immutable ownership, literal review and focused negatives; output in caller-owned `.temp/` logs |
+| Local framing tests | `GOMAXPROCS=2 "$CURATOR_GO" test ./verifier -run '^Test(OwnerActFrame|APISurface)' -count=1 -v` | Exact request/result layouts, strict parser delegation, owned bytes and bounded negative controls; caller-owned `.temp/` logs |
 | Native result tests | `GOMAXPROCS=2 "$CURATOR_GO" test ./verifier -run '^Test(NativeP256|APISurface)' -count=1 -v` | Strict DER conversion, exact original signing bytes, canonical low-S intent and unchanged raw/wire refusals; caller-owned `.temp/` logs |
 | Verified assembly tests | `GOMAXPROCS=2 "$CURATOR_GO" test ./verifier -run '^Test(Assemble|APISurface)' -count=1 -v` | Exact raw-signature association, canonical output, ownership and focused negatives; caller-owned `.temp/` logs |
 | Owner-act build | `GOMAXPROCS=2 "$CURATOR_GO" build ./owneracts` | Compiles the parser and mapper; Go build cache |

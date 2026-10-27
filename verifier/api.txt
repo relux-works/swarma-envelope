@@ -1,4 +1,9 @@
 const NotRevoked
+const OwnerActResultBusy
+const OwnerActResultCanceled
+const OwnerActResultRejected
+const OwnerActResultSuccess
+const OwnerActResultUnavailable
 const Revoked
 const Unavailable
 field Attestation.ID
@@ -79,6 +84,10 @@ field OwnerActPreparationContext.InstalledProfile
 field OwnerActPreparationContext.ProfileCatalog
 field OwnerActPreparationContext.RootCatalog
 field OwnerActPreparationError.Code
+field OwnerActRequestFrame.Arguments
+field OwnerActRequestFrame.Body
+field OwnerActRequestFrame.Correlation
+field OwnerActRequestFrame.EnrollmentSelector
 field OwnerActSigningData.Arguments
 field OwnerActSigningData.ArgumentsDigest
 field OwnerActSigningData.Body
@@ -117,8 +126,10 @@ field SnapshotJournalState.RegistrySeq
 field SnapshotJournalState.Version
 func AssembleOwnerAct
 func AssembleOwnerActNativeP256
+func EncodeOwnerActResultFrame
 func New
 func OperatorRecordCode
+func ParseOwnerActRequestFrame
 func PrepareOwnerAct
 func Present
 method Evidence.IsAvailable
@@ -126,6 +137,7 @@ method FreshnessReceipt.Audit
 method FreshnessReceipt.MarshalJSON
 method FreshnessReceipt.UnmarshalJSON
 method OwnerActAssemblyError.Error
+method OwnerActFrameError.Error
 method OwnerActPreparationError.Error
 method OwnerActSigningPlan.Snapshot
 method VerifiedOwnerActEnvelope.Bytes
@@ -148,8 +160,11 @@ type FreshnessReanchorPlan
 type FreshnessReceipt
 type OwnerActAssemblyError
 type OwnerActContext
+type OwnerActFrameError
 type OwnerActPreparationContext
 type OwnerActPreparationError
+type OwnerActRequestFrame
+type OwnerActResultStatus
 type OwnerActSigningData
 type OwnerActSigningPlan
 type Plan
