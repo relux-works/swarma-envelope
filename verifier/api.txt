@@ -62,6 +62,17 @@ field FreshnessReanchorPlan.OldRegistryCurrencyVersion
 field FreshnessReanchorPlan.OldSnapshots
 field FreshnessReanchorPlan.Reanchored
 field FreshnessReanchorPlan.SkippedPublications
+field OwnerActContext.ActiveHead
+field OwnerActContext.Authority
+field OwnerActContext.Binding
+field OwnerActContext.Delivery
+field OwnerActContext.Instance
+field OwnerActContext.Lineage
+field OwnerActContext.ProfileCatalog
+field OwnerActContext.RestoreFloor
+field OwnerActContext.RoomAudience
+field OwnerActContext.RootCatalog
+field OwnerActContext.Selection
 field Plan.ActionID
 field Plan.IDs
 field Plan.Reanchor
@@ -100,6 +111,7 @@ method Verifier.VerifyFreshnessReanchor
 method Verifier.VerifyJournal
 method Verifier.VerifyMessage
 method Verifier.VerifyOperator
+method Verifier.VerifyOwnerAct
 method Verifier.VerifyServiceAttestation
 type Attestation
 type Context
@@ -107,6 +119,7 @@ type Evidence
 type FreshnessAudit
 type FreshnessReanchorPlan
 type FreshnessReceipt
+type OwnerActContext
 type Plan
 type Result
 type RevocationState

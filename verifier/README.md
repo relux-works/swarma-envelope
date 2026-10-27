@@ -87,6 +87,83 @@ verification. Returned plans are independent of the verifier's immutable facts.
 One verifier value can be used concurrently; this promises no serialization
 of external effects or storage.
 
+## Owner-act candidate verification
+
+`New(context).VerifyOwnerAct(envelope, arguments, deliveredText, protected)`
+selects the immutable owner-acts/1 operation table. It shares E1–E8 and the
+operator O2–O5 continuation with the existing APIs. It does not change
+`VerifyOperator` or make `VerifyEnvelope` an authority check. Operations are
+exactly owner-dm.bind (widening), owner-dm.unbind (narrowing) and
+owner-dm.mirror-enable (widening), with target kind owner-dm. Unknown and reserved
+operations refuse after earlier envelope gates. No caller supplies a class,
+handler, callback, dynamic registry or fallback profile.
+
+The three byte inputs are independent: operator envelope at most8192/depth16,
+canonical arguments at most2048/depth4, actual raw UTF-8 text at most4096.
+Lengths are inspected before decoding; argument/text refusals stay at O1 after
+the common envelope gates. Nil text means unavailable; non-nil empty text or
+unequal bytes refuse binding. Envelope JSON transport whitespace/order/valid
+escapes remain permitted. Arguments must be exactly canonical. Raw delivered
+text must equal the mapper's complete Render, including its single LF; no
+normalization, trim, Markdown, alias resolution or digest proxy occurs.
+
+`OwnerActContext` uses `Present` snapshots with the following closed in-process
+object shapes. These are an API between a qualified source adapter and the pure
+verifier, **not** a new wire/local policy-document format. All integers are
+int64. Omitted, null, wrongly typed or otherwise malformed required sources
+are unavailable at their consuming row. Definite signed binding inequalities
+use act_binding_mismatch. Other existing earlier and later refusals retain
+their slots. The mapper fixes the text, argument digest, body, ID and original
+domain-separated preimage from signed metadata and independent protected A0.
+
+| Snapshot | Required members and meaning |
+| --- | --- |
+| Selection | `aud,owner,epoch,device,owner_recipient,consumer_recipient,profile_pin,candidate_enabled,critical,presence_required`. Exact enrollment, full recipients, immutable reviewed source content ID and protected booleans. Audience is owner-acts:32lowerhex; epoch is epoch:32lowerhex. |
+| Binding | `identity,generation,revision,state,bound_room,owner_recipient,mirror,unknown_effect`. Exact local slot and current state. Bind requires unbound, empty bound_room, mirrorfalse, no unknown effect. Unbind requires a known active/pending/joined binding and exact recipient/room. Mirror requires joined and mirrorfalse. |
+| Delivery | `room,recipient,edited,replaced,moved`. Authenticated actual source identifiers and all three mutation flags false. Recipient must equal Selection.consumer_recipient. |
+| Authority | Provenance tuple below plus `device,profile,operation,target,generation,admitted`. Protected adapter's exact lookup query and boolean result, not a bare current-device assertion. Available denied lookup is key_binding_invalid. A foreign query or unavailable/malformed provenance is key_binding_unavailable. |
+| ActiveHead, RestoreFloor | Each is the exact complete provenance tuple, independently authenticated outside the restore domain being detected. Both must equal the selected Authority tuple; an integer minimum alone is insufficient. |
+| Lineage | `aud,owner,epoch,policies`, with policies an oldest-first array of closed `{revision,policy_id,previous}` rows from explicitly provisioned revision1/null predecessor through the exact selected head. Revisions are consecutive, IDs unique and links exact. This bounds the API to histories fitting Present's existing1MiB snapshot cap. |
+| Instance | `aud,owner,epoch,instance_fence,profile_pin`, bound to the selected serving instance and source pin. |
+| RootCatalog | `id,roles`. Roles is a complete closed object with `service_root,agent_revocation_root,operator_root,root,commit_signing_key,enrollment_publisher,service_authority,service_attestations`, using the corresponding Context values, explicit null only for unconfigured roles. A known configured role omitted or substituted is key_binding_invalid; unavailable complete catalog is key_binding_unavailable. Existing distinct-role checks still run. |
+| ProfileCatalog | `id,profiles`. Profiles maps every provisioned published profile identifier to its immutable source content ID. The owner-acts/1 entry must equal Selection.profile_pin. The adapter must establish completeness and authenticate these IDs; received values cannot publish a catalog. |
+| RoomAudience | Mirror only: `room,owner,service,revision,digest,private,invite_only,principals`. Principals is the complete union of invited/joined reading principals, exactly the distinct enrolled owner and protected consumer. Service equals actual delivery recipient. Digest is SHA-256(CCJ of `{room,owner,service}`), with sha256: prefix. Revision/digest and current room/roster observations must match the received arguments. |
+
+The provenance tuple is
+`aud,owner,epoch,revision,policy_id,previous,root_catalog_id,profile_catalog_id,instance_fence`.
+Policy/catalog/source IDs are complete content IDs. Instance fence is an exact
+nonempty string of at most255 bytes. Authority revision and generation are
+1..9007199254740990, binding revision0..9007199254740990. Owner permits exact
+nonempty UTF-8 up to255 bytes; opaque carrier identifiers use the mapper's
+1..255 printable ASCII grammar. Distinct facts remain distinct when strings
+coincide. Bind fixes a private invite-only creation/invitation to the protected
+owner, with no public alias/directory/readable history; it cannot select the
+future result room. This candidate API performs no creation or observation.
+
+Every profile call forces genuine original process-local `/2` receipt
+consumption at the existing T/R slot, regardless of RequireFreshnessReceipt.
+Version0/1 cannot fall back; missing receipts, rebuilt original Evidence,
+missing coverage, mismatched pins or expired receipts refuse through the
+existing shared gates. Keep original SignedSnapshots and SnapshotJournal
+Evidence. Current exact rights never replace signed device attestation,
+owner equality, current operator revocation, trusted time, ID or replay journals.
+SignerFacts.presence/presence_current remain independent for widening; the
+legacy SignerFacts.current boolean alone neither grants nor withdraws a profile
+right. Optional protected presence restrictions strengthen unbind. Disabled
+candidate mode or critical unbind closes at O5 after earlier gates. Widening
+always requires confirmation/current presence and remains act_a3_inactive.
+
+Snapshots describe explicit pure-function premises only. Caller assertions of
+source pins, catalog identities, lineage or floor equality do not establish
+qualified provisioning, source authenticity, restore exclusion or live custody.
+Source adapters must supply them independently and report unavailable if those
+premises are not qualified. No catalog resolver, raw policy parser, storage,
+update service, currentness cache or network lookup is supplied. Immutable
+Prepare/review/Finalize signing, native provider qualification, serialized
+current/effect comparisons, critical online coordination, recovery and
+disclosure remain separate. Acceptance is a prospective standard Plan, never
+an effect permit, reserved action or proof of exactly-once execution.
+
 ## Validation
 
 From the repository root with Go 1.26+ selected in `CURATOR_GO`:

@@ -70,7 +70,7 @@ func (e *MappingError) Error() string { return e.Code }
 // It validates all typed input before emitting anything. Failure returns Mapping{}.
 // It uses no clock, RNG, state, secret or I/O and never signs or authorizes.
 // Current rights, actual delivered text/audience equality and full operator
-// verification remain separate; the existing verifier does not admit owner-dm.
+// verification remain separate in verifier.VerifyOwnerAct.
 func Map(in MappingInput) (Mapping, error) {
 	fail := func(code string) (Mapping, error) { return Mapping{}, &MappingError{Code: code} }
 	class := "widening"

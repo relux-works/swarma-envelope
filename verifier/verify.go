@@ -156,27 +156,40 @@ func (v Verifier) VerifyOperator(raw []byte) Result {
 		text(binding["owner"], "act_binding_mismatch")
 		need(ascii(binding["epoch"]) && isString(binding["operation"]) && ident(strings.ReplaceAll(str(binding["operation"]), ".", "/"), false, false) && target(binding["target"], false, true) && obj(binding["arguments"]) != nil, "act_binding_mismatch")
 		need(equal(b["operation"], binding["operation"]) && equal(b["target"], binding["target"]) && obj(b["target"])["kind"] == kind && equal(b["owner"], binding["owner"]) && equal(b["epoch"], binding["epoch"]) && b["arguments_digest"] == mapped(func() string { return record.Digest(canonical(binding["arguments"])) }, "*", "act_binding_mismatch"), "act_binding_mismatch")
-		distinct(f)
-		currentDevice(f)
-		signer := str(obj(array(e["signatures"])[0])["key"])
-		a := attestation(signer, "", true, false, false, f)
-		need(obj(obj(a["body"])["binding"])["owner"] == b["owner"], "key_binding_invalid")
-		revocation(f, f["operator_root"], []string{str(e["id"]), str(a["id"])}, []string{signer})
-		if widen {
-			need(b["confirmed"] == true, "act_confirmation_required")
-			facts := obj(f["signer_facts"])
-			need(facts["presence"] == true && facts["presence_current"] == true, "act_presence_required")
-		}
-		need(f["replay_available"] == true, "replay_unavailable")
-		used, ok := stringsArray(f["used_actions"])
-		need(ok, "replay_unavailable")
-		need(!includes(used, b["action_id"]), "act_replay")
-		need(!widen, "act_a3_inactive")
-		p := plan([]map[string]any{e}, f)
-		p.ActionID = str(b["action_id"])
-		return p
+		return operatorTail(e, f, widen)
 	})
 }
+
+// operatorTail is the shared O2–O5 continuation. The caller must have run
+// the common envelope pipeline and its selected operation's complete O1 binding.
+// It returns only a prospective plan and does not reserve or perform an effect.
+func operatorTail(e map[string]any, f facts, widen bool) Plan {
+	b := obj(e["body"])
+	if c, selected := f["_ownerActContext"].(OwnerActContext); selected {
+		ownerAuthority(e, f, c)
+	} else {
+		distinct(f)
+		currentDevice(f)
+	}
+	signer := str(obj(array(e["signatures"])[0])["key"])
+	a := attestation(signer, "", true, false, false, f)
+	need(obj(obj(a["body"])["binding"])["owner"] == b["owner"], "key_binding_invalid")
+	revocation(f, f["operator_root"], []string{str(e["id"]), str(a["id"])}, []string{signer})
+	if widen || f["_ownerActPresence"] == true {
+		need(b["confirmed"] == true, "act_confirmation_required")
+		facts := obj(f["signer_facts"])
+		need(facts["presence"] == true && facts["presence_current"] == true, "act_presence_required")
+	}
+	need(f["replay_available"] == true, "replay_unavailable")
+	used, ok := stringsArray(f["used_actions"])
+	need(ok, "replay_unavailable")
+	need(!includes(used, b["action_id"]), "act_replay")
+	need(!widen && f["_ownerActRestricted"] != true, "act_a3_inactive")
+	p := plan([]map[string]any{e}, f)
+	p.ActionID = str(b["action_id"])
+	return p
+}
+
 func contained(p, c map[string]any) bool {
 	if p["kind"] != c["kind"] {
 		return false

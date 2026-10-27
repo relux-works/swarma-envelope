@@ -104,7 +104,7 @@ func receiptGate(f facts, low, high int64) {
 		return
 	}
 	r := c.FreshnessReceipt
-	if c.RegistryCurrencyVersion == 2 || r != nil && r.audit.RegistryCurrencyVersion == 2 {
+	if f["_ownerActs"] == true || c.RegistryCurrencyVersion == 2 || r != nil && r.audit.RegistryCurrencyVersion == 2 {
 		receiptGate2(f, low, high, c)
 		return
 	}
