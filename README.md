@@ -19,7 +19,7 @@ test seed labels retain their original spelling for compatibility.
 | [`vectors/swarm-envelope-2/`](vectors/swarm-envelope-2/) | Negative-first paired format and authorization witnesses |
 | [`vectors/keys/`](vectors/keys/) | Public test-only seeds and key provenance |
 | [`record/`](record/) | Public bounded codec, strict signatures, domains and message signer-provider admission |
-| [`owneracts/`](owneracts/) | Closed owner-acts/1 argument grammar only; parsed values confer no authority or effect permission |
+| [`owneracts/`](owneracts/) | Closed owner-acts/1 argument grammar and typed byte mapping; outputs confer no authority or effect permission |
 | [`verifier/`](verifier/) | Public immutable evidence, receiver, grant, operator and revocation pipelines, plans and Keymaker refusal mapping |
 | [`tools/vectors/`](tools/vectors/) | Deterministic Go fixture generator, signed-evidence builders and byte-for-byte inventory check |
 | [`tools/vectorcheck/`](tools/vectorcheck/) | Independent Python codec, strict crypto and ordered authorization checker |
@@ -27,16 +27,21 @@ test seed labels retain their original spelling for compatibility.
 | [`spec/track.md`](spec/track.md) | the delivery track: why, the design on one screen, the fast path to internet coordination, milestones CM0–CM4, decisions |
 | [`spec/waggle.ru.md`](spec/waggle.ru.md), [`spec/track.ru.md`](spec/track.ru.md) | Russian translations; the English files are canonical |
 
-## Owner-act argument intake
+## Owner-act arguments and byte mapping
 
-The [`owneracts`](owneracts/) package checks only the canonical argument objects
-for `owner-dm.bind`, `owner-dm.unbind` and `owner-dm.mirror-enable`.
-`launch.approve`, `host.change` and all other selectors refuse. It uses the
-existing bounded CCJ-1 codec with a 2048-byte ceiling, depth 4 and closed flat
-schemas. It does not render text, compare protected state or verify an act.
-A parsed argument value grants no authorization, current rights, signature plan
-or effect permission; the existing operator verifier is unchanged. See the
-[argument contract](owneracts/README.md) for fields, bounds and local errors.
+The [`owneracts`](owneracts/) package parses canonical arguments and maps typed
+proposals for `owner-dm.bind`, `owner-dm.unbind` and `owner-dm.mirror-enable`.
+`launch.approve`, `host.change` and all other selectors refuse. `Map` derives the
+exact rendering, complete arguments and digest, operator body, content ID and
+raw approver signing preimage using the existing record helpers. Inputs have
+bounded static grammar; complete arguments are at most 2048 bytes and rendering
+at most 4096 bytes. It does not sign or verify an act.
+
+Outputs are mutable data, with independent byte buffers, rather than authority
+or an immutable signing plan. Protected state, current rights/time, received
+text matching, audience observation, replay and effects remain separate gates.
+The existing operator verifier still rejects the `owner-dm` target. See the
+[package contract](owneracts/README.md) for inputs, bounds and local errors.
 
 ## Original SSHSIG proposal in brief
 
@@ -60,8 +65,10 @@ Python 3.14.4 and the already present cryptography 46.0.5 for P-256.
 | Go inventory check | `GOMAXPROCS=2 "$CURATOR_GO" run ./tools/vectors -check` | Regenerates all cases; compares named JSON and sweep manifest/digest without writing |
 | Independent Python checker | `python3 -B tools/vectorcheck/check.py` | Checks supplied cases (1217 named by default); nonzero failure or PENDING |
 | Library conformance | `CURATOR_GO="$CURATOR_GO" GOMAXPROCS=2 "$CURATOR_GO" test ./verifier -run '^TestConformance$' -count=1 -v` | Generates a temporary full corpus; checks committed manifest hashes and all 2905 exact code/plan results |
-| Owner-act argument tests | `GOMAXPROCS=2 "$CURATOR_GO" test ./owneracts -p 1 -count=1` | Grammar tests and new-package API inventory; stdout/stderr and exit status |
-| Owner-act argument build | `GOMAXPROCS=2 "$CURATOR_GO" build ./owneracts` | Compiles the argument parser; Go build cache |
+| Owner-act tests | `GOMAXPROCS=2 "$CURATOR_GO" test ./owneracts -p 1 -count=1` | Grammar, mapping and package API inventory; stdout/stderr and exit status |
+| Owner-act build | `GOMAXPROCS=2 "$CURATOR_GO" build ./owneracts` | Compiles the parser and mapper; Go build cache |
+| Owner-act vet | `GOMAXPROCS=2 "$CURATOR_GO" vet ./owneracts` | Static checks for the parser and mapper |
+| Owner-act formatting | `"${CURATOR_GO%/go}/gofmt" -l owneracts` | Lists unformatted package sources; empty output expected |
 | Library tests and API inventories | `CURATOR_GO="$CURATOR_GO" GOMAXPROCS=2 "$CURATOR_GO" test ./... -p 1 -count=1` | Package examples, API name gates, conformance and extra negative controls |
 | Concurrent verifier race check | `GOMAXPROCS=2 "$CURATOR_GO" test -race ./verifier -run '^TestConcurrentVerifier$' -count=1` | Race detection on concurrent immutable-verifier use |
 | Parser fuzz smoke | `GOMAXPROCS=2 "$CURATOR_GO" test ./record -run '^$' -fuzz '^FuzzParse$' -fuzztime=5s -parallel=2` | Bounded no-panic parser fuzzing; Go fuzz cache and failure corpus if any |

@@ -1,4 +1,4 @@
-# Owner-act argument grammar
+# Owner-act arguments and byte mapping
 
 `Parse(operation, raw)` accepts only the closed `owner-acts/1` canonical
 argument object for an explicitly selected operation. This is grammar intake,
@@ -65,12 +65,76 @@ order; these codes are not the operator verifier's wire refusal vocabulary:
 | `arguments_invalid` | CCJ syntax/value/depth failure; or, after canonical comparison, a closed-schema/type/value violation |
 | `arguments_noncanonical` | Valid bounded CCJ whose canonical bytes differ from the received bytes |
 
-This package does not hash or match actual delivered text, compute an audience
-digest, derive rendering/A0/preimages, compare any field to protected state,
-verify signatures, establish current rights/currency, read clocks or journals,
-produce effect plans, or implement consumer/native/provider integration. Bind
-and mirror grammar success does not open any widening or native activation gate.
-The existing record/verifier APIs, schemas and refusal order are unchanged.
+## Typed byte mapping
+
+`Map(MappingInput)` accepts proposed metadata and `ArgumentInput`, the operation's
+A0 without `text_sha256`. It does not accept arbitrary maps, raw A0 JSON, a class,
+a target kind or a prevalidated `Arguments` value. Profile `owner-acts/1` and
+kind `owner-dm` are fixed. Bind and mirror-enable derive class `widening`; unbind
+derives `narrowing`. Irrelevant fields must be zero: `BoundRoom` for bind,
+audience fields except for mirror-enable, and `Mirror` for bind/unbind.
+Relevant argument fields follow the grammar above.
+
+`MappingInput` supplies `Operation`, target `Identity`, `Owner`, `Epoch`,
+`Audience`, `ActionID`, `Nonce`, `IssuedAt`, `ExpiresAt`, `Confirmed`, full public
+`Key`, and `Arguments`. All strings are bounded before decoding/serialization:
+
+| Input | Static constraint |
+| --- | --- |
+| Identity | `[a-z0-9][a-z0-9-]{0,62}` |
+| Owner | Nonempty valid UTF-8, at most 255 bytes; exact spaces, controls and Unicode forms retained |
+| Audience / Epoch | `owner-acts:` / `epoch:` followed by 32 lowercase hexadecimal digits |
+| Key | Canonical valid compressed P-256 public key ID, checked by `record.KeyBytes` and `record.ValidateKey` |
+| ActionID / Nonce | Independently canonical unpadded base64url encodings of 16 bytes; representation only, no random-generation or uniqueness claim |
+| IssuedAt / ExpiresAt | Original UTC-second strings `YYYY-MM-DDTHH:MM:SSZ`, years 1970–9999; positive interval at most 120 seconds |
+| Confirmed | Either boolean retained as signed data; never presence evidence |
+
+The mapper constructs D with exactly `profile`, derived `class`, `operation`,
+`target`, `owner`, `epoch`, `aud`, `action_id`, `nonce`, `iat`, `exp`, `confirmed`,
+`key`, and `arguments` (A0). Using the pinned CCJ-1 codec:
+
+```text
+Render = UTF8("owner-acts/1\n") || CCJ-1(D)       (no trailing newline)
+A = A0 plus text_sha256 = lowercase hex SHA256(Render)
+Arguments = CCJ-1(A)
+ArgumentsDigest = "sha256:" plus lowercase hex SHA256(Arguments)
+```
+
+Complete A must fit 2048 bytes and Render must fit 4096 bytes; there is no
+truncation. The actually computed A passes the existing `Parse` contract.
+D contains no text hash, arguments digest, envelope ID or signatures.
+
+`Body` is canonical bytes of exactly the existing `operator-act/1` body:
+`type`, `aud`, `nonce`, `iat`, `exp`, `operation`, `target`, `owner`, `epoch`,
+`action_id`, `arguments_digest`, `confirmed`. Arguments remain separate.
+`ContentID` and `SigningPreimage` use `record.ContentID("operator-act/1", body)`
+and `record.SigningPreimage("operator-act/1", key, "approver", body)`.
+The latter is the full raw domain-tagged preimage containing body, key, role and
+version; neither Render nor its hash is the signature preimage.
+
+`Mapping` returns independent owned byte buffers for Render, Arguments, Body
+and SigningPreimage, plus digest strings. Modifying one output cannot change
+another or an independent invocation. Ordinary Go struct copies share slices;
+returned data is mutable and is not durable validation evidence or a trusted
+immutable signing plan. Typed input strings are ordinary Go values; concurrent
+unsafe mutation of their backing memory is outside this contract.
+
+Every failure returns `Mapping{}` and `*MappingError` with a local code and no
+received values. Unsupported operations return `mapping_operation_unsupported`;
+invalid typed metadata or A0 returns `mapping_invalid`; complete A/Render cap
+violations return `mapping_too_large`. These are not wire verifier verdicts.
+Individual string-cap violations are invalid input. No usable partial output is
+returned, including for failures found after rendering.
+
+Neither API signs, reads a clock/RNG, observes delivery context or audience,
+compares protected state, verifies signatures, establishes current rights,
+currency or replay safety, writes journals, enables effects or integrates a
+native/provider consumer. The mapper checks the supplied audience digest's
+format and binds its bytes; it does not establish equality to an observed
+roster. No signed-envelope size is checked because no envelope is input.
+The existing operator verifier still rejects the proposed `owner-dm` target;
+mapping success does not admit an act or open widening/native activation gates.
+Existing record/verifier schemas, algorithms and refusal order are unchanged.
 
 ## Narrow validation
 
@@ -84,8 +148,10 @@ GOMAXPROCS=2 "$CURATOR_GO" vet ./owneracts
 ```
 
 Tests include literal positive fixtures, schema/type and encoding refusals,
-field/integer bounds, byte-cap neighbors and input ownership. Expected grammar
-comes from the field contract above; the codec is used to construct additional
+field/integer bounds, byte-cap neighbors, exact mapping goldens, field binding,
+raw-byte identity and input/output ownership. Mapping goldens fix complete byte
+outputs and hashes independently from the mapper and codec under test. Expected
+grammar comes from the field contract above; the codec is used to construct additional
 wire fixtures, not as an independent oracle of accepted schemas. The API-name
 inventory checks only this package's exported names. Commands report to
 stdout/stderr; keep captured logs in an ignored task-scoped temporary directory.
