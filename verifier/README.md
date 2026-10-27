@@ -424,3 +424,115 @@ re-anchor audit crash-atomically before use and read the authenticated witness
 for each admission outside the final serialized window. These consumer duties,
 root-side intake checks, complete-history provisioning and activation are external.
 No issuance-age withdrawal bound is claimed for external-root /2 currency.
+
+## Unsigned owner-act signing preparation
+
+`PrepareOwnerAct(body, arguments, OwnerActPreparationContext)` returns an
+immutable unsigned `*OwnerActSigningPlan`. It accepts the full **original
+canonical** body and separately received canonical complete A. It reuses
+`owneracts.ParseBody`, `Parse`, `Map` and the existing record helpers, comparing
+both original byte strings to the complete derived mapping. It never accepts a
+caller digest/preimage/review as a substitute, produces a signature/envelope,
+or calls consumer verification with synthetic authority facts.
+
+Construct the four independent context values with `Present` and check errors:
+
+| Evidence | Exact available in-process value |
+| --- | --- |
+| Enrollment | `{device,owner,installation,aud,epoch,issuer,root_catalog_id,profile_catalog_id,profile,profile_pin}`; all strings. `device` is the enrolled full P256 key, `owner` the exact nonempty owner (<=255 UTF8 bytes), `installation` the local trusted nonempty label (<=255 UTF8 bytes), `aud` and `epoch` exactly match the body. `issuer` equals the selected operator-root role. `profile` is exactly `owner-acts/1`. The two catalog IDs and profile pin are full lowercase content IDs. |
+| InstalledProfile | `{profile,pin}` from independently authenticated installation/build metadata; exact supported version and enrolled/profile-catalog pin. |
+| RootCatalog | The existing complete `{id,roles}` model. Roles contains exactly `service_root,agent_revocation_root,operator_root,root,commit_signing_key,enrollment_publisher,service_authority,service_attestations`, with the same nested values as the consumer catalog. Null optional roles explicitly mean unconfigured; an omitted member or unavailable catalog refuses. `operator_root` is required here. |
+| ProfileCatalog | The existing complete `{id,profiles}` model, with all name-to-pin entries present. Names are nonempty <=255 UTF8 bytes; each pin is a full content ID. The selected `owner-acts/1` entry must equal both independently installed and enrolled pins; other valid entries are retained. |
+
+These are protected snapshots, **not received request fields or a new policy
+wire grammar**. The integration must authenticate the enrollment, eligibility,
+installation/build pin and full catalog provenance before supplying them, and
+must refuse unavailable/expired/conflicting source information. Received IDs are
+lookup hints only. `Present` supplies immutable ownership and availability,
+not proof of protected storage, installation provenance, currentness or rights.
+There is no current/presence flag, callback, inferred expected field or automatic
+pin/version fallback. Syntax and equality do not qualify an adapter. The
+implementation uses the static `owner-acts/1` mapper/review code. The externally
+authenticated compiled implementation pin is not defined by hashing a source
+file containing its own hash; this API does not attest a native package pin.
+
+Catalog key syntax and role separation are checked, including enrolled-device
+separation from root/protocol/service keys. Service attestation bytes are
+bounded and retained opaque; preparation does not verify those signatures or
+make them current. Consumer rights, attestations/revocation, genuine `/2`,
+time, presence, replay, critical coordination and effects remain independent.
+No protected enrollment or policy store is written.
+
+`plan.Snapshot()` returns `(OwnerActSigningData, true)` with fresh independent
+copies of all byte slices and the original immutable selection snapshots.
+Ordinary returned values are mutable, carry no capability and may be discarded.
+Editing a snapshot cannot change a plan or another call. Nil and public zero
+plans return zero data and false. A copy of a valid plan shares immutable state.
+Inputs must remain stable during the call; unsafe concurrent mutation, native
+handles, durable storage and GC zeroization are outside this API.
+
+`Render` is unchanged profile delivered text. `Review` is the separate pinned
+**`owner-act-review/1`** projection, with literal fixtures in
+`testdata/prepare-{bind,unbind,mirror-enable}.review`. Its exact fixed headings
+and order show profile/pin/class, independent installation/key/owner/audience/
+epoch/issuer/catalog IDs, complete canonical body, complete canonical A,
+computed digests/content ID, then the full profile text. Complete JSON retains
+all member names, types, target/generation, metadata and values; hashes replace
+none of them. All scalar section values, including complete JSON and act text,
+are quoted and reversible. Visible ASCII U+0021..U+007E passes literally except
+quote and backslash, encoded as `\"` and `\\`. Space, every control, DEL and nonASCII
+Unicode scalar is spelled **`\u{HHHHHH}`**, exactly six uppercase hexadecimal
+digits (`SPACE = \u{000020}`, `LF = \u{00000A}`, `é = \u{0000E9}`, `😀 = \u{01F600}`). A literal
+backslash is doubled: literal input `\u{000000}` displays as `"\\u{000000}"`,
+while NUL displays as `"\u{000000}"`. Invalid UTF8
+refuses. Nothing normalizes NFC/NFD, whitespace, line endings or locale order.
+Layout separators are LF; all data controls are visible escapes. Hashing and
+the raw preimage always use original validated bytes, never review escapes.
+Native integration must display these exact bytes as **plain literal text**,
+with no Markdown/HTML/terminal interpretation, links, truncation or elision, and
+pin the same renderer/version/fixtures. Go fixtures qualify no native view.
+
+Bounds precede parsing/copying: provider body/A outer 8192, stricter complete
+A 2048, existing body field limits, and existing `Present` 1 MiB per snapshot.
+Display labels are bounded 255 bytes; full catalogs remain bounded snapshots
+and are not expanded into display. Render 4096, raw preimage 12288, full escaped
+review 65536 (all headings/labels/expansion included), and exact predicted final
+one-approver canonical envelope 8192 are enforced before signing. Prediction
+counts closed syntax and the 86-character canonical raw64 signature encoding;
+it neither constructs a signature nor verifies/returns an envelope.
+
+The strict body maximum is 2043 bytes; preimage is body+143 <=2186 and final
+one-approver envelope body+305 <=2348. For widening, Render=body+A-70; narrowing
+uses -69 with its shorter operation/body. The attainable overall Render maximum
+is 4021 at body 2043/A 2048. Tests witness these maxima and the A 2049 refusal;
+4096/12288/8192 are unreachable for eligible inputs under these tighter schemas.
+For the review cap, a conservative upper bound is below 28000: complete body/A/
+Render contribute at most 6638/4098/10753 bytes when overcounting nonASCII owner
+expansion, selected owner/label at most 5104, and all other fixed headings/values
+under 1400. Canonical JSON controls are already ASCII escapes and expand at most
+2x; only owner (<=255 raw bytes) can contribute nonASCII in body/Render. This is
+a conservative bound, not a claim of an attainable review maximum. The exact
+65536 check remains in code. No eligible 65536-byte view is fabricated.
+
+Both `confirmed=false` and `true` are preserved as proposed assertions. Neither
+means a human confirmed or presence occurred. A later native provider must use
+one stable complete review, explicit fresh confirmation, unchanged plan/
+enrollment/pin/key/time and a single authorized signing attempt, accepting true
+only on that explicit path and never editing the body after review. Signature
+verification/finalization, native once/cancel/expiry lifecycle, storage and
+consumer authority/effects are **not implemented by preparation**.
+
+Failures return nil and `*OwnerActPreparationError` with a fixed local code:
+`preparation_too_large`, `preparation_invalid`,
+`preparation_selection_invalid` or `preparation_mismatch`. No received values,
+partial view, native result or signature are returned. These codes are not
+consumer E/O verdicts and existing verifier refusal ordering is unchanged.
+
+Focused commands (Go build cache; test output/logs in caller-owned `.temp/`):
+
+```sh
+GOMAXPROCS=2 "$CURATOR_GO" test ./verifier -run '^Test(Prepare|APISurface)' -count=1 -v
+GOMAXPROCS=2 "$CURATOR_GO" build ./verifier ./owneracts ./record
+GOMAXPROCS=2 "$CURATOR_GO" vet ./verifier ./owneracts ./record
+"${CURATOR_GO%/go}/gofmt" -l verifier/owner_act_prepare*.go
+```

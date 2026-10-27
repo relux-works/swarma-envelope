@@ -59,6 +59,13 @@ closed widening. It performs no effect, reservation or signing. The
 [profile API contract](verifier/README.md#owner-act-candidate-verification)
 describes the protected inputs and external qualification obligations.
 
+`verifier.PrepareOwnerAct` separately constructs an immutable unsigned review
+proposal from the complete original body/A and independently resolved enrollment,
+installed profile and full catalogs. Detached snapshots expose exact raw signing
+bytes, unchanged delivered text and a distinct full escaped review view. It
+performs no signing, native confirmation or current consumer authorization. See
+[preparation contract](verifier/README.md#unsigned-owner-act-signing-preparation).
+
 ## Original SSHSIG proposal in brief
 
 - **Signatures travel inside every message.** An envelope is the exact payload bytes plus one or more SSHSIG signatures, each with a role: `author`, `approver` or `endorser`. The signature namespace binds message class and role, so a signature made in one role or for one class cannot be reused for another.
@@ -83,6 +90,7 @@ Python 3.14.4 and the already present cryptography 46.0.5 for P-256.
 | Library conformance | `CURATOR_GO="$CURATOR_GO" GOMAXPROCS=2 "$CURATOR_GO" test ./verifier -run '^TestConformance$' -count=1 -v` | Generates a temporary full corpus; checks committed manifest hashes and all 2905 exact code/plan results |
 | Owner-act tests | `GOMAXPROCS=2 "$CURATOR_GO" test ./owneracts -p 1 -count=1` | Argument/body grammar, mapping and package API inventory; stdout/stderr and exit status |
 | Owner-act verification tests | `GOMAXPROCS=2 "$CURATOR_GO" test ./verifier -run '^TestOwnerActs' -count=1 -v` | Focused profile controls, identity attacks and authority/currency/state regressions; stdout/stderr and exit status |
+| Signing preparation tests | `GOMAXPROCS=2 "$CURATOR_GO" test ./verifier -run '^Test(Prepare|APISurface)' -count=1 -v` | Exact unsigned association, immutable ownership, literal review and focused negatives; output in caller-owned `.temp/` logs |
 | Owner-act build | `GOMAXPROCS=2 "$CURATOR_GO" build ./owneracts` | Compiles the parser and mapper; Go build cache |
 | Owner-act vet | `GOMAXPROCS=2 "$CURATOR_GO" vet ./owneracts` | Static checks for the parser and mapper |
 | Owner-act formatting | `"${CURATOR_GO%/go}/gofmt" -l owneracts` | Lists unformatted package sources; empty output expected |
