@@ -19,12 +19,24 @@ test seed labels retain their original spelling for compatibility.
 | [`vectors/swarm-envelope-2/`](vectors/swarm-envelope-2/) | Negative-first paired format and authorization witnesses |
 | [`vectors/keys/`](vectors/keys/) | Public test-only seeds and key provenance |
 | [`record/`](record/) | Public bounded codec, strict signatures, domains and message signer-provider admission |
+| [`owneracts/`](owneracts/) | Closed owner-acts/1 argument grammar only; parsed values confer no authority or effect permission |
 | [`verifier/`](verifier/) | Public immutable evidence, receiver, grant, operator and revocation pipelines, plans and Keymaker refusal mapping |
 | [`tools/vectors/`](tools/vectors/) | Deterministic Go fixture generator, signed-evidence builders and byte-for-byte inventory check |
 | [`tools/vectorcheck/`](tools/vectorcheck/) | Independent Python codec, strict crypto and ordered authorization checker |
 | [`spec/waggle.md`](spec/waggle.md) | the specification (draft v5.2): two layers; principals and roster, envelope and multi-signature, verification pipeline, signature policy, signer providers and key assurance, message classes, injection defense, conversation model, providers and their capabilities, delivery through the session host; coordination vocabulary and quorum decisions, scope leases, the protocol lab; phases; Amendment A1 for board processes (board acts, confirmations of process versions, signed external events, service principals, the hand-off result, user verification in board policy, the companion app, delegation) |
 | [`spec/track.md`](spec/track.md) | the delivery track: why, the design on one screen, the fast path to internet coordination, milestones CM0–CM4, decisions |
 | [`spec/waggle.ru.md`](spec/waggle.ru.md), [`spec/track.ru.md`](spec/track.ru.md) | Russian translations; the English files are canonical |
+
+## Owner-act argument intake
+
+The [`owneracts`](owneracts/) package checks only the canonical argument objects
+for `owner-dm.bind`, `owner-dm.unbind` and `owner-dm.mirror-enable`.
+`launch.approve`, `host.change` and all other selectors refuse. It uses the
+existing bounded CCJ-1 codec with a 2048-byte ceiling, depth 4 and closed flat
+schemas. It does not render text, compare protected state or verify an act.
+A parsed argument value grants no authorization, current rights, signature plan
+or effect permission; the existing operator verifier is unchanged. See the
+[argument contract](owneracts/README.md) for fields, bounds and local errors.
 
 ## Original SSHSIG proposal in brief
 
@@ -48,6 +60,8 @@ Python 3.14.4 and the already present cryptography 46.0.5 for P-256.
 | Go inventory check | `GOMAXPROCS=2 "$CURATOR_GO" run ./tools/vectors -check` | Regenerates all cases; compares named JSON and sweep manifest/digest without writing |
 | Independent Python checker | `python3 -B tools/vectorcheck/check.py` | Checks supplied cases (1217 named by default); nonzero failure or PENDING |
 | Library conformance | `CURATOR_GO="$CURATOR_GO" GOMAXPROCS=2 "$CURATOR_GO" test ./verifier -run '^TestConformance$' -count=1 -v` | Generates a temporary full corpus; checks committed manifest hashes and all 2905 exact code/plan results |
+| Owner-act argument tests | `GOMAXPROCS=2 "$CURATOR_GO" test ./owneracts -p 1 -count=1` | Grammar tests and new-package API inventory; stdout/stderr and exit status |
+| Owner-act argument build | `GOMAXPROCS=2 "$CURATOR_GO" build ./owneracts` | Compiles the argument parser; Go build cache |
 | Library tests and API inventories | `CURATOR_GO="$CURATOR_GO" GOMAXPROCS=2 "$CURATOR_GO" test ./... -p 1 -count=1` | Package examples, API name gates, conformance and extra negative controls |
 | Concurrent verifier race check | `GOMAXPROCS=2 "$CURATOR_GO" test -race ./verifier -run '^TestConcurrentVerifier$' -count=1` | Race detection on concurrent immutable-verifier use |
 | Parser fuzz smoke | `GOMAXPROCS=2 "$CURATOR_GO" test ./record -run '^$' -fuzz '^FuzzParse$' -fuzztime=5s -parallel=2` | Bounded no-panic parser fuzzing; Go fuzz cache and failure corpus if any |
