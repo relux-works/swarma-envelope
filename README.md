@@ -66,6 +66,30 @@ bytes, unchanged delivered text and a distinct full escaped review view. It
 performs no signing, native confirmation or current consumer authorization. See
 [preparation contract](verifier/README.md#unsigned-owner-act-signing-preparation).
 
+`verifier.AssembleOwnerAct(plan, returnedKey, rawSignature)` purely verifies an
+already supplied raw 64-byte low-S P256 signature against the exact private
+original `OwnerActSigningPlan` and enrolled key. It returns a private immutable
+`VerifiedOwnerActEnvelope`; `Bytes()` returns a fresh owned canonical envelope
+copy, or nil/false for a nil or zero result. Every assembly refusal returns nil
+and `*OwnerActAssemblyError` with the sole local code `assembly_invalid`.
+Detached snapshots cannot replace a plan. Inputs must stay stable during the
+synchronous call; unsafe concurrent mutation is unsupported.
+
+Assembly emits the ordinary closed four-member `swarm-envelope/2` envelope with
+one `approver`, the unchanged `operator-act/1` content ID and exact original
+body. It verifies raw crypto, then re-parses and checks the final shape, identity,
+key, signature, crypto and exact predicted size using shared core helpers. Raw
+high-S and DER refuse. The tighter schemas make the jointly attainable maxima
+body 2043, A 2048, Render 4021, preimage 2186 and envelope 2348 bytes; the outer
+8192-byte envelope and 12288-byte preimage caps still apply.
+
+This is signed intent only. Pure verification can repeat without performing or
+authorizing native key use. It is not once-consuming Finalize: native DER
+conversion, fresh confirmation/presence, attempts, cancellation, destruction,
+publication and lifecycle remain unimplemented. Neither a proposed `confirmed`
+bit nor these result bytes supply current enrollment, rights, qualified time,
+root-currency `/2`, replay/history, coordinator or consumer effect authority.
+
 ## Original SSHSIG proposal in brief
 
 - **Signatures travel inside every message.** An envelope is the exact payload bytes plus one or more SSHSIG signatures, each with a role: `author`, `approver` or `endorser`. The signature namespace binds message class and role, so a signature made in one role or for one class cannot be reused for another.
@@ -91,6 +115,7 @@ Python 3.14.4 and the already present cryptography 46.0.5 for P-256.
 | Owner-act tests | `GOMAXPROCS=2 "$CURATOR_GO" test ./owneracts -p 1 -count=1` | Argument/body grammar, mapping and package API inventory; stdout/stderr and exit status |
 | Owner-act verification tests | `GOMAXPROCS=2 "$CURATOR_GO" test ./verifier -run '^TestOwnerActs' -count=1 -v` | Focused profile controls, identity attacks and authority/currency/state regressions; stdout/stderr and exit status |
 | Signing preparation tests | `GOMAXPROCS=2 "$CURATOR_GO" test ./verifier -run '^Test(Prepare|APISurface)' -count=1 -v` | Exact unsigned association, immutable ownership, literal review and focused negatives; output in caller-owned `.temp/` logs |
+| Verified assembly tests | `GOMAXPROCS=2 "$CURATOR_GO" test ./verifier -run '^Test(Assemble|APISurface)' -count=1 -v` | Exact raw-signature association, canonical output, ownership and focused negatives; caller-owned `.temp/` logs |
 | Owner-act build | `GOMAXPROCS=2 "$CURATOR_GO" build ./owneracts` | Compiles the parser and mapper; Go build cache |
 | Owner-act vet | `GOMAXPROCS=2 "$CURATOR_GO" vet ./owneracts` | Static checks for the parser and mapper |
 | Owner-act formatting | `"${CURATOR_GO%/go}/gofmt" -l owneracts` | Lists unformatted package sources; empty output expected |
