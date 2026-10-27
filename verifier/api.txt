@@ -116,6 +116,7 @@ field SnapshotJournalState.RegistryID
 field SnapshotJournalState.RegistrySeq
 field SnapshotJournalState.Version
 func AssembleOwnerAct
+func AssembleOwnerActNativeP256
 func New
 func OperatorRecordCode
 func PrepareOwnerAct

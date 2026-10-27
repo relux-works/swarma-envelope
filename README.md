@@ -83,9 +83,24 @@ high-S and DER refuse. The tighter schemas make the jointly attainable maxima
 body 2043, A 2048, Render 4021, preimage 2186 and envelope 2348 bytes; the outer
 8192-byte envelope and 12288-byte preimage caps still apply.
 
-This is signed intent only. Pure verification can repeat without performing or
-authorizing native key use. It is not once-consuming Finalize: native DER
-conversion, fresh confirmation/presence, attempts, cancellation, destruction,
+`verifier.AssembleOwnerActNativeP256(plan, returnedKey, nativeDER)` is the
+explicit provider-side representation path. Before decoding or input-dependent
+allocation it requires 8..72 binary bytes. Go `encoding/asn1` must decode exactly
+one complete SEQUENCE of two minimally encoded positive P-256 scalars (1..n-1);
+complete consumption and exact canonical re-encoding reject extra members and
+noncanonical encodings. It converts r to fixed32 big-endian and s to
+`min(s,n-s)`, then delegates raw64 verification and ordinary envelope assembly
+to `AssembleOwnerAct`. All failures use the same nil output and fixed local
+`assembly_invalid` error. Input bytes must stay stable during the call. It
+accepts no text, raw64 or foreign wrapper fallback; raw assembly and consumer
+wire input still reject DER and high-S. The conversion changes no input/plan
+and retains the existing immutable result ownership.
+
+This is signed intent only. The explicit conversion API authenticates no native
+origin, key custody, confirmation, presence, current enrollment, rights or release
+authority. Pure conversion/verification can repeat without performing or
+authorizing native key use. It is not once-consuming Finalize: fresh
+confirmation/presence, attempts, cancellation, destruction,
 publication and lifecycle remain unimplemented. Neither a proposed `confirmed`
 bit nor these result bytes supply current enrollment, rights, qualified time,
 root-currency `/2`, replay/history, coordinator or consumer effect authority.
@@ -115,6 +130,7 @@ Python 3.14.4 and the already present cryptography 46.0.5 for P-256.
 | Owner-act tests | `GOMAXPROCS=2 "$CURATOR_GO" test ./owneracts -p 1 -count=1` | Argument/body grammar, mapping and package API inventory; stdout/stderr and exit status |
 | Owner-act verification tests | `GOMAXPROCS=2 "$CURATOR_GO" test ./verifier -run '^TestOwnerActs' -count=1 -v` | Focused profile controls, identity attacks and authority/currency/state regressions; stdout/stderr and exit status |
 | Signing preparation tests | `GOMAXPROCS=2 "$CURATOR_GO" test ./verifier -run '^Test(Prepare|APISurface)' -count=1 -v` | Exact unsigned association, immutable ownership, literal review and focused negatives; output in caller-owned `.temp/` logs |
+| Native result tests | `GOMAXPROCS=2 "$CURATOR_GO" test ./verifier -run '^Test(NativeP256|APISurface)' -count=1 -v` | Strict DER conversion, exact original signing bytes, canonical low-S intent and unchanged raw/wire refusals; caller-owned `.temp/` logs |
 | Verified assembly tests | `GOMAXPROCS=2 "$CURATOR_GO" test ./verifier -run '^Test(Assemble|APISurface)' -count=1 -v` | Exact raw-signature association, canonical output, ownership and focused negatives; caller-owned `.temp/` logs |
 | Owner-act build | `GOMAXPROCS=2 "$CURATOR_GO" build ./owneracts` | Compiles the parser and mapper; Go build cache |
 | Owner-act vet | `GOMAXPROCS=2 "$CURATOR_GO" vet ./owneracts` | Static checks for the parser and mapper |
