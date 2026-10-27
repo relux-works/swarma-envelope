@@ -1,8 +1,8 @@
-// Package owneracts parses the closed owner-acts/1 argument grammar and maps
-// typed proposals to exact rendering, argument, body and signing-preimage bytes.
-// Neither API authorizes an act, establishes protected facts or current rights,
-// produces an immutable signing plan, or enables an effect. The existing
-// operator verifier is unchanged and does not admit the owner-dm target.
+// Package owneracts parses closed owner-acts/1 arguments and unsigned bodies,
+// and maps typed proposals to exact rendering, argument, body and signing-preimage
+// bytes. These APIs do not authorize an act, establish protected facts or current
+// rights, produce an immutable signing plan, or enable an effect. Consumer
+// verification remains a separate obligation in verifier.VerifyOwnerAct.
 package owneracts
 
 import (

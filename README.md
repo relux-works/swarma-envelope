@@ -19,7 +19,7 @@ test seed labels retain their original spelling for compatibility.
 | [`vectors/swarm-envelope-2/`](vectors/swarm-envelope-2/) | Negative-first paired format and authorization witnesses |
 | [`vectors/keys/`](vectors/keys/) | Public test-only seeds and key provenance |
 | [`record/`](record/) | Public bounded codec, strict signatures, domains and message signer-provider admission |
-| [`owneracts/`](owneracts/) | Closed owner-acts/1 argument grammar and typed byte mapping; outputs confer no authority or effect permission |
+| [`owneracts/`](owneracts/) | Closed owner-acts/1 arguments, canonical unsigned body intake and typed byte mapping; outputs confer no authority or effect permission |
 | [`verifier/`](verifier/) | Public immutable evidence, receiver, grant, operator and revocation pipelines, plans and Keymaker refusal mapping |
 | [`tools/vectors/`](tools/vectors/) | Deterministic Go fixture generator, signed-evidence builders and byte-for-byte inventory check |
 | [`tools/vectorcheck/`](tools/vectorcheck/) | Independent Python codec, strict crypto and ordered authorization checker |
@@ -27,7 +27,7 @@ test seed labels retain their original spelling for compatibility.
 | [`spec/track.md`](spec/track.md) | the delivery track: why, the design on one screen, the fast path to internet coordination, milestones CM0–CM4, decisions |
 | [`spec/waggle.ru.md`](spec/waggle.ru.md), [`spec/track.ru.md`](spec/track.ru.md) | Russian translations; the English files are canonical |
 
-## Owner-act arguments and byte mapping
+## Owner-act arguments, unsigned bodies and byte mapping
 
 The [`owneracts`](owneracts/) package parses canonical arguments and maps typed
 proposals for `owner-dm.bind`, `owner-dm.unbind` and `owner-dm.mirror-enable`.
@@ -36,6 +36,13 @@ exact rendering, complete arguments and digest, operator body, content ID and
 raw approver signing preimage using the existing record helpers. Inputs have
 bounded static grammar; complete arguments are at most 2048 bytes and rendering
 at most 4096 bytes. It does not sign or verify an act.
+
+`ParseBody` separately admits only canonical unsigned operator-act bodies for
+those three operations, with exact closed fields and metadata bounds. It returns
+owned ordinary values, with zero output and fixed local errors on failure. It
+accepts no key, signature, embedded arguments or preimage. Complete arguments
+and mapping equality, protected enrollment, immutable display/preimage preparation
+and native confirmation/signature verification remain separate obligations.
 
 Outputs are mutable data, with independent byte buffers, rather than authority
 or an immutable signing plan. Protected state, current rights/time, received
@@ -74,7 +81,7 @@ Python 3.14.4 and the already present cryptography 46.0.5 for P-256.
 | Go inventory check | `GOMAXPROCS=2 "$CURATOR_GO" run ./tools/vectors -check` | Regenerates all cases; compares named JSON and sweep manifest/digest without writing |
 | Independent Python checker | `python3 -B tools/vectorcheck/check.py` | Checks supplied cases (1217 named by default); nonzero failure or PENDING |
 | Library conformance | `CURATOR_GO="$CURATOR_GO" GOMAXPROCS=2 "$CURATOR_GO" test ./verifier -run '^TestConformance$' -count=1 -v` | Generates a temporary full corpus; checks committed manifest hashes and all 2905 exact code/plan results |
-| Owner-act tests | `GOMAXPROCS=2 "$CURATOR_GO" test ./owneracts -p 1 -count=1` | Grammar, mapping and package API inventory; stdout/stderr and exit status |
+| Owner-act tests | `GOMAXPROCS=2 "$CURATOR_GO" test ./owneracts -p 1 -count=1` | Argument/body grammar, mapping and package API inventory; stdout/stderr and exit status |
 | Owner-act verification tests | `GOMAXPROCS=2 "$CURATOR_GO" test ./verifier -run '^TestOwnerActs' -count=1 -v` | Focused profile controls, identity attacks and authority/currency/state regressions; stdout/stderr and exit status |
 | Owner-act build | `GOMAXPROCS=2 "$CURATOR_GO" build ./owneracts` | Compiles the parser and mapper; Go build cache |
 | Owner-act vet | `GOMAXPROCS=2 "$CURATOR_GO" vet ./owneracts` | Static checks for the parser and mapper |

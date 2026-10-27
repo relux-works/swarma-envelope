@@ -1,4 +1,4 @@
-# Owner-act arguments and byte mapping
+# Owner-act arguments, unsigned bodies and byte mapping
 
 `Parse(operation, raw)` accepts only the closed `owner-acts/1` canonical
 argument object for an explicitly selected operation. This is grammar intake,
@@ -65,6 +65,58 @@ order; these codes are not the operator verifier's wire refusal vocabulary:
 | `arguments_invalid` | CCJ syntax/value/depth failure; or, after canonical comparison, a closed-schema/type/value violation |
 | `arguments_noncanonical` | Valid bounded CCJ whose canonical bytes differ from the received bytes |
 
+## Canonical unsigned body intake
+
+`ParseBody(raw)` accepts exactly the canonical CCJ-1 **body**, with the twelve
+members `type`, `aud`, `nonce`, `iat`, `exp`, `operation`, `target`, `owner`,
+`epoch`, `action_id`, `arguments_digest`, `confirmed`. Type is `operator-act/1`;
+operations are exactly the three owner-DM operations above. Target is exactly
+`{kind:"owner-dm",id:NAME}`, where NAME matches `[a-z0-9][a-z0-9-]{0,62}`.
+No envelope, key, signature, arguments, profile/class, handler or preimage member
+is accepted. Legacy `revoke`/`grant.issue`, reserved operations and aliases refuse.
+
+Body input is 1–8192 bytes, depth at most 16, arrays at most 64 and strings at
+most 8192, subject to stricter fields: owner is nonempty UTF-8 at most 255 raw
+bytes; audience is `owner-acts:` plus 32 lowercase hexadecimal digits; epoch is
+`epoch:` plus 32 lowercase hexadecimal digits; nonce/action ID are independently
+canonical unpadded base64url encodings of 16 bytes. Times retain their original
+`YYYY-MM-DDTHH:MM:SSZ` strings, valid years 1970–9999, with positive lifetime at
+most 120 seconds. Arguments digest is a full lowercase `sha256:` content ID.
+Confirmed accepts both booleans. No random generation, uniqueness, current time
+or confirmation is established. Owner spaces, escaped controls and Unicode are
+retained exactly, without normalization; other field constraints still apply.
+Arrays cannot satisfy any closed body field. The strict fields bound every
+valid serialized body to 2043 bytes even with maximal owner escape expansion;
+the outer limit still rejects oversized input before parsing/copying.
+
+The returned `Body` includes every scalar and both target components as owned
+strings/boolean. No input buffer, map or slice is retained. Assigning a result
+or its struct copy cannot modify another result or the input. The caller must
+keep input stable during the synchronous call. Ordinary returned data is mutable
+and forgeable by the caller; it is not an immutable signing plan or authority.
+
+`*BodyError` contains a fixed local code and no received bytes. Every error
+returns `Body{}` and leaves input unchanged. Checks are ordered as follows:
+
+| Code | Meaning |
+| --- | --- |
+| `body_too_large` | More than 8192 received bytes, before parsing or copying |
+| `body_invalid` | Bounded CCJ syntax/value/depth failure (including empty input); or, after canonical equality, wrong closed members/types/field values |
+| `body_noncanonical` | Bounded CCJ parses but re-encoding differs from exact input |
+| `body_operation_unsupported` | After canonical/closed-member checks, string operation is outside the three-operation registry; before remaining field validation |
+
+This local admission is intentionally strict about whitespace, order and escape
+spelling. Existing received-envelope parsing remains permissive about valid JSON
+transport variants. No existing parser or verifier refusal order is changed.
+
+Full separately received canonical arguments, their actual digest and exact Map
+equality remain later composition obligations; a syntactically valid digest is
+not validated arguments. Protected enrollment/device/owner/installation/epoch,
+complete root catalogs and pins, immutable full display/preimage preparation,
+explicit native owner confirmation and independent native signature verification
+are separate requirements. `confirmed=true` is data, never proof of confirmation
+or presence. No signing, current rights, native provider or effect follows.
+
 ## Typed byte mapping
 
 `Map(MappingInput)` accepts proposed metadata and `ArgumentInput`, the operation's
@@ -126,9 +178,9 @@ violations return `mapping_too_large`. These are not wire verifier verdicts.
 Individual string-cap violations are invalid input. No usable partial output is
 returned, including for failures found after rendering.
 
-Neither API signs, reads a clock/RNG, observes delivery context or audience,
-compares protected state, verifies signatures, establishes current rights,
-currency or replay safety, writes journals, enables effects or integrates a
+These APIs do not sign, read a clock/RNG, observe delivery context or audience,
+compare protected state, verify signatures, establish current rights,
+currency or replay safety, write journals, enable effects or integrate a
 native/provider consumer. The mapper checks the supplied audience digest's
 format and binds its bytes; it does not establish equality to an observed
 roster. No signed-envelope size is checked because no envelope is input.
@@ -148,7 +200,8 @@ GOMAXPROCS=2 "$CURATOR_GO" vet ./owneracts
 "${CURATOR_GO%/go}/gofmt" -l owneracts
 ```
 
-Tests include literal positive fixtures, schema/type and encoding refusals,
+Tests include literal positive fixtures, unsigned-body ten-family grammar sweep,
+separate body free hunt, schema/type and encoding refusals,
 field/integer bounds, byte-cap neighbors, exact mapping goldens, field binding,
 raw-byte identity and input/output ownership. Mapping goldens fix complete byte
 outputs and hashes independently from the mapper and codec under test. Expected
