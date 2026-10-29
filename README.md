@@ -15,6 +15,7 @@ test seed labels retain their original spelling for compatibility.
 | Path | Contents |
 | --- | --- |
 | [`spec/swarm-envelope-2.md`](spec/swarm-envelope-2.md) | Proposed normative platform records, refusal order, pure verifier boundary, exact tag registry, signed attestations/revocation, message delivery binding and assurance contracts, Keymaker mapping and later broker adapter; supersedes SSHSIG only for platform services |
+| [`spec/signed-owner-acts-profile.md`](spec/signed-owner-acts-profile.md) | Static owner-acts/1 consumer contract proposal, current bounded portable subset, future full-path acceptance claims and still-open native/effect/consumer gates |
 | [`UNRESOLVED_QUESTIONS.md`](UNRESOLVED_QUESTIONS.md) | Adopted defaults and remaining publication/activation decisions |
 | [`vectors/swarm-envelope-2/`](vectors/swarm-envelope-2/) | Negative-first paired format and authorization witnesses |
 | [`vectors/keys/`](vectors/keys/) | Public test-only seeds and key provenance |
