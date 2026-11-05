@@ -348,8 +348,8 @@ func grantDomainRevoker(f facts) string {
 
 // grantPublisher verifies the pinned publisher attestation: signed by the
 // grant root, key_class revocation-publisher, purpose grant-revocation,
-// actions revocation.sign, binding {profile:"grant-revocation-1",domain:root},
-// a P-256 subject distinct from every pinned root, inside its window of at
+// actions revocation.sign, binding {profile,domain:root}, a profile-1 P-256
+// or profile-2 Ed25519 subject distinct from all six pinned roles, inside a window of at
 // most 366 days. Its key may sign only grant-domain revocation snapshots.
 func grantPublisher(f facts) string {
 	root := grantRoot(f)
@@ -358,14 +358,23 @@ func grantPublisher(f facts) string {
 	s := evidenceExact(b["subject"], "algorithm key_id public_bytes")
 	need(b["key_class"] == "revocation-publisher" && b["purpose"] == "grant-revocation" && equal(b["roles"], []any{"author"}) && equal(b["actions"], []any{"revocation.sign"}), "key_binding_invalid")
 	binding := evidenceExact(b["binding"], "profile domain")
-	need(binding["profile"] == "grant-revocation-1" && equal(binding["domain"], root), "key_binding_invalid")
+	need(equal(binding["domain"], root), "key_binding_invalid")
+	algorithm, subjectAlgorithm, publicSize := "", "", 0
+	switch binding["profile"] {
+	case "grant-revocation-1":
+		algorithm, subjectAlgorithm, publicSize = "p256", "P-256", 33
+	case "grant-revocation-2":
+		algorithm, subjectAlgorithm, publicSize = "ed25519", "Ed25519", 32
+	default:
+		need(false, "key_binding_invalid")
+	}
 	keyID := str(s["key_id"])
 	var start, end int64
 	mapped(func() bool {
 		alg, public := key(keyID)
-		encoded := must(record.DecodeBase64(str(s["public_bytes"]), 33))
+		encoded := must(record.DecodeBase64(str(s["public_bytes"]), publicSize))
 		start, end = stamp(b["iat"]), stamp(b["exp"])
-		need(alg == "p256" && s["algorithm"] == "P-256" && record.ValidateKey(keyID) == nil && bytes.Equal(encoded, public) && end > start && end-start <= grantPublisherWindow, "key_binding_invalid")
+		need(alg == algorithm && s["algorithm"] == subjectAlgorithm && record.ValidateKey(keyID) == nil && bytes.Equal(encoded, public) && end > start && end-start <= grantPublisherWindow, "key_binding_invalid")
 		return true
 	}, "*", "key_binding_invalid")
 	service := obj(f["service_root"])

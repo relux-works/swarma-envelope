@@ -10,6 +10,16 @@ test seed labels retain their original spelling for compatibility.
 
 **Draft design with a pure Go verifier and offline conformance tooling.** The platform slice specifies `swarm-envelope/2`, general `grant/1`, `operator-act/1`, root-signed `attestation/1`, shared `revocation/1`, unsigned identity-journal entries, registry checkpoints and registry-signed `freshness/1` and explicit root-currency `freshness/2`. Its 2905 vectors (2706 negative, 199 positive) have a Go generator and independent Python checker. The tree retains 1217 named semantic vectors; 1688 mechanical sweep cases are represented by a checked SHA-256 manifest and materialized on demand. The public `record` and `verifier` packages implement the pure v0 verification pipelines; service-key delegation, journal/checkpoint verification, signed freshness, a protected complete-prefix root-snapshot index and opaque process-local receipt composition are offline library support; no registry service, witness protocol, consumer integration or activation is implemented. Broker v0 retains static R1 admission; Keymaker persistent revoke remains gated on verifier integration. Attested agent messages provide A1 provenance; widening is inactive because v0 has no qualified A3 provider.
 
+The grant-domain revocation publisher supports owner-root-attested
+`grant-revocation-1` (P-256) and `grant-revocation-2` (Ed25519), with strict
+profile/algorithm pairing and the unchanged 60-second snapshot freshness cap.
+See [the publisher contract](spec/swarm-envelope-2.md).
+Dedicated signed pairs in `verifier/testdata/grant-revocation2/` exercise the
+Go API; they do not extend the independently checked legacy corpus or qualify
+a tag, release, second implementation or non-Go consumer. A reviewed Go source
+pin does not qualify issuer presence, publisher custody, consumer durability,
+receiver adoption or effect authority.
+
 ## Layout
 
 | Path | Contents |
@@ -192,6 +202,7 @@ Python 3.14.4 and the already present cryptography 46.0.5 for P-256.
 | Owner-act verification tests | `GOMAXPROCS=2 "$CURATOR_GO" test ./verifier -run '^TestOwnerActs' -count=1 -v` | Focused profile controls, identity attacks and authority/currency/state regressions; stdout/stderr and exit status |
 | Signing preparation tests | `GOMAXPROCS=2 "$CURATOR_GO" test ./verifier -run '^Test(Prepare|APISurface)' -count=1 -v` | Exact unsigned association, immutable ownership, literal review and focused negatives; output in caller-owned `.temp/` logs |
 | Local framing tests | `GOMAXPROCS=2 "$CURATOR_GO" test ./verifier -run '^Test(OwnerActFrame|APISurface)' -count=1 -v` | Exact request/result layouts, strict parser delegation, owned bytes and bounded negative controls; caller-owned `.temp/` logs |
+| Grant publisher tests | `GOMAXPROCS=2 "$CURATOR_GO" test ./verifier -run '^Test(GrantRevocation2|MultiUse)' -count=1 -v` | Strict publisher profile dispatch, signed Go-only fixture pairs and affected legacy controls; caller-owned `.temp/` logs |
 | Native public-key tests | `GOMAXPROCS=2 "$CURATOR_GO" test ./verifier -run '^Test(NativeP256PublicKey|APISurface)' -count=1 -v` | Literal binary point identities, strict representation refusals, ownership and independent association; caller-owned `.temp/` logs |
 | Native result tests | `GOMAXPROCS=2 "$CURATOR_GO" test ./verifier -run '^Test(NativeP256|APISurface)' -count=1 -v` | Strict DER conversion, exact original signing bytes, canonical low-S intent and unchanged raw/wire refusals; caller-owned `.temp/` logs |
 | Verified assembly tests | `GOMAXPROCS=2 "$CURATOR_GO" test ./verifier -run '^Test(Assemble|APISurface)' -count=1 -v` | Exact raw-signature association, canonical output, ownership and focused negatives; caller-owned `.temp/` logs |

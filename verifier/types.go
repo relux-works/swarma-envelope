@@ -147,7 +147,8 @@ type Context struct {
 	ActBinding              Evidence
 	// GrantRevocationPublisher is the raw owner-root-signed attestation/1 of
 	// the key that signs revocation/1 snapshots for the grant-root domain
-	// (profile grant-revocation-1). Absent: the grant root signs them itself.
+	// (grant-revocation-1: P-256; grant-revocation-2: Ed25519).
+	// Absent: the grant root signs them itself. Present nil fails closed.
 	GrantRevocationPublisher Evidence
 }
 

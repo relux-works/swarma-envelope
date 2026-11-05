@@ -1482,38 +1482,99 @@ otherwise the v0 refusal `signature_profile_invalid` stands. Keymaker
 Ed25519 agent attestations are unchanged.
 
 Grant revocation publisher. A grant root that signs only under user presence
-cannot issue a fresh revocation snapshot every 60 seconds. Such a root may pin
-one publisher: a P-256 key attested by the grant root with `key_class`
-`revocation-publisher`, `purpose` `grant-revocation`, roles `["author"]`,
-actions `["revocation.sign"]`, `binding` exactly
-`{profile:"grant-revocation-1",domain:<grant root key id>}`, a window of at
-most 366 days, and a key distinct from every pinned root. When the consumer
-supplies it, grant-domain revocation (grant chains and Mac agent attestations)
-is checked against the publisher's complete `revocation/1` snapshot under the
-unchanged freshness rule (`max_age` at most 60 s); a stale or missing snapshot
-refuses. The publisher signs nothing else: it refuses
-`signature_profile_invalid` as the signer of any envelope, and it can never
-sign an attestation. Consumer obligations: keep the union of every revocation
-accepted from the root or the publisher and refuse a snapshot that drops one,
-as rollback; honour a root-signed revocation at any age; refuse publisher
-snapshots once the root revokes the publisher key. Known risk: a stolen
-publisher key can delay, but not undo, a revocation until the root revokes it.
+cannot issue a fresh revocation snapshot every 60 seconds. The pinned owner
+grant root may appoint at most one publisher by signing its `attestation/1`.
+The signing service may hold the subject key but cannot appoint itself. Owner
+presence when appointing is an issuer obligation; the root signature alone
+does not prove presence.
 
-Publisher details. With a publisher pinned, the library evaluates grant-domain
-revocation only against the publisher's snapshot and ignores a root-signed
-snapshot for that domain; root revocations reach the consumer through its own
-union. The publisher key must differ from the grant, operator and service
-roots, the registry-revocation key, the commit-signing key and the enrollment
-publisher. `max_age` is consumer evidence bounded to 1..60 seconds; a consumer
-MUST NOT supply more. A registry freshness receipt waives the publisher's own
-age only when the consumer lists the publisher snapshot in the receipt's
-coverage; otherwise the 60-second rule applies unchanged. The union is
-consumer-side state: the consumer derives the entries from the same snapshot
-bytes it supplied as evidence for an accepted call, never from unverified
-input. Custody: the publisher is a non-extractable key used without presence
-under its own service and purpose; the signing job calls only a pinned,
-digest-checked signer. A same-user compromise can add revocations or withhold
-new ones until the root revokes the publisher, never undo accepted ones.
+The attestation has the existing closed body, `key_class`
+`revocation-publisher`, `purpose` `grant-revocation`, roles `["author"]`,
+actions `["revocation.sign"]`, and binding exactly `{profile,domain}`, with
+`domain` equal to the pinned grant root key id. Its positive window is at most
+366 days, with start inclusive and expiry exclusive, covering
+`min(now,W)..max(now,W)` under the existing trusted-time and watermark rules.
+Only after authenticating the complete owner-root-signed attestation does the
+verifier select the subject rule by the exact binding profile:
+
+| Profile | Subject algorithm | Key id | Public bytes |
+| --- | --- | --- | --- |
+| `grant-revocation-1` | `P-256` | `p256:` | 33 compressed SEC1 bytes |
+| `grant-revocation-2` | `Ed25519` | `ed25519:` | 32 raw bytes |
+
+Both require canonical unpadded base64url, exact byte equality between
+`subject.public_bytes` and the key encoded by `subject.key_id`, and the shared
+strict key validation (including prime-order, nonidentity Ed25519 validation).
+Unknown profiles and cross-paired algorithms refuse; there is no inference,
+profile fallback or new record format. An Ed25519 snapshot has an ordinary
+raw 64-byte Ed25519 signature over the unchanged signing preimage, bound to
+domain, role, key and version. Ed25519ph, a context string and a new tag are
+not used. Profile 1 remains P-256.
+
+The publisher key must differ from all six canonical typed key ids: the grant
+root, operator root, `service_root.key`, `agent_revocation_root.key`,
+`commit_signing_key` and `enrollment_publisher`. Different algorithm prefixes
+are inherently unequal; none of the six comparisons is skipped. This is not a
+check against every pinned subject. Provisioning must also dedicate the key to
+revocation signing, without reusing an agent, service delegate, operator device
+or enrollment key. That dedication remains an external obligation.
+
+Neither the service root, registry-revocation key, operator, commit-signing or
+enrollment key, nor a purpose-5 agent attestation can appoint a publisher.
+The declared publisher key is inspected syntactically only to deny unrelated
+signing uses; that inspection supplies no authority. A publisher cannot author
+grants, messages or operator acts, or issue agent attestations. Grant-domain
+revocation covers grant chains (including depth zero) and Mac agent
+attestations. Service-attestation revocation remains in the owner-root domain;
+legacy and Linux purpose-5 agent profiles and existing grant formats are
+unchanged.
+
+With no publisher fact, the root signs its own grant-domain snapshots. A
+present nil or invalid publisher fact fails closed, even when a valid root
+snapshot is available. An older verifier that reaches profile 2 refuses it;
+consumers must not drop the fact or retry without it. At the publisher binding
+gate, invalid and unavailable evidence refuse `key_binding_invalid` and
+`key_binding_unavailable`. Authorize G7 maps these to `revocation_invalid`
+and `revocation_unavailable`; earlier Mac-attestation intake may expose the
+binding codes directly, preserving existing gate precedence.
+
+Publisher freshness. The library consumes the publisher's complete
+`revocation/1` snapshot for grant-domain revocation, rather than the root's
+snapshot. Consumer evidence `max_age` must be 1..60 seconds. Missing, incomplete,
+rollback-unsafe, future or stale evidence fails closed. This extension adds no
+publisher receipt-coverage role and no own-age waiver. Existing closed receipt
+roles cannot express publisher coverage; a required root-currency `/2` receipt
+may therefore refuse that coverage. Consumers must not manufacture a waiver.
+
+Custody and durability. The publisher must be non-extractable and usable
+without routine presence under its own service and purpose. This is a required
+deployment qualification, established neither by Ed25519, Linux, a profile
+label nor this verifier. The signing job calls only a pinned, digest-checked
+signer. An interface that denies caller export and restricts
+requests to pinned revocation signing proves neither non-extractability against
+service compromise nor hardware confinement. No purpose or slot allocation is
+implied, and adoption waits for custody evidence.
+
+A compromised publisher can add revocations or withhold new ones. The no-undo
+bound depends on a qualified consumer preserving its authenticated root and
+publisher revocation union, high-water and restore floors across crashes and
+rollback, and receiving root revocations out of band. It derives accepted
+entries from the same authenticated snapshot bytes supplied to an accepted
+call, never unverified input, and refuses snapshots that drop accepted entries.
+The pure verifier neither persists this state nor discovers that the root has
+revoked a publisher. The consumer must stop supplying a root-revoked publisher,
+retain root and out-of-band revocations and its fences, and honour accepted
+root-signed revocations regardless of their age. No automatic fallback or
+durability follows from a signature.
+
+Adoption boundary. Go-only publisher fixtures exercise the new profile, but
+are not independent v2 oracle qualification. Before a tag, distribution
+release, second implementation or non-Go reliance, profile selection and
+committed v2 vectors require independent oracle implementation and review.
+Issuer presence, signing-service custody and dedicated-key enforcement, and
+consumer pinning, revocation union, root revocations, high-water/restore,
+accounting and effect gates require separate qualification. A reviewed Go
+source pin alone establishes none of those deployment properties.
 
 ## 4. operator-act/1
 
