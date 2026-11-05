@@ -370,7 +370,8 @@ func grantPublisher(f facts) string {
 	}, "*", "key_binding_invalid")
 	service := obj(f["service_root"])
 	registry := obj(f["agent_revocation_root"])
-	need(keyID != root && !equal(keyID, f["operator_root"]) && (service == nil || !equal(keyID, service["key"])) && (registry == nil || !equal(keyID, registry["key"])), "key_binding_invalid")
+	need(keyID != root && !equal(keyID, f["operator_root"]) && (service == nil || !equal(keyID, service["key"])) && (registry == nil || !equal(keyID, registry["key"])) &&
+		!equal(keyID, f["commit_signing_key"]) && !equal(keyID, f["enrollment_publisher"]), "key_binding_invalid")
 	low, high := times(f)
 	need(start <= low && high < end, "key_binding_invalid")
 	f["_grantPublisherKey"] = keyID

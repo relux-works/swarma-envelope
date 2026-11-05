@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"math/big"
+	"strings"
 	"testing"
 
 	"github.com/relux-works/swarma-envelope/record"
@@ -585,6 +586,118 @@ func TestMultiUseNarrowingV1Actions(t *testing.T) {
 		v.Input["chain"] = []any{base64.RawURLEncoding.EncodeToString(leaf), base64.RawURLEncoding.EncodeToString(parent)}
 		if got := derive(t, v); got.Code != c.want {
 			t.Errorf("child caveats %v: got %+v want %s", c.child != nil, got, c.want)
+		}
+	}
+}
+
+// muPublisherWith builds the root-signed publisher attestation with a mutation.
+func muPublisherWith(t *testing.T, mutate func(map[string]any)) (*ecdsa.PrivateKey, string, []byte) {
+	t.Helper()
+	k, key := muP256("publisher")
+	pub := elliptic.MarshalCompressed(elliptic.P256(), k.PublicKey.X, k.PublicKey.Y)
+	priv, root := muSeedKey(0)
+	body := map[string]any{"type": "attestation/1", "issuer": root,
+		"subject":   map[string]any{"algorithm": "P-256", "key_id": key, "public_bytes": base64.RawURLEncoding.EncodeToString(pub)},
+		"key_class": "revocation-publisher", "purpose": "grant-revocation", "roles": []any{"author"}, "actions": []any{"revocation.sign"},
+		"iat": "2025-06-01T00:00:00Z", "exp": "2026-06-01T00:00:00Z", "binding": map[string]any{"profile": "grant-revocation-1", "domain": root}}
+	if mutate != nil {
+		mutate(body)
+	}
+	return k, key, muSign(t, "attestation/1", body, priv, root)
+}
+
+// Claim (N9, N10): the publisher attestation admits exactly its profile; each
+// field mutation, both window edges, mismatching public bytes and a publisher
+// key equal to any other pinned role key refuse, beside the valid control; a
+// Mac agent attestation revoked in the publisher snapshot refuses.
+func TestMultiUsePublisherAttestationFields(t *testing.T) {
+	_, agent := muSeedKey(2)
+	grant := muRootGrant(t, agent, []any{"work.assign"}, []any{muProduct}, muCaveats("until_expiry"))
+	req := map[string]any{"key": agent, "action": "work.assign", "target": muProduct}
+	k, key, good := muPublisherWith(t, nil)
+	if got := muAuthorize(t, grant, req, muPublisherFixture(t, k, key, good, "2026-01-01T00:00:30Z", []any{})); got.Code != "accept" {
+		t.Fatalf("valid control: %+v", got)
+	}
+	other, _ := muP256("other")
+	otherPub := elliptic.MarshalCompressed(elliptic.P256(), other.PublicKey.X, other.PublicKey.Y)
+	for name, mutate := range map[string]func(map[string]any){
+		"class":       func(b map[string]any) { b["key_class"] = "service" },
+		"purpose":     func(b map[string]any) { b["purpose"] = "registry-revocation" },
+		"roles":       func(b map[string]any) { b["roles"] = []any{"approver"} },
+		"actions":     func(b map[string]any) { b["actions"] = []any{"grant.sign"} },
+		"profile":     func(b map[string]any) { b["binding"].(map[string]any)["profile"] = "grant-revocation-2" },
+		"not-started": func(b map[string]any) { b["iat"] = "2026-01-01T00:02:00Z" },
+		"ended":       func(b map[string]any) { b["exp"] = "2026-01-01T00:00:30Z" },
+		"public-bytes": func(b map[string]any) {
+			b["subject"].(map[string]any)["public_bytes"] = base64.RawURLEncoding.EncodeToString(otherPub)
+		},
+	} {
+		_, _, a := muPublisherWith(t, mutate)
+		if got := muAuthorize(t, grant, req, muPublisherFixture(t, k, key, a, "2026-01-01T00:00:30Z", []any{})); got.Code == "accept" {
+			t.Errorf("%s admitted: %+v", name, got)
+		}
+	}
+	for name, edit := range map[string]func(map[string]any){
+		"commit-signing-key":   func(f map[string]any) { f["commit_signing_key"] = key },
+		"enrollment-publisher": func(f map[string]any) { f["enrollment_publisher"] = key },
+		"service-root":         func(f map[string]any) { f["service_root"] = map[string]any{"key": key, "purpose": int64(5)} },
+		"registry-revocation":  func(f map[string]any) { r := f["agent_revocation_root"].(map[string]any); r["key"] = key },
+	} {
+		install := muPublisherFixture(t, k, key, good, "2026-01-01T00:00:30Z", []any{})
+		if got := muAuthorize(t, grant, req, func(f map[string]any) { install(f); edit(f) }); got.Code == "accept" {
+			t.Errorf("publisher equal to %s admitted: %+v", name, got)
+		}
+	}
+	mk, mac := muP256("meta")
+	mpub := elliptic.MarshalCompressed(elliptic.P256(), mk.PublicKey.X, mk.PublicKey.Y)
+	att := muMacAttestation(t, mac, mpub, "2025-06-01T00:00:00Z", "2026-06-01T00:00:00Z", map[string]any{"profile": "mac-se-1", "mxid": "@meta:example.invalid", "generation": int64(1)}, 0)
+	macGrant := muRootGrant(t, mac, []any{"work.assign"}, []any{muProduct}, muCaveats("until_expiry"))
+	revoked := []any{map[string]any{"kind": "record", "id": muID(t, att), "from": "2025-12-31T00:00:00Z"}}
+	install := muPublisherFixture(t, k, key, good, "2026-01-01T00:00:30Z", revoked)
+	got := muAuthorize(t, macGrant, map[string]any{"key": mac, "action": "work.assign", "target": muProduct}, func(f map[string]any) {
+		install(f)
+		f["attestations"].(map[string]any)[muID(t, att)] = base64.RawURLEncoding.EncodeToString(att)
+		f["agent_attestation_ids"].(map[string]any)[mac] = muID(t, att)
+		f["active_generations"].(map[string]any)[mac] = map[string]any{"profile": "mac-se-1", "mxid": "@meta:example.invalid", "generation": int64(1), "active": true}
+	})
+	if got.Code != "revoked" {
+		t.Errorf("Mac attestation revoked by publisher: %+v", got)
+	}
+}
+
+// Claim (N12): v2 id and MXID boundaries refuse, and every v2 action needs a
+// signed policy, beside the valid owner:alexis control.
+func TestMultiUseBoundaries(t *testing.T) {
+	_, agent := muSeedKey(2)
+	req := map[string]any{"key": agent, "action": "work.assign", "target": muProduct}
+	scope := func(id string) []any { return []any{map[string]any{"kind": "account-scope", "id": id}} }
+	for name, id := range map[string]string{"empty-qualifier": ":alexis", "empty-name": "owner:", "too-long": strings.Repeat("a", 256)} {
+		if got := muAuthorize(t, muRootGrant(t, agent, []any{"account.manage"}, scope(id), muCaveats("once")), req, nil); got.Code != "envelope_malformed" {
+			t.Errorf("v2 id %s: %+v", name, got)
+		}
+	}
+	if got := muAuthorize(t, muRootGrant(t, agent, []any{"account.manage"}, scope(strings.Repeat("a", 255)), muCaveats("once")), map[string]any{"key": agent, "action": "account.manage", "target": scope(strings.Repeat("a", 255))[0]}, nil); got.Code != "accept" {
+		t.Errorf("255-byte id refused: %+v", got)
+	}
+	for _, action := range []string{"account.manage", "room.membership"} {
+		kind := map[string]string{"account.manage": "account-scope", "room.membership": "room-scope"}[action]
+		if got := muAuthorize(t, muRootGrant(t, agent, []any{action}, []any{map[string]any{"kind": kind, "id": "x"}}, nil), req, nil); got.Code != "grant_use_missing" {
+			t.Errorf("%s without policy: %+v", action, got)
+		}
+	}
+	k, mac := muP256("meta")
+	pub := elliptic.MarshalCompressed(elliptic.P256(), k.PublicKey.X, k.PublicKey.Y)
+	grant := muRootGrant(t, mac, []any{"work.assign"}, []any{muProduct}, muCaveats("until_expiry"))
+	for name, mxid := range map[string]string{"colon-first": "@:example.invalid", "colon-last": "@meta:", "too-long": "@" + strings.Repeat("m", 250) + ":ex.in"} {
+		b := map[string]any{"profile": "mac-se-1", "mxid": mxid, "generation": int64(1)}
+		att := muMacAttestation(t, mac, pub, "2025-06-01T00:00:00Z", "2026-06-01T00:00:00Z", b, 0)
+		got := muAuthorize(t, grant, map[string]any{"key": mac, "action": "work.assign", "target": muProduct}, func(f map[string]any) {
+			f["attestations"].(map[string]any)[muID(t, att)] = base64.RawURLEncoding.EncodeToString(att)
+			f["agent_attestation_ids"].(map[string]any)[mac] = muID(t, att)
+			f["active_generations"].(map[string]any)[mac] = map[string]any{"profile": "mac-se-1", "mxid": mxid, "generation": int64(1), "active": true}
+		})
+		if got.Code != "key_binding_invalid" {
+			t.Errorf("mxid %s: %+v", name, got)
 		}
 	}
 }

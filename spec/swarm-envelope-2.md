@@ -1499,6 +1499,22 @@ as rollback; honour a root-signed revocation at any age; refuse publisher
 snapshots once the root revokes the publisher key. Known risk: a stolen
 publisher key can delay, but not undo, a revocation until the root revokes it.
 
+Publisher details. With a publisher pinned, the library evaluates grant-domain
+revocation only against the publisher's snapshot and ignores a root-signed
+snapshot for that domain; root revocations reach the consumer through its own
+union. The publisher key must differ from the grant, operator and service
+roots, the registry-revocation key, the commit-signing key and the enrollment
+publisher. `max_age` is consumer evidence bounded to 1..60 seconds; a consumer
+MUST NOT supply more. A registry freshness receipt waives the publisher's own
+age only when the consumer lists the publisher snapshot in the receipt's
+coverage; otherwise the 60-second rule applies unchanged. The union is
+consumer-side state: the consumer derives the entries from the same snapshot
+bytes it supplied as evidence for an accepted call, never from unverified
+input. Custody: the publisher is a non-extractable key used without presence
+under its own service and purpose; the signing job calls only a pinned,
+digest-checked signer. A same-user compromise can add revocations or withhold
+new ones until the root revokes the publisher, never undo accepted ones.
+
 ## 4. operator-act/1
 
 The device signer provider MUST sign the exact raw S0 preimage using P-256
