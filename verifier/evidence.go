@@ -198,9 +198,15 @@ func attestation(keyID, reference string, device, revocations, message bool, f f
 	}
 	v, ok := records[lookup]
 	need(ok, "key_binding_unavailable")
+	// The Mac agent profile is selected by the record's declared binding and
+	// then verified against the owner grant root; declaring it alone confers
+	// nothing without that root's signature and every profile check below.
+	mac := !device && macAgentProfile(v)
 	root := f["operator_root"]
 	if device {
 		need(root != nil, "key_binding_unavailable")
+	} else if mac {
+		root = grantRoot(f)
 	} else {
 		p := evidenceExact(f["service_root"], "key purpose")
 		need(isInt(p["purpose"]) && num(p["purpose"]) == 5, "key_binding_invalid")
@@ -229,12 +235,12 @@ func attestation(keyID, reference string, device, revocations, message bool, f f
 		alg, public = key(keyID)
 		sa, sp := key(s["key_id"])
 		n := 32
-		if device {
+		if device || mac {
 			n = 33
 		}
 		encoded := must(record.DecodeBase64(str(s["public_bytes"]), n))
 		start, end = stamp(b["iat"]), stamp(b["exp"])
-		need(record.ValidateKey(keyID) == nil && sa == alg && bytes.Equal(sp, public) && s["key_id"] == keyID && bytes.Equal(encoded, public) && end > start && (device || end-start <= 86400), "key_binding_invalid")
+		need(record.ValidateKey(keyID) == nil && sa == alg && bytes.Equal(sp, public) && s["key_id"] == keyID && bytes.Equal(encoded, public) && end > start && (device || mac && end-start <= macAgentWindow || !mac && end-start <= 86400), "key_binding_invalid")
 		return true
 	}, "*", "key_binding_invalid")
 	if device {
@@ -245,6 +251,18 @@ func attestation(keyID, reference string, device, revocations, message bool, f f
 		binding := evidenceExact(b["binding"], "owner")
 		text(binding["owner"], "key_binding_invalid")
 		need(equal(owner, binding["owner"]), "key_binding_invalid")
+	} else if mac {
+		need(alg == "p256" && s["algorithm"] == "P-256" && b["key_class"] == "agent" && b["purpose"] == "swarma-msg" && equal(b["roles"], []any{"author"}) && equal(b["actions"], []any{"message.sign"}), "key_binding_invalid")
+		binding := evidenceExact(b["binding"], "profile mxid generation")
+		need(binding["profile"] == "mac-se-1" && ascii(binding["mxid"]) && isInt(binding["generation"]) && num(binding["generation"]) >= 1, "key_binding_invalid")
+		active := evidence(f["active_generations"], "")
+		current, ok := active[keyID]
+		need(ok, "key_binding_unavailable")
+		c := evidence(current, "active")
+		need(len(c) == 4 && isBool(c["active"]) && c["active"] == true, "key_binding_invalid")
+		for _, k := range []string{"profile", "mxid", "generation"} {
+			need(equal(binding[k], c[k]), "key_binding_invalid")
+		}
 	} else {
 		need(alg == "ed25519" && s["algorithm"] == "Ed25519" && b["key_class"] == "agent" && b["purpose"] == "swarma-msg" && equal(b["roles"], []any{"author"}) && equal(b["actions"], []any{"message.sign"}), "key_binding_invalid")
 		active := evidence(f["active_generations"], "")
@@ -262,7 +280,7 @@ func attestation(keyID, reference string, device, revocations, message bool, f f
 	need(start <= low && high < end, "key_binding_invalid")
 	if revocations {
 		revoker := root
-		if !device {
+		if !device && !mac {
 			policy := evidenceExact(f["agent_revocation_root"], "key purpose attestation_root")
 			need(policy["purpose"] == "registry-revocation" && equal(policy["attestation_root"], root) && !equal(policy["key"], root), "key_binding_invalid")
 			mapped(func() bool { key(policy["key"]); return true }, "*", "key_binding_invalid")
@@ -274,6 +292,41 @@ func attestation(keyID, reference string, device, revocations, message bool, f f
 		need(e["id"] == reference && keyID == requested, "key_binding_invalid")
 	}
 	return e
+}
+
+// macAgentWindow bounds a Mac agent attestation: one year (366 days).
+const macAgentWindow = 366 * 86400
+
+// macAgentProfile peeks at a raw attestation record's declared binding
+// profile, only to select which root must have signed it.
+func macAgentProfile(v any) bool {
+	raw, ok := v.([]byte)
+	if !ok {
+		return false
+	}
+	parsed, err := record.Parse(raw, 65536, 16)
+	if err != nil {
+		return false
+	}
+	e, _ := parsed.(map[string]any)
+	b, _ := e["body"].(map[string]any)
+	binding, _ := b["binding"].(map[string]any)
+	return binding != nil && binding["profile"] == "mac-se-1"
+}
+
+// macAuthor reports whether a message's declared author attestation is a Mac
+// agent profile record; only then may a P-256 key be a message author. The
+// attestation itself is verified later against the owner grant root.
+func macAuthor(b map[string]any, f facts) bool {
+	id, ok := b["author_attestation"].(string)
+	if !ok {
+		return false
+	}
+	records, ok := f["attestations"].(map[string]any)
+	if !ok {
+		return false
+	}
+	return macAgentProfile(records[id])
 }
 func grantRoot(f facts) string {
 	v := f["root"]

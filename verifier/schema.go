@@ -131,7 +131,7 @@ func target(v any, pattern, operator bool) bool {
 		if kind != "registration" && kind != "account" {
 			return false
 		}
-	} else if kind != "credential" && kind != "station" {
+	} else if kind != "credential" && kind != "station" && !vocabularyV2Target(kind) {
 		return false
 	}
 	if kind == "registration" {
@@ -141,6 +141,11 @@ func target(v any, pattern, operator bool) bool {
 		return false
 	}
 	return kind != "credential" || ident(m["harness"], false, true) && ident(m["profile"], false, true)
+}
+
+// vocabularyV2Target reports the additive target kinds of vocabulary v2.
+func vocabularyV2Target(kind string) bool {
+	return kind == "product" || kind == "account-scope" || kind == "room-scope"
 }
 func assurance(v any, code string) (int, bool) {
 	m := exact(v, "level presence", code)
@@ -246,9 +251,15 @@ func schema(e map[string]any, kind string) {
 		}
 		need(equal(b["iat"], b["not_before"]) && equal(b["exp"], b["expires"]), "envelope_malformed")
 		if b["caveats"] != nil {
-			c := exact(b["caveats"], "lang not_before expires", "envelope_malformed")
+			members := "lang not_before expires"
+			if obj(b["caveats"])["lang"] == "caveats/v2" {
+				// caveats/v2 adds only the owner-signed use policy; no counters.
+				members += " use"
+			}
+			c := exact(b["caveats"], members, "envelope_malformed")
 			a, z := stamp(c["not_before"]), stamp(c["expires"])
-			need(c["lang"] == "caveats/v1" && start <= a && a < z && z <= end, "envelope_malformed")
+			need((c["lang"] == "caveats/v1" || c["lang"] == "caveats/v2") && start <= a && a < z && z <= end, "envelope_malformed")
+			need(c["lang"] != "caveats/v2" || c["use"] == "once" || c["use"] == "until_expiry", "envelope_malformed")
 		}
 	}
 }

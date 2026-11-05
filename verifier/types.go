@@ -171,6 +171,10 @@ type Plan struct {
 	IDs             []string               `json:"ids,omitempty"`
 	Watermark       string                 `json:"watermark,omitempty"`
 	ActionID        string                 `json:"action_id,omitempty"`
+	// Use is the owner-signed caveats/v2 use policy of an authorized grant
+	// leaf ("once" or "until_expiry"), or empty for a grant without it. The
+	// library does no accounting; the consumer reserves allowance and nonce.
+	Use string `json:"use,omitempty"`
 }
 
 // Result holds the exact stable refusal code, or accept plus a candidate plan.

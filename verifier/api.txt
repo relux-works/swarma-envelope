@@ -106,6 +106,7 @@ field Plan.ActionID
 field Plan.IDs
 field Plan.Reanchor
 field Plan.SnapshotJournal
+field Plan.Use
 field Plan.Watermark
 field Result.Code
 field Result.FreshnessReceipt

@@ -61,7 +61,7 @@ func envelope(raw []byte, kind string, f facts) map[string]any {
 			need(ok && includes(known, k) && s["key"] == b["author"], "signer_unknown")
 		}
 		alg, _ := key(k)
-		allowed := kind == "message/1" && (r == "author" && alg == "ed25519" || r == "approver" && alg == "p256") || kind == "operator-act/1" && r == "approver" && alg == "p256" || kind == "grant/1" && r == "author" && (alg == "ed25519" || alg == "p256")
+		allowed := kind == "message/1" && (r == "author" && (alg == "ed25519" || alg == "p256" && macAuthor(b, f)) || r == "approver" && alg == "p256") || kind == "operator-act/1" && r == "approver" && alg == "p256" || kind == "grant/1" && r == "author" && (alg == "ed25519" || alg == "p256")
 		service := obj(f["service_root"])
 		need(service == nil || service["key"] != k, "signature_profile_invalid")
 		need(allowed && !excludedSigner(k, kind, f), "signature_profile_invalid")
@@ -220,6 +220,13 @@ func actionKind(action string) string {
 		return "credential"
 	case "agent.spawn", "message.deliver":
 		return "station"
+	// Vocabulary v2 (multi-use owner grants): additive and still closed.
+	case "work.assign", "work.require", "work.contract", "work.prioritize", "work.land-order", "work.accept":
+		return "product"
+	case "account.manage":
+		return "account-scope"
+	case "room.membership":
+		return "room-scope"
 	}
 	return ""
 }
@@ -295,6 +302,9 @@ func (v Verifier) Authorize(chain [][]byte, request Evidence) Result {
 			cl, cp := assurance(c["min_assurance"], "envelope_malformed")
 			pl, pp := assurance(p["min_assurance"], "envelope_malformed")
 			need(narrow && cl >= pl && (!pp || cp), "grant_not_narrowing")
+			// A child never drops or widens its parent's signed use policy.
+			pu, cu := grantUse(p), grantUse(c)
+			need(pu == "" || pu == "until_expiry" && cu != "" || pu == "once" && cu == "once", "grant_not_narrowing")
 		}
 		for _, b := range bs {
 			kinds := map[string]bool{}
@@ -334,6 +344,16 @@ func (v Verifier) Authorize(chain [][]byte, request Evidence) Result {
 		established, present := assurance(f["assurance"], "grant_assurance_unavailable")
 		need(established < 3, "grant_assurance_unavailable")
 		need(established >= minimum && (!presence || present), "grant_assurance_insufficient")
-		return plan(es, f)
+		p := plan(es, f)
+		p.Use = grantUse(leaf)
+		return p
 	})
+}
+
+// grantUse returns the caveats/v2 use policy of a schema-checked grant body.
+func grantUse(b map[string]any) string {
+	if c := obj(b["caveats"]); c != nil && c["lang"] == "caveats/v2" {
+		return str(c["use"])
+	}
+	return ""
 }

@@ -1431,6 +1431,48 @@ predicates or generation subjects MUST refuse until the consumer adapter is
 published; a format rewrite cannot authorize them. This slice publishes no
 broker migration executable or new binding wire fields.
 
+### 3.5 Multi-use owner grants: vocabulary v2, caveats/v2, Mac agent profile
+
+This reviewed version adds to §3.1 and §2.6 without changing any v0 rule,
+record, refusal code or vector.
+
+Vocabulary v2 is additive and still closed. New actions and their target kinds:
+
+| Action | Target kind |
+| --- | --- |
+| `work.assign`, `work.require`, `work.contract`, `work.prioritize`, `work.land-order`, `work.accept` | `product` |
+| `account.manage` | `account-scope` |
+| `room.membership` | `room-scope` |
+
+Each new target is exactly `{kind,id}`; `id` follows the §3.1 identifier
+syntax (lowercase segments). Grant and message targets admit these kinds in
+addition to `credential` and `station`; operator targets are unchanged.
+
+`caveats/v2` is exactly `{lang:"caveats/v2",not_before,expires,use}` with
+`use` exactly `once` or `until_expiry`, signed by the grant's issuer. Its time
+rules are those of `caveats/v1`. Counters and any other member still refuse.
+Along a chain a child never drops or widens its parent's policy: under
+`until_expiry` the child has `until_expiry` or `once`; under `once` the child
+has `once`; a parent without a policy admits either. A violation refuses
+`grant_not_narrowing`. Authorize returns the leaf policy as `Plan.use`
+(empty for a grant without it). The library does no use accounting: the
+consumer reserves a durable allowance for `once` and a single-use nonce for
+every request before any effect, and never refills either by a new request id,
+alias or policy label.
+
+Mac agent profile. An `attestation/1` whose `binding` declares
+`profile:"mac-se-1"` is verified against the pinned owner grant root (not the
+signing-service root). It requires a `P-256` subject, `key_class` `agent`,
+`purpose` `swarma-msg`, roles `["author"]`, actions `["message.sign"]`,
+`binding` exactly `{profile,mxid,generation}` with an ASCII full MXID and a
+positive integer generation, a window of at most 366 days, and caller
+evidence of the current active generation exactly `{profile,mxid,generation,active:true}`.
+The MXID is a registry index only, never authority. The grant root revokes
+such an attestation or its key through `revocation/1`. A `P-256` key may author
+`message/1` only when its declared author attestation is this profile;
+otherwise the v0 refusal `signature_profile_invalid` stands. Keymaker
+Ed25519 agent attestations are unchanged.
+
 ## 4. operator-act/1
 
 The device signer provider MUST sign the exact raw S0 preimage using P-256
