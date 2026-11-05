@@ -137,6 +137,10 @@ func target(v any, pattern, operator bool) bool {
 	if kind == "registration" {
 		return isInt(m["id"]) && num(m["id"]) >= 1 && num(m["id"]) <= 9007199254740991
 	}
+	if vocabularyV2Target(kind) {
+		// Exact single-segment ids only; no prefix patterns for v2 targets.
+		return v2TargetID(m["id"])
+	}
 	if !ident(m["id"], pattern, false) {
 		return false
 	}
@@ -146,6 +150,30 @@ func target(v any, pattern, operator bool) bool {
 // vocabularyV2Target reports the additive target kinds of vocabulary v2.
 func vocabularyV2Target(kind string) bool {
 	return kind == "product" || kind == "account-scope" || kind == "room-scope"
+}
+
+// v2TargetID admits one exact id: a lowercase name, optionally qualified once
+// as "qualifier:name" (for example "owner:alexis"). No "/" and no pattern.
+func v2TargetID(v any) bool {
+	s, ok := v.(string)
+	if !ok || len(s) < 1 || len(s) > 255 {
+		return false
+	}
+	parts := strings.Split(s, ":")
+	if len(parts) > 2 {
+		return false
+	}
+	for _, p := range parts {
+		if p == "" {
+			return false
+		}
+		for _, c := range []byte(p) {
+			if !(c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '-') {
+				return false
+			}
+		}
+	}
+	return true
 }
 func assurance(v any, code string) (int, bool) {
 	m := exact(v, "level presence", code)
@@ -260,6 +288,14 @@ func schema(e map[string]any, kind string) {
 			a, z := stamp(c["not_before"]), stamp(c["expires"])
 			need((c["lang"] == "caveats/v1" || c["lang"] == "caveats/v2") && start <= a && a < z && z <= end, "envelope_malformed")
 			need(c["lang"] != "caveats/v2" || c["use"] == "once" || c["use"] == "until_expiry", "envelope_malformed")
+		}
+		// A grant with any vocabulary-v2 action must carry a signed use
+		// policy; it never reaches a consumer with an empty Plan.Use.
+		for _, a := range acts {
+			if vocabularyV2Target(actionKind(str(a))) {
+				c := obj(b["caveats"])
+				need(c != nil && c["lang"] == "caveats/v2", "grant_use_missing")
+			}
 		}
 	}
 }

@@ -103,17 +103,25 @@ func muRootGrant(t *testing.T, subject string, actions, targets []any, caveats a
 func TestMultiUseGrantVocabularyV2(t *testing.T) {
 	_, agent := muSeedKey(2)
 	req := map[string]any{"key": agent, "action": "work.assign", "target": muProduct}
-	for use, caveats := range map[string]any{"until_expiry": muCaveats("until_expiry"), "once": muCaveats("once"), "": nil} {
-		got := muAuthorize(t, muRootGrant(t, agent, []any{"work.assign"}, []any{muProduct}, caveats), req, nil)
-		if got.Code != "accept" || (got.Plan["use"] != nil && got.Plan["use"] != use) || (use != "" && got.Plan["use"] != use) {
+	for _, use := range []string{"until_expiry", "once"} {
+		got := muAuthorize(t, muRootGrant(t, agent, []any{"work.assign"}, []any{muProduct}, muCaveats(use)), req, nil)
+		if got.Code != "accept" || got.Plan["use"] != use {
 			t.Fatalf("use=%q: %+v", use, got)
 		}
 	}
+	// B2: a vocabulary-v2 grant without a signed use policy never authorizes.
 	v1 := muCaveats("")
 	delete(v1, "use")
 	v1["lang"] = "caveats/v1"
-	if got := muAuthorize(t, muRootGrant(t, agent, []any{"work.assign"}, []any{muProduct}, v1), req, nil); got.Code != "accept" || got.Plan["use"] != nil {
-		t.Fatalf("caveats/v1 neighbour: %+v", got)
+	for name, caveats := range map[string]any{"none": nil, "caveats-v1": v1} {
+		if got := muAuthorize(t, muRootGrant(t, agent, []any{"work.assign"}, []any{muProduct}, caveats), req, nil); got.Code != "grant_use_missing" {
+			t.Fatalf("v2 grant with %s: %+v", name, got)
+		}
+	}
+	// B1: the contract target account-scope/owner:alexis docks.
+	owner := map[string]any{"kind": "account-scope", "id": "owner:alexis"}
+	if got := muAuthorize(t, muRootGrant(t, agent, []any{"account.manage"}, []any{owner}, muCaveats("until_expiry")), map[string]any{"key": agent, "action": "account.manage", "target": owner}, nil); got.Code != "accept" {
+		t.Fatalf("account-scope/owner:alexis: %+v", got)
 	}
 }
 
@@ -135,7 +143,10 @@ func TestMultiUseGrantRefusals(t *testing.T) {
 		"kind-mismatch":    {muRootGrant(t, agent, []any{"work.assign"}, []any{map[string]any{"kind": "account-scope", "id": "owner-alexis"}}, muCaveats("once")), req, "grant_target_invalid"},
 		"action-uncovered": {muRootGrant(t, agent, []any{"work.accept"}, []any{muProduct}, muCaveats("once")), req, "grant_not_authorized"},
 		"target-uncovered": {muRootGrant(t, agent, []any{"work.assign"}, []any{muProduct}, muCaveats("once")), map[string]any{"key": agent, "action": "work.assign", "target": map[string]any{"kind": "product", "id": "other-platform"}}, "grant_not_authorized"},
-		"bad-target-id":    {muRootGrant(t, agent, []any{"account.manage"}, []any{map[string]any{"kind": "account-scope", "id": "owner:alexis"}}, muCaveats("once")), req, "envelope_malformed"},
+		"two-qualifiers":   {muRootGrant(t, agent, []any{"account.manage"}, []any{map[string]any{"kind": "account-scope", "id": "owner:alexis:x"}}, muCaveats("once")), req, "envelope_malformed"},
+		"slash-id":         {muRootGrant(t, agent, []any{"account.manage"}, []any{map[string]any{"kind": "account-scope", "id": "owner/alexis"}}, muCaveats("once")), req, "envelope_malformed"},
+		"uppercase-id":     {muRootGrant(t, agent, []any{"account.manage"}, []any{map[string]any{"kind": "account-scope", "id": "Owner:alexis"}}, muCaveats("once")), req, "envelope_malformed"},
+		"product-pattern":  {muRootGrant(t, agent, []any{"work.assign"}, []any{map[string]any{"kind": "product", "id": "swarma/*"}}, muCaveats("once")), req, "envelope_malformed"},
 	}
 	for name, c := range cases {
 		if got := muAuthorize(t, c.grant, c.req, nil); got.Code != c.want {
@@ -295,10 +306,10 @@ func TestMultiUseUseNarrowing(t *testing.T) {
 		{"once", "once", "accept", "once"},
 		{"until_expiry", "once", "accept", "once"},
 		{"until_expiry", "until_expiry", "accept", "until_expiry"},
-		{"", "until_expiry", "accept", "until_expiry"},
+		{"", "until_expiry", "grant_use_missing", ""},
 		{"once", "until_expiry", "grant_not_narrowing", ""},
-		{"until_expiry", "", "grant_not_narrowing", ""},
-		{"once", "", "grant_not_narrowing", ""},
+		{"until_expiry", "", "grant_use_missing", ""},
+		{"once", "", "grant_use_missing", ""},
 	} {
 		v := load(t, "../vectors/swarm-envelope-2/1-positive/PG1.json")
 		v.Input["chain"] = chain(c.parent, c.child)
@@ -466,5 +477,114 @@ func TestMultiUsePublisherPurposeSeparation(t *testing.T) {
 	})
 	if got.Code == "accept" || root == key {
 		t.Errorf("Mac attestation signed by publisher accepted: %+v", got)
+	}
+}
+
+// muRootSnapshot replaces the grant root's own snapshot with one listing
+// entries (root-signed, fresh at the fixture's time).
+func muRootSnapshot(t *testing.T, entries []any) func(map[string]any) {
+	t.Helper()
+	priv, root := muSeedKey(0)
+	snap := muSign(t, "revocation/1", map[string]any{"type": "revocation/1", "issuer": root, "issued_at": "2026-01-01T00:01:00Z", "complete": true, "entries": entries}, priv, root)
+	return func(f map[string]any) {
+		row := f["revocations"].(map[string]any)[root].(map[string]any)
+		row["snapshot"] = base64.RawURLEncoding.EncodeToString(snap)
+	}
+}
+
+// Claim (N3, N4): a Mac agent attestation revoked by record or by key in the
+// root's snapshot refuses as revoked; generation 0, a malformed MXID and a
+// wrong class, roles or actions refuse key_binding_invalid; a grant reaching
+// outside the attestation window refuses; the valid attestation is accepted.
+func TestMultiUseMacAttestationEdges(t *testing.T) {
+	k, mac := muP256("meta")
+	pub := elliptic.MarshalCompressed(elliptic.P256(), k.PublicKey.X, k.PublicKey.Y)
+	rootPriv, root := muSeedKey(0)
+	active := map[string]any{"profile": "mac-se-1", "mxid": "@meta:example.invalid", "generation": int64(1), "active": true}
+	att := func(mutate func(map[string]any)) []byte {
+		body := map[string]any{"type": "attestation/1", "issuer": root,
+			"subject":   map[string]any{"algorithm": "P-256", "key_id": mac, "public_bytes": base64.RawURLEncoding.EncodeToString(pub)},
+			"key_class": "agent", "purpose": "swarma-msg", "roles": []any{"author"}, "actions": []any{"message.sign"},
+			"iat": "2025-06-01T00:00:00Z", "exp": "2026-06-01T00:00:00Z",
+			"binding": map[string]any{"profile": "mac-se-1", "mxid": "@meta:example.invalid", "generation": int64(1)}}
+		if mutate != nil {
+			mutate(body)
+		}
+		return muSign(t, "attestation/1", body, rootPriv, root)
+	}
+	install := func(a []byte, act map[string]any, extra func(map[string]any)) func(map[string]any) {
+		return func(f map[string]any) {
+			id := muID(t, a)
+			f["attestations"].(map[string]any)[id] = base64.RawURLEncoding.EncodeToString(a)
+			f["agent_attestation_ids"].(map[string]any)[mac] = id
+			f["active_generations"].(map[string]any)[mac] = act
+			if extra != nil {
+				extra(f)
+			}
+		}
+	}
+	grant := muRootGrant(t, mac, []any{"work.assign"}, []any{muProduct}, muCaveats("until_expiry"))
+	req := map[string]any{"key": mac, "action": "work.assign", "target": muProduct}
+	good := att(nil)
+	if got := muAuthorize(t, grant, req, install(good, active, nil)); got.Code != "accept" {
+		t.Fatalf("valid control: %+v", got)
+	}
+	from := "2025-12-31T00:00:00Z"
+	if got := muAuthorize(t, grant, req, install(good, active, muRootSnapshot(t, []any{map[string]any{"kind": "record", "id": muID(t, good), "from": from}}))); got.Code != "revoked" {
+		t.Errorf("attestation revoked by record: %+v", got)
+	}
+	if got := muAuthorize(t, grant, req, install(good, active, muRootSnapshot(t, []any{map[string]any{"kind": "key", "id": mac, "from": from}}))); got.Code != "revoked" {
+		t.Errorf("attestation revoked by key: %+v", got)
+	}
+	gen0 := map[string]any{"profile": "mac-se-1", "mxid": "@meta:example.invalid", "generation": int64(0), "active": true}
+	cases := map[string]struct {
+		a   []byte
+		act map[string]any
+	}{
+		"generation-0": {att(func(b map[string]any) { b["binding"].(map[string]any)["generation"] = int64(0) }), gen0},
+		"mxid-no-at":   {att(func(b map[string]any) { b["binding"].(map[string]any)["mxid"] = "meta:example.invalid" }), map[string]any{"profile": "mac-se-1", "mxid": "meta:example.invalid", "generation": int64(1), "active": true}},
+		"mxid-space":   {att(func(b map[string]any) { b["binding"].(map[string]any)["mxid"] = "@me ta:example.invalid" }), map[string]any{"profile": "mac-se-1", "mxid": "@me ta:example.invalid", "generation": int64(1), "active": true}},
+		"class":        {att(func(b map[string]any) { b["key_class"] = "operator-device" }), active},
+		"roles":        {att(func(b map[string]any) { b["roles"] = []any{"approver"} }), active},
+		"actions":      {att(func(b map[string]any) { b["actions"] = []any{"grant.sign"} }), active},
+		"window-short": {att(func(b map[string]any) { b["exp"] = "2026-01-01T12:00:00Z" }), active},
+		"window-late":  {att(func(b map[string]any) { b["iat"] = "2025-12-31T12:00:00Z" }), active},
+	}
+	for name, c := range cases {
+		if got := muAuthorize(t, grant, req, install(c.a, c.act, nil)); got.Code != "key_binding_invalid" {
+			t.Errorf("%s: %+v", name, got)
+		}
+	}
+}
+
+// Claim: the narrowing rule still guards v1-action chains that carry a
+// caveats/v2 policy: a child without the parent's policy refuses as not
+// narrowing, beside an accepted child that keeps it.
+func TestMultiUseNarrowingV1Actions(t *testing.T) {
+	rootPriv, root := muSeedKey(0)
+	device, deviceKey := muDeviceKey(t)
+	_, agent := muSeedKey(2)
+	cred := map[string]any{"kind": "credential", "id": "team/*", "harness": "model-cli", "profile": "dev"}
+	for _, c := range []struct {
+		child any
+		want  string
+	}{{muCaveats("until_expiry"), "accept"}, {nil, "grant_not_narrowing"}} {
+		pb := muGrantBody(deviceKey, []any{"credential.lease"}, []any{cred}, muCaveats("until_expiry"))
+		pb["issuer"], pb["depth"] = root, int64(3)
+		parent := muSign(t, "grant/1", pb, rootPriv, root)
+		cb := muGrantBody(agent, []any{"credential.lease"}, []any{cred}, nil)
+		if c.child != nil {
+			cv := muCaveats("until_expiry")
+			cv["not_before"], cv["expires"] = "2026-01-01T00:00:00Z", "2026-01-01T00:02:00Z"
+			cb["caveats"] = cv
+		}
+		cb["issuer"], cb["depth"], cb["parent"] = deviceKey, int64(2), muID(t, parent)
+		cb["iat"], cb["not_before"], cb["exp"], cb["expires"] = "2026-01-01T00:00:00Z", "2026-01-01T00:00:00Z", "2026-01-01T00:02:00Z", "2026-01-01T00:02:00Z"
+		leaf := muSignP256(t, "grant/1", cb, device, deviceKey)
+		v := load(t, "../vectors/swarm-envelope-2/1-positive/PG1.json")
+		v.Input["chain"] = []any{base64.RawURLEncoding.EncodeToString(leaf), base64.RawURLEncoding.EncodeToString(parent)}
+		if got := derive(t, v); got.Code != c.want {
+			t.Errorf("child caveats %v: got %+v want %s", c.child != nil, got, c.want)
+		}
 	}
 }

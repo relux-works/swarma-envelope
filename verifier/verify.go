@@ -106,7 +106,13 @@ func envelope(raw []byte, kind string, f facts) map[string]any {
 		need(a["id"] == b["author_attestation"] && obj(obj(a["body"])["subject"])["key_id"] == b["author"], "author_attestation_mismatch")
 	} else if kind == "grant/1" {
 		grantBinding(str(b["issuer"]), true, f)
-		grantBinding(str(b["subject"]), false, f)
+		if a := grantBinding(str(b["subject"]), false, f); a != nil {
+			// A Mac agent attestation must cover the whole grant interval.
+			ab := obj(a["body"])
+			if obj(ab["binding"])["profile"] == "mac-se-1" {
+				need(stamp(ab["iat"]) <= stamp(b["iat"]) && stamp(b["exp"]) <= stamp(ab["exp"]), "key_binding_invalid")
+			}
+		}
 	}
 	journal(e, raw, f)
 	return e

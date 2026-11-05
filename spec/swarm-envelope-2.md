@@ -1444,13 +1444,18 @@ Vocabulary v2 is additive and still closed. New actions and their target kinds:
 | `account.manage` | `account-scope` |
 | `room.membership` | `room-scope` |
 
-Each new target is exactly `{kind,id}`; `id` follows the §3.1 identifier
-syntax (lowercase segments). Grant and message targets admit these kinds in
+Each new target is exactly `{kind,id}`. Its `id` is one exact lowercase name
+(`a-z`, `0-9`, `-`), optionally qualified once as `qualifier:name` (for
+example `owner:alexis`); it has no `/` and no `/*` pattern, so v2 targets
+match only by equality. Grant and message targets admit these kinds in
 addition to `credential` and `station`; operator targets are unchanged.
 
 `caveats/v2` is exactly `{lang:"caveats/v2",not_before,expires,use}` with
 `use` exactly `once` or `until_expiry`, signed by the grant's issuer. Its time
 rules are those of `caveats/v1`. Counters and any other member still refuse.
+A grant with any vocabulary-v2 action MUST carry `caveats/v2`; without it the
+grant refuses `grant_use_missing`, so no consumer receives an authorized v2
+grant without a signed policy.
 Along a chain a child never drops or widens its parent's policy: under
 `until_expiry` the child has `until_expiry` or `once`; under `once` the child
 has `once`; a parent without a policy admits either. A violation refuses
@@ -1465,9 +1470,12 @@ Mac agent profile. An `attestation/1` whose `binding` declares
 signing-service root). It requires a `P-256` subject, `key_class` `agent`,
 `purpose` `swarma-msg`, roles `["author"]`, actions `["message.sign"]`,
 `binding` exactly `{profile,mxid,generation}` with an ASCII full MXID and a
-positive integer generation, a window of at most 366 days, and caller
-evidence of the current active generation exactly `{profile,mxid,generation,active:true}`.
-The MXID is a registry index only, never authority. The grant root revokes
+positive integer generation, a window of at most 366 days that covers the
+whole interval of every grant naming that key as subject, and caller evidence
+of the current active generation exactly `{profile,mxid,generation,active:true}`.
+The MXID is a full `@local:server` in printable ASCII without whitespace. It is a
+registry index only, never authority: the consumer fills the evidence MXID from
+the authenticated event sender, never from the request. The grant root revokes
 such an attestation or its key through `revocation/1`. A `P-256` key may author
 `message/1` only when its declared author attestation is this profile;
 otherwise the v0 refusal `signature_profile_invalid` stands. Keymaker

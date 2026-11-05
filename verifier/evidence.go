@@ -2,6 +2,7 @@ package verifier
 
 import (
 	"bytes"
+	"strings"
 
 	"github.com/relux-works/swarma-envelope/record"
 )
@@ -257,7 +258,7 @@ func attestation(keyID, reference string, device, revocations, message bool, f f
 	} else if mac {
 		need(alg == "p256" && s["algorithm"] == "P-256" && b["key_class"] == "agent" && b["purpose"] == "swarma-msg" && equal(b["roles"], []any{"author"}) && equal(b["actions"], []any{"message.sign"}), "key_binding_invalid")
 		binding := evidenceExact(b["binding"], "profile mxid generation")
-		need(binding["profile"] == "mac-se-1" && ascii(binding["mxid"]) && isInt(binding["generation"]) && num(binding["generation"]) >= 1, "key_binding_invalid")
+		need(binding["profile"] == "mac-se-1" && fullMXID(binding["mxid"]) && isInt(binding["generation"]) && num(binding["generation"]) >= 1, "key_binding_invalid")
 		active := evidence(f["active_generations"], "")
 		current, ok := active[keyID]
 		need(ok, "key_binding_unavailable")
@@ -396,28 +397,48 @@ func publisherKeyPeek(f facts) string {
 	k, _ := s["key_id"].(string)
 	return k
 }
+
+// fullMXID admits "@local:server" in printable ASCII without whitespace. The
+// consumer fills the active-generation MXID from the authenticated sender.
+func fullMXID(v any) bool {
+	s, ok := v.(string)
+	if !ok || len(s) < 4 || len(s) > 255 || s[0] != '@' || !ascii(s) {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		if s[i] <= ' ' || s[i] > '~' {
+			return false
+		}
+	}
+	colon := strings.IndexByte(s, ':')
+	return colon > 1 && colon < len(s)-1
+}
 func grantRoot(f facts) string {
 	v := f["root"]
 	need(v != nil, "key_binding_unavailable")
 	mapped(func() bool { key(v); return true }, "*", "key_binding_invalid")
 	return str(v)
 }
-func grantBinding(key string, issuer bool, f facts) {
+
+// grantBinding admits a grant issuer or subject and returns the agent
+// attestation it used, if any (nil for the root, services and devices).
+func grantBinding(key string, issuer bool, f facts) map[string]any {
 	if key == grantRoot(f) {
-		return
+		return nil
 	}
 	if _, ok := obj(f["service_attestations"])[key]; ok {
 		serviceAttestation(key, f)
-		return
+		return nil
 	}
 	devices := evidence(f["operator_attestations"], "")
 	if _, ok := devices[key]; ok {
 		attestation(key, "", true, true, false, f)
 		currentDevice(f)
-	} else {
-		attestation(key, "", false, true, false, f)
-		need(!issuer, "signature_profile_invalid")
+		return nil
 	}
+	e := attestation(key, "", false, true, false, f)
+	need(!issuer, "signature_profile_invalid")
+	return e
 }
 func revocation(f facts, root any, ids, keys []string) {
 	defer func() {
