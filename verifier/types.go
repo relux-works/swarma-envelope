@@ -145,6 +145,10 @@ type Context struct {
 	Assurance               Evidence
 	Delivery                Evidence
 	ActBinding              Evidence
+	// GrantRevocationPublisher is the raw owner-root-signed attestation/1 of
+	// the key that signs revocation/1 snapshots for the grant-root domain
+	// (profile grant-revocation-1). Absent: the grant root signs them itself.
+	GrantRevocationPublisher Evidence
 }
 
 // FreshnessReanchorPlan records the explicit continuity waiver. SkippedPublications
@@ -194,8 +198,8 @@ func New(context Context) Verifier { return Verifier{context: context} }
 func (v Verifier) facts() facts {
 	c := v.context
 	f := facts{"_currencyVersion": c.RegistryCurrencyVersion}
-	names := []string{"audience", "required_roles", "known_keys", "root", "service_root", "agent_revocation_root", "operator_root", "operator_owner", "attestations", "agent_attestation_ids", "operator_attestations", "active_generations", "revocations", "time", "now", "watermark_available", "watermark", "id_journal_available", "seen", "replay_available", "used_actions", "signer_facts", "assurance", "delivery", "binding", "service_authority", "service_attestations", "registry_owner", "journal_witness", "commit_signing_key", "enrollment_publisher", "freshness_anchor", "witness_read_at", "snapshot_journal"}
-	values := []Evidence{c.Audience, c.RequiredRoles, c.AdmittedKeys, c.GrantRoot, c.ServiceRoot, c.AgentRevocationRoot, c.OperatorRoot, c.OperatorOwner, c.Attestations, c.AgentAttestationIDs, c.DeviceAttestations, c.CurrentGenerations, c.SignedSnapshots, c.Time, c.Now, c.WatermarkAvailable, c.Watermark, c.IDJournalAvailable, c.IDJournal, c.ReplayAvailable, c.UsedActions, c.SignerFacts, c.Assurance, c.Delivery, c.ActBinding, c.ServiceAuthority, c.ServiceAttestations, c.RegistryOwner, c.JournalWitness, c.CommitSigningKey, c.EnrollmentPublisher, c.FreshnessAnchor, c.WitnessReadAt, c.SnapshotJournal}
+	names := []string{"audience", "required_roles", "known_keys", "root", "service_root", "agent_revocation_root", "operator_root", "operator_owner", "attestations", "agent_attestation_ids", "operator_attestations", "active_generations", "revocations", "time", "now", "watermark_available", "watermark", "id_journal_available", "seen", "replay_available", "used_actions", "signer_facts", "assurance", "delivery", "binding", "service_authority", "service_attestations", "registry_owner", "journal_witness", "commit_signing_key", "enrollment_publisher", "freshness_anchor", "witness_read_at", "snapshot_journal", "grant_revocation_publisher"}
+	values := []Evidence{c.Audience, c.RequiredRoles, c.AdmittedKeys, c.GrantRoot, c.ServiceRoot, c.AgentRevocationRoot, c.OperatorRoot, c.OperatorOwner, c.Attestations, c.AgentAttestationIDs, c.DeviceAttestations, c.CurrentGenerations, c.SignedSnapshots, c.Time, c.Now, c.WatermarkAvailable, c.Watermark, c.IDJournalAvailable, c.IDJournal, c.ReplayAvailable, c.UsedActions, c.SignerFacts, c.Assurance, c.Delivery, c.ActBinding, c.ServiceAuthority, c.ServiceAttestations, c.RegistryOwner, c.JournalWitness, c.CommitSigningKey, c.EnrollmentPublisher, c.FreshnessAnchor, c.WitnessReadAt, c.SnapshotJournal, c.GrantRevocationPublisher}
 	for i, e := range values {
 		if e.available {
 			f[names[i]] = e.value

@@ -361,3 +361,110 @@ func TestMultiUseMacMessageAuthor(t *testing.T) {
 		t.Errorf("Mac attestation for another key accepted: %+v", got)
 	}
 }
+
+// muPublisher returns the publisher key, its owner-root attestation and a
+// helper that installs both plus a publisher snapshot issued at issued with
+// the given entries into a fixture (removing the root's own snapshot).
+func muPublisher(t *testing.T, signer int, domain string, iat, exp string) (*ecdsa.PrivateKey, string, []byte) {
+	t.Helper()
+	k, key := muP256("publisher")
+	pub := elliptic.MarshalCompressed(elliptic.P256(), k.PublicKey.X, k.PublicKey.Y)
+	priv, issuer := muSeedKey(signer)
+	if domain == "" {
+		_, domain = muSeedKey(0)
+	}
+	att := muSign(t, "attestation/1", map[string]any{"type": "attestation/1", "issuer": issuer,
+		"subject":   map[string]any{"algorithm": "P-256", "key_id": key, "public_bytes": base64.RawURLEncoding.EncodeToString(pub)},
+		"key_class": "revocation-publisher", "purpose": "grant-revocation", "roles": []any{"author"}, "actions": []any{"revocation.sign"},
+		"iat": iat, "exp": exp, "binding": map[string]any{"profile": "grant-revocation-1", "domain": domain}}, priv, issuer)
+	return k, key, att
+}
+
+func muPublisherFixture(t *testing.T, k *ecdsa.PrivateKey, key string, att []byte, issued string, entries []any) func(map[string]any) {
+	t.Helper()
+	snap := muSignP256(t, "revocation/1", map[string]any{"type": "revocation/1", "issuer": key, "issued_at": issued, "complete": true, "entries": entries}, k, key)
+	return func(f map[string]any) {
+		_, root := muSeedKey(0)
+		f["grant_revocation_publisher"] = base64.RawURLEncoding.EncodeToString(att)
+		rev := f["revocations"].(map[string]any)
+		delete(rev, root)
+		rev[key] = map[string]any{"availability": "available", "max_age": int64(60), "rollback_safe": true, "snapshot": base64.RawURLEncoding.EncodeToString(snap)}
+	}
+}
+
+// Claim (r5 constraints 1, 4, 7): with a pinned owner-root-attested publisher,
+// grant-domain revocation is checked against the publisher's snapshot, not the
+// root's (the root snapshot is removed). A 59 s old snapshot is accepted and a
+// 61 s one refused (fail closed); a snapshot listing the grant revokes it; an
+// attestation not signed by the root, for another domain, or longer than 366
+// days refuses.
+func TestMultiUseRevocationPublisher(t *testing.T) {
+	_, agent := muSeedKey(2)
+	grant := muRootGrant(t, agent, []any{"work.assign"}, []any{muProduct}, muCaveats("until_expiry"))
+	req := map[string]any{"key": agent, "action": "work.assign", "target": muProduct}
+	k, key, att := muPublisher(t, 0, "", "2025-06-01T00:00:00Z", "2026-06-01T00:00:00Z")
+	if got := muAuthorize(t, grant, req, muPublisherFixture(t, k, key, att, "2026-01-01T00:00:01Z", []any{})); got.Code != "accept" {
+		t.Fatalf("59 s publisher snapshot: %+v", got)
+	}
+	if got := muAuthorize(t, grant, req, muPublisherFixture(t, k, key, att, "2025-12-31T23:59:59Z", []any{})); got.Code != "revocation_unavailable" {
+		t.Errorf("61 s publisher snapshot: %+v", got)
+	}
+	revoked := []any{map[string]any{"kind": "record", "id": muID(t, grant), "from": "2025-12-31T00:00:00Z"}}
+	if got := muAuthorize(t, grant, req, muPublisherFixture(t, k, key, att, "2026-01-01T00:00:30Z", revoked)); got.Code != "revoked" {
+		t.Errorf("publisher revocation ignored: %+v", got)
+	}
+	_, other := muSeedKey(1)
+	for name, a := range map[string][]byte{
+		"not-root-signed": func() []byte {
+			_, _, x := muPublisher(t, 1, "", "2025-06-01T00:00:00Z", "2026-06-01T00:00:00Z")
+			return x
+		}(),
+		"other-domain": func() []byte {
+			_, _, x := muPublisher(t, 0, other, "2025-06-01T00:00:00Z", "2026-06-01T00:00:00Z")
+			return x
+		}(),
+		"window-367d": func() []byte {
+			_, _, x := muPublisher(t, 0, "", "2025-06-01T00:00:00Z", "2026-06-03T00:00:00Z")
+			return x
+		}(),
+	} {
+		if got := muAuthorize(t, grant, req, muPublisherFixture(t, k, key, a, "2026-01-01T00:00:30Z", []any{})); got.Code == "accept" {
+			t.Errorf("%s publisher attestation accepted: %+v", name, got)
+		}
+	}
+}
+
+// Claim (r5 constraint 1): the publisher key signs nothing but grant-domain
+// snapshots: as a grant issuer it refuses signature_profile_invalid, and a
+// Mac agent attestation signed by it is not admitted.
+func TestMultiUsePublisherPurposeSeparation(t *testing.T) {
+	_, agent := muSeedKey(2)
+	k, key, att := muPublisher(t, 0, "", "2025-06-01T00:00:00Z", "2026-06-01T00:00:00Z")
+	install := muPublisherFixture(t, k, key, att, "2026-01-01T00:00:30Z", []any{})
+	b := muGrantBody(agent, []any{"work.assign"}, []any{muProduct}, muCaveats("until_expiry"))
+	b["issuer"] = key
+	byPublisher := muSignP256(t, "grant/1", b, k, key)
+	req := map[string]any{"key": agent, "action": "work.assign", "target": muProduct}
+	if got := muAuthorize(t, byPublisher, req, install); got.Code != "signature_profile_invalid" {
+		t.Errorf("grant signed by publisher: %+v", got)
+	}
+	mk, mac := muP256("meta")
+	pub := elliptic.MarshalCompressed(elliptic.P256(), mk.PublicKey.X, mk.PublicKey.Y)
+	_, root := muSeedKey(0)
+	macAtt := muSignP256(t, "attestation/1", map[string]any{"type": "attestation/1", "issuer": key,
+		"subject":   map[string]any{"algorithm": "P-256", "key_id": mac, "public_bytes": base64.RawURLEncoding.EncodeToString(pub)},
+		"key_class": "agent", "purpose": "swarma-msg", "roles": []any{"author"}, "actions": []any{"message.sign"},
+		"iat": "2025-06-01T00:00:00Z", "exp": "2026-06-01T00:00:00Z",
+		"binding": map[string]any{"profile": "mac-se-1", "mxid": "@meta:example.invalid", "generation": int64(1)}}, k, key)
+	grant := muRootGrant(t, mac, []any{"work.assign"}, []any{muProduct}, muCaveats("until_expiry"))
+	got := muAuthorize(t, grant, map[string]any{"key": mac, "action": "work.assign", "target": muProduct}, func(f map[string]any) {
+		install(f)
+		id := muID(t, macAtt)
+		f["attestations"].(map[string]any)[id] = base64.RawURLEncoding.EncodeToString(macAtt)
+		f["agent_attestation_ids"].(map[string]any)[mac] = id
+		f["active_generations"].(map[string]any)[mac] = map[string]any{"profile": "mac-se-1", "mxid": "@meta:example.invalid", "generation": int64(1), "active": true}
+	})
+	if got.Code == "accept" || root == key {
+		t.Errorf("Mac attestation signed by publisher accepted: %+v", got)
+	}
+}

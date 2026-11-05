@@ -24,6 +24,7 @@ field Context.EnrollmentPublisher
 field Context.FreshnessAnchor
 field Context.FreshnessMarginSeconds
 field Context.FreshnessReceipt
+field Context.GrantRevocationPublisher
 field Context.GrantRoot
 field Context.IDJournal
 field Context.IDJournalAvailable

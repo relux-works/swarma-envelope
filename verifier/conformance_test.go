@@ -99,7 +99,7 @@ func context(t *testing.T, f map[string]any) verifier.Context {
 		c.RegistryCurrencyVersion = int(version)
 	}
 	slots := map[string]*verifier.Evidence{
-		"snapshot_journal": &c.SnapshotJournal, "freshness_anchor": &c.FreshnessAnchor, "witness_read_at": &c.WitnessReadAt, "service_authority": &c.ServiceAuthority, "service_attestations": &c.ServiceAttestations, "registry_owner": &c.RegistryOwner, "journal_witness": &c.JournalWitness, "commit_signing_key": &c.CommitSigningKey, "enrollment_publisher": &c.EnrollmentPublisher, "audience": &c.Audience, "required_roles": &c.RequiredRoles, "known_keys": &c.AdmittedKeys, "root": &c.GrantRoot, "service_root": &c.ServiceRoot, "agent_revocation_root": &c.AgentRevocationRoot, "operator_root": &c.OperatorRoot, "operator_owner": &c.OperatorOwner, "attestations": &c.Attestations, "agent_attestation_ids": &c.AgentAttestationIDs, "operator_attestations": &c.DeviceAttestations, "active_generations": &c.CurrentGenerations, "revocations": &c.SignedSnapshots, "time": &c.Time, "now": &c.Now, "watermark_available": &c.WatermarkAvailable, "watermark": &c.Watermark, "id_journal_available": &c.IDJournalAvailable, "seen": &c.IDJournal, "replay_available": &c.ReplayAvailable, "used_actions": &c.UsedActions, "signer_facts": &c.SignerFacts, "assurance": &c.Assurance, "delivery": &c.Delivery, "binding": &c.ActBinding}
+		"snapshot_journal": &c.SnapshotJournal, "freshness_anchor": &c.FreshnessAnchor, "witness_read_at": &c.WitnessReadAt, "service_authority": &c.ServiceAuthority, "service_attestations": &c.ServiceAttestations, "registry_owner": &c.RegistryOwner, "journal_witness": &c.JournalWitness, "commit_signing_key": &c.CommitSigningKey, "enrollment_publisher": &c.EnrollmentPublisher, "audience": &c.Audience, "required_roles": &c.RequiredRoles, "known_keys": &c.AdmittedKeys, "root": &c.GrantRoot, "service_root": &c.ServiceRoot, "agent_revocation_root": &c.AgentRevocationRoot, "operator_root": &c.OperatorRoot, "operator_owner": &c.OperatorOwner, "attestations": &c.Attestations, "agent_attestation_ids": &c.AgentAttestationIDs, "operator_attestations": &c.DeviceAttestations, "active_generations": &c.CurrentGenerations, "revocations": &c.SignedSnapshots, "time": &c.Time, "now": &c.Now, "watermark_available": &c.WatermarkAvailable, "watermark": &c.Watermark, "id_journal_available": &c.IDJournalAvailable, "seen": &c.IDJournal, "replay_available": &c.ReplayAvailable, "used_actions": &c.UsedActions, "signer_facts": &c.SignerFacts, "assurance": &c.Assurance, "delivery": &c.Delivery, "binding": &c.ActBinding, "grant_revocation_publisher": &c.GrantRevocationPublisher}
 	// Fixture transport encodes bytes as base64url; production snapshot values
 	// carry raw bytes. Invalid fixture encodings retain a wrong-typed marker so
 	// the library, at the consuming row, produces the required invalid refusal.
@@ -125,6 +125,9 @@ func context(t *testing.T, f map[string]any) verifier.Context {
 				}
 				v = n
 			}
+		}
+		if name == "grant_revocation_publisher" {
+			v = convert(v)
 		}
 		if name == "revocations" {
 			if m, ok := v.(map[string]any); ok {

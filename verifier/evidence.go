@@ -90,6 +90,9 @@ func snapshotPolicy(f facts, root any) {
 	if equal(root, f["operator_root"]) || equal(root, f["root"]) {
 		return
 	}
+	if k, ok := f["_grantPublisherKey"].(string); ok && equal(root, k) {
+		return
+	}
 	// Without the remaining policies a requested issuer cannot be resolved;
 	// with all policies available an unpinned issuer is definitively invalid.
 	evidenceExact(f["agent_revocation_root"], "key purpose attestation_root")
@@ -280,6 +283,9 @@ func attestation(keyID, reference string, device, revocations, message bool, f f
 	need(start <= low && high < end, "key_binding_invalid")
 	if revocations {
 		revoker := root
+		if mac {
+			revoker = grantDomainRevoker(f)
+		}
 		if !device && !mac {
 			policy := evidenceExact(f["agent_revocation_root"], "key purpose attestation_root")
 			need(policy["purpose"] == "registry-revocation" && equal(policy["attestation_root"], root) && !equal(policy["key"], root), "key_binding_invalid")
@@ -328,6 +334,68 @@ func macAuthor(b map[string]any, f facts) bool {
 	}
 	return macAgentProfile(records[id])
 }
+
+// grantDomainRevoker returns the key whose revocation/1 snapshots cover the
+// grant-root domain: the verified pinned publisher when one is configured,
+// otherwise the grant root itself.
+func grantDomainRevoker(f facts) string {
+	if _, ok := f["grant_revocation_publisher"]; !ok {
+		return grantRoot(f)
+	}
+	return grantPublisher(f)
+}
+
+// grantPublisher verifies the pinned publisher attestation: signed by the
+// grant root, key_class revocation-publisher, purpose grant-revocation,
+// actions revocation.sign, binding {profile:"grant-revocation-1",domain:root},
+// a P-256 subject distinct from every pinned root, inside its window of at
+// most 366 days. Its key may sign only grant-domain revocation snapshots.
+func grantPublisher(f facts) string {
+	root := grantRoot(f)
+	e := signed(f["grant_revocation_publisher"], "attestation/1", root)
+	b := evidenceExact(e["body"], "type issuer subject key_class purpose roles actions iat exp binding")
+	s := evidenceExact(b["subject"], "algorithm key_id public_bytes")
+	need(b["key_class"] == "revocation-publisher" && b["purpose"] == "grant-revocation" && equal(b["roles"], []any{"author"}) && equal(b["actions"], []any{"revocation.sign"}), "key_binding_invalid")
+	binding := evidenceExact(b["binding"], "profile domain")
+	need(binding["profile"] == "grant-revocation-1" && equal(binding["domain"], root), "key_binding_invalid")
+	keyID := str(s["key_id"])
+	var start, end int64
+	mapped(func() bool {
+		alg, public := key(keyID)
+		encoded := must(record.DecodeBase64(str(s["public_bytes"]), 33))
+		start, end = stamp(b["iat"]), stamp(b["exp"])
+		need(alg == "p256" && s["algorithm"] == "P-256" && record.ValidateKey(keyID) == nil && bytes.Equal(encoded, public) && end > start && end-start <= grantPublisherWindow, "key_binding_invalid")
+		return true
+	}, "*", "key_binding_invalid")
+	service := obj(f["service_root"])
+	registry := obj(f["agent_revocation_root"])
+	need(keyID != root && !equal(keyID, f["operator_root"]) && (service == nil || !equal(keyID, service["key"])) && (registry == nil || !equal(keyID, registry["key"])), "key_binding_invalid")
+	low, high := times(f)
+	need(start <= low && high < end, "key_binding_invalid")
+	f["_grantPublisherKey"] = keyID
+	return keyID
+}
+
+// grantPublisherWindow bounds the publisher attestation: one year (366 days).
+const grantPublisherWindow = 366 * 86400
+
+// publisherKeyPeek returns the declared publisher key id, used only to refuse
+// that key as the signer of anything but grant-domain snapshots.
+func publisherKeyPeek(f facts) string {
+	raw, ok := f["grant_revocation_publisher"].([]byte)
+	if !ok {
+		return ""
+	}
+	parsed, err := record.Parse(raw, 8192, 16)
+	if err != nil {
+		return ""
+	}
+	e, _ := parsed.(map[string]any)
+	b, _ := e["body"].(map[string]any)
+	s, _ := b["subject"].(map[string]any)
+	k, _ := s["key_id"].(string)
+	return k
+}
 func grantRoot(f facts) string {
 	v := f["root"]
 	need(v != nil, "key_binding_unavailable")
@@ -366,7 +434,7 @@ func revocation(f facts, root any, ids, keys []string) {
 		}
 	}()
 	if root == nil {
-		root = grantRoot(f)
+		root = grantDomainRevoker(f)
 	}
 	snapshot(f, root, ids, keys)
 }

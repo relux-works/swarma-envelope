@@ -11,6 +11,10 @@ func excludedSigner(k string, kind string, f facts) bool {
 	if equal(k, f["commit_signing_key"]) || equal(k, f["enrollment_publisher"]) {
 		return true
 	}
+	// The grant revocation publisher signs only grant-domain snapshots.
+	if p := publisherKeyPeek(f); p != "" && k == p {
+		return true
+	}
 	_, service := obj(f["service_attestations"])[k]
 	return service && kind != "grant/1"
 }

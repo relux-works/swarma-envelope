@@ -1473,6 +1473,24 @@ such an attestation or its key through `revocation/1`. A `P-256` key may author
 otherwise the v0 refusal `signature_profile_invalid` stands. Keymaker
 Ed25519 agent attestations are unchanged.
 
+Grant revocation publisher. A grant root that signs only under user presence
+cannot issue a fresh revocation snapshot every 60 seconds. Such a root may pin
+one publisher: a P-256 key attested by the grant root with `key_class`
+`revocation-publisher`, `purpose` `grant-revocation`, roles `["author"]`,
+actions `["revocation.sign"]`, `binding` exactly
+`{profile:"grant-revocation-1",domain:<grant root key id>}`, a window of at
+most 366 days, and a key distinct from every pinned root. When the consumer
+supplies it, grant-domain revocation (grant chains and Mac agent attestations)
+is checked against the publisher's complete `revocation/1` snapshot under the
+unchanged freshness rule (`max_age` at most 60 s); a stale or missing snapshot
+refuses. The publisher signs nothing else: it refuses
+`signature_profile_invalid` as the signer of any envelope, and it can never
+sign an attestation. Consumer obligations: keep the union of every revocation
+accepted from the root or the publisher and refuse a snapshot that drops one,
+as rollback; honour a root-signed revocation at any age; refuse publisher
+snapshots once the root revokes the publisher key. Known risk: a stolen
+publisher key can delay, but not undo, a revocation until the root revokes it.
+
 ## 4. operator-act/1
 
 The device signer provider MUST sign the exact raw S0 preimage using P-256
