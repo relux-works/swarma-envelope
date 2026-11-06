@@ -6,6 +6,10 @@ The Go module is `github.com/relux-works/swarma-envelope`. Historical SSHSIG
 proposal filenames, signed domain strings, configuration names and deterministic
 test seed labels retain their original spelling for compatibility.
 
+For agent-facing usage of the implemented Go APIs and offline tools, see the
+[Swarma Envelope skill](agents/skills/swarma-envelope/SKILL.md), also discoverable
+through `.claude/skills/swarma-envelope` and `.codex/skills/swarma-envelope`.
+
 ## Status
 
 **Draft design with a pure Go verifier and offline conformance tooling.** The platform slice specifies `swarm-envelope/2`, general `grant/1`, `operator-act/1`, root-signed `attestation/1`, shared `revocation/1`, unsigned identity-journal entries, registry checkpoints and registry-signed `freshness/1` and explicit root-currency `freshness/2`. Its 2905 vectors (2706 negative, 199 positive) have a Go generator and independent Python checker. The tree retains 1217 named semantic vectors; 1688 mechanical sweep cases are represented by a checked SHA-256 manifest and materialized on demand. The public `record` and `verifier` packages implement the pure v0 verification pipelines; service-key delegation, journal/checkpoint verification, signed freshness, a protected complete-prefix root-snapshot index and opaque process-local receipt composition are offline library support; no registry service, witness protocol, consumer integration or activation is implemented. Broker v0 retains static R1 admission; Keymaker persistent revoke remains gated on verifier integration. Attested agent messages provide A1 provenance; widening is inactive because v0 has no qualified A3 provider.
