@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"github.com/relux-works/swarma-envelope/record"
@@ -553,4 +554,93 @@ func TestGrantRevocation2Fixtures(t *testing.T) {
 		t.Fatalf("fixture inventory: got %d want 5", len(paths))
 	}
 	runVectors(t, paths)
+}
+
+// gr2Receipt mints a real /2 receipt after adding the profile-2 publisher's
+// snapshot. receiptContext retains the mint's exact immutable SignedSnapshots
+// and SnapshotJournal Evidence when it advances the consumer freshness anchor.
+// The receipt covers the three canonical roots, never the distinct publisher.
+func gr2Receipt(t *testing.T, issued string) (vector, verifier.Context) {
+	t.Helper()
+	v := load(t, "../vectors/swarm-envelope-2/1-positive/P-CU-receipt-grant.json")
+	g := gr2Vector(t, gr2Att(t, gr2Body(), 0), gr2Snapshot(t, issued, []any{}))
+	_, publisher := muSeedKey(7)
+	v.Fixture["grant_revocation_publisher"] = g.Fixture["grant_revocation_publisher"]
+	v.Fixture["revocations"].(map[string]any)[publisher] = g.Fixture["revocations"].(map[string]any)[publisher]
+	v.Fixture["request"] = g.Fixture["request"]
+	v.Input["consume"].(map[string]any)["input"].(map[string]any)["chain"] = g.Input["chain"]
+	_, commit := muSeedKey(8)
+	_, enrollment := muSeedKey(9)
+	v.Fixture["commit_signing_key"], v.Fixture["enrollment_publisher"] = commit, enrollment
+	for _, role := range []string{
+		v.Fixture["root"].(string), v.Fixture["operator_root"].(string),
+		v.Fixture["service_root"].(map[string]any)["key"].(string),
+		v.Fixture["agent_revocation_root"].(map[string]any)["key"].(string), commit, enrollment,
+	} {
+		if role == publisher {
+			t.Fatal("publisher must differ from all six pinned roles")
+		}
+	}
+	v.Input["require"] = false
+	c, mint := receiptContext(t, v)
+	if mint.Code != "accept" || mint.FreshnessReceipt == nil || mint.Plan.SnapshotJournal == nil || c.FreshnessReceipt != mint.FreshnessReceipt {
+		t.Fatalf("genuine /2 receipt issuance failed: %+v", mint)
+	}
+	audit, ok := c.FreshnessReceipt.Audit()
+	if !ok || audit.RegistryCurrencyVersion != 2 || len(audit.Snapshots) != 3 {
+		t.Fatalf("expected authentic three-root /2 receipt: %+v", audit)
+	}
+	roots := map[string]string{
+		"grant": v.Fixture["root"].(string), "operator": v.Fixture["operator_root"].(string),
+		"registry-owner": v.Fixture["agent_revocation_root"].(map[string]any)["key"].(string),
+	}
+	for _, snapshot := range audit.Snapshots {
+		if snapshot.RootKeyID == publisher || roots[snapshot.RootRole] != snapshot.RootKeyID {
+			t.Fatalf("unexpected receipt coverage: %+v", snapshot)
+		}
+		delete(roots, snapshot.RootRole)
+	}
+	if len(roots) != 0 {
+		t.Fatal("receipt must cover every earlier canonical root", roots)
+	}
+	return v, c
+}
+
+// Requiring coverage changes only the receipt policy: the identical authentic,
+// unexpired receipt, publisher snapshot and immutable Evidence accept optionally.
+func TestGrantRevocation2RequiredPublisherReceiptCoverage(t *testing.T) {
+	v, c := gr2Receipt(t, "2026-01-01T00:00:30Z")
+	if got := consumeReceipt(t, v, c); got.Code != "accept" || got.Plan.Use != "until_expiry" {
+		t.Fatalf("optional receipt control: %+v", got)
+	}
+	c.RequireFreshnessReceipt = true
+	got := consumeReceipt(t, v, c)
+	if got.Code != "freshness_receipt_unavailable" || !reflect.DeepEqual(got.Plan, verifier.Plan{}) || got.FreshnessReceipt != nil {
+		t.Fatalf("missing publisher coverage must refuse without authority: %+v", got)
+	}
+}
+
+// An authentic optional receipt for other roots cannot waive the publisher's
+// own max_age=60. Remint separately for each signed-snapshot Evidence instance;
+// each branch retains that mint's original Evidence through Authorize.
+func TestGrantRevocation2OptionalReceiptPublisherAge(t *testing.T) {
+	for _, tc := range []struct{ name, issued, want string }{
+		{"age-60", "2026-01-01T00:00:00Z", "accept"},
+		{"age-61", "2025-12-31T23:59:59Z", "revocation_unavailable"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			v, c := gr2Receipt(t, tc.issued)
+			got := consumeReceipt(t, v, c)
+			if got.Code != tc.want {
+				t.Fatalf("got %+v, want %s", got, tc.want)
+			}
+			if tc.want == "accept" {
+				if got.Plan.Use != "until_expiry" {
+					t.Fatalf("accepted grant lost leaf use: %+v", got)
+				}
+			} else if !reflect.DeepEqual(got.Plan, verifier.Plan{}) || got.FreshnessReceipt != nil {
+				t.Fatalf("stale publisher retained authority: %+v", got)
+			}
+		})
+	}
 }
