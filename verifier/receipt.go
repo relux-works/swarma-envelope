@@ -2,6 +2,7 @@ package verifier
 
 import (
 	"fmt"
+	"github.com/relux-works/swarma-envelope/internal/cryptocheck"
 	"strings"
 )
 
@@ -75,6 +76,7 @@ func mintReceipt(c Context, tip, cp, snap map[string]any, age, read int64, reanc
 
 func (v Verifier) consumerFacts() facts {
 	f := v.facts()
+	f["_cryptoScope"] = new(cryptocheck.Scope)
 	c := v.context
 	if c.FreshnessReceipt != nil || c.RequireFreshnessReceipt {
 		f["_receiptContext"] = &c

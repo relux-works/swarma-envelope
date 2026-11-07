@@ -24,12 +24,12 @@ func serviceAttestation(k string, f facts) map[string]any {
 	need(policy["purpose"] == "grant-service" && equal(policy["key"], grantRoot(f)), "key_binding_invalid")
 	owner := text(policy["owner"], "key_binding_invalid")
 	records := evidence(f["service_attestations"], "")
-	e := signed(records[k], "attestation/1", policy["key"])
+	e := signed(f, records[k], "attestation/1", policy["key"])
 	b := evidenceExact(e["body"], "type issuer subject key_class purpose roles actions iat exp binding")
 	subject := evidenceExact(b["subject"], "algorithm key_id public_bytes")
 	mapped(func() bool {
 		alg, pub := key(k)
-		need(alg == "ed25519" && record.ValidateKey(k) == nil && subject["algorithm"] == "Ed25519" && subject["key_id"] == k && isString(subject["public_bytes"]), "key_binding_invalid")
+		need(alg == "ed25519" && validationKey(f, k) == nil && subject["algorithm"] == "Ed25519" && subject["key_id"] == k && isString(subject["public_bytes"]), "key_binding_invalid")
 		raw := must(record.DecodeBase64(str(subject["public_bytes"]), 32))
 		need(bytes.Equal(pub, raw), "key_binding_invalid")
 		return true

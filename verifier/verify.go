@@ -72,10 +72,10 @@ func envelope(raw []byte, kind string, f facts) map[string]any {
 		}
 		// Strict subject crypto follows E6 issuer/profile admission.
 		if kind == "grant/1" {
-			need(record.ValidateKey(str(b["subject"])) == nil, "envelope_signature_invalid")
+			need(validationKey(f, str(b["subject"])) == nil, "envelope_signature_invalid")
 		}
 		signature := must(record.DecodeBase64(str(s["sig"]), 64))
-		if err := record.VerifySignature(k, signature, pre); err != nil {
+		if err := verificationSignature(f, k, signature, pre); err != nil {
 			panic(refusal(errorCode(err)))
 		}
 	}

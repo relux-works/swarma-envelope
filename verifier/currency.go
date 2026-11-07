@@ -209,7 +209,7 @@ func currencyOriginal(f facts, id, root, unavailable, invalid string) (result ma
 		need(ok, invalid)
 		raw, exists := m[id]
 		need(exists && raw != nil, unavailable)
-		e := signed(raw, "revocation/1", root)
+		e := signed(f, raw, "revocation/1", root)
 		need(e["id"] == id, invalid)
 		b := exact(e["body"], "type issuer issued_at complete entries", invalid)
 		need(b["complete"] == true, invalid)

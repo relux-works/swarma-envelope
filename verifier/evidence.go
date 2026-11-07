@@ -31,7 +31,7 @@ func distinct(f facts) {
 		}
 	}
 }
-func signed(v any, kind string, root any) map[string]any {
+func signed(f facts, v any, kind string, root any) map[string]any {
 	need(v != nil, "key_binding_unavailable")
 	raw, ok := v.([]byte)
 	need(ok && len(raw) <= 8192, "key_binding_invalid")
@@ -51,7 +51,7 @@ func signed(v any, kind string, root any) map[string]any {
 		need(isString(sig["sig"]), "key_binding_invalid")
 		signature := must(record.DecodeBase64(str(sig["sig"]), 64))
 		pre := must(record.SigningPreimage(kind, str(root), "author", b))
-		need(record.VerifySignature(str(root), signature, pre) == nil, "key_binding_invalid")
+		need(verificationSignature(f, str(root), signature, pre) == nil, "key_binding_invalid")
 		return true
 	}, "*", "key_binding_invalid")
 	return e
@@ -118,7 +118,7 @@ func snapshotHeader(f facts, root any) snapshotProof {
 	need(r["availability"] != "unavailable", "key_binding_unavailable")
 	need(r["availability"] == "available", "key_binding_invalid")
 	need(isInt(r["max_age"]) && num(r["max_age"]) > 0 && num(r["max_age"]) <= 60 && isBool(r["rollback_safe"]), "key_binding_invalid")
-	verified := signed(r["snapshot"], "revocation/1", root)
+	verified := signed(f, r["snapshot"], "revocation/1", root)
 	b := evidenceExact(verified["body"], "type issuer issued_at complete entries")
 	entries, ok := b["entries"].([]any)
 	need(isBool(b["complete"]) && ok, "key_binding_invalid")
@@ -216,7 +216,7 @@ func attestation(keyID, reference string, device, revocations, message bool, f f
 		need(isInt(p["purpose"]) && num(p["purpose"]) == 5, "key_binding_invalid")
 		root = p["key"]
 	}
-	e := signed(v, "attestation/1", root)
+	e := signed(f, v, "attestation/1", root)
 	b := evidenceExact(e["body"], "type issuer subject key_class purpose roles actions iat exp binding")
 	s := evidenceExact(b["subject"], "algorithm key_id public_bytes")
 	for _, k := range []string{"algorithm", "key_id", "public_bytes"} {
@@ -244,7 +244,7 @@ func attestation(keyID, reference string, device, revocations, message bool, f f
 		}
 		encoded := must(record.DecodeBase64(str(s["public_bytes"]), n))
 		start, end = stamp(b["iat"]), stamp(b["exp"])
-		need(record.ValidateKey(keyID) == nil && sa == alg && bytes.Equal(sp, public) && s["key_id"] == keyID && bytes.Equal(encoded, public) && end > start && (device || mac && end-start <= macAgentWindow || !mac && end-start <= 86400), "key_binding_invalid")
+		need(validationKey(f, keyID) == nil && sa == alg && bytes.Equal(sp, public) && s["key_id"] == keyID && bytes.Equal(encoded, public) && end > start && (device || mac && end-start <= macAgentWindow || !mac && end-start <= 86400), "key_binding_invalid")
 		return true
 	}, "*", "key_binding_invalid")
 	if device {
@@ -353,7 +353,7 @@ func grantDomainRevoker(f facts) string {
 // most 366 days. Its key may sign only grant-domain revocation snapshots.
 func grantPublisher(f facts) string {
 	root := grantRoot(f)
-	e := signed(f["grant_revocation_publisher"], "attestation/1", root)
+	e := signed(f, f["grant_revocation_publisher"], "attestation/1", root)
 	b := evidenceExact(e["body"], "type issuer subject key_class purpose roles actions iat exp binding")
 	s := evidenceExact(b["subject"], "algorithm key_id public_bytes")
 	need(b["key_class"] == "revocation-publisher" && b["purpose"] == "grant-revocation" && equal(b["roles"], []any{"author"}) && equal(b["actions"], []any{"revocation.sign"}), "key_binding_invalid")
@@ -374,7 +374,7 @@ func grantPublisher(f facts) string {
 		alg, public := key(keyID)
 		encoded := must(record.DecodeBase64(str(s["public_bytes"]), publicSize))
 		start, end = stamp(b["iat"]), stamp(b["exp"])
-		need(alg == algorithm && s["algorithm"] == subjectAlgorithm && record.ValidateKey(keyID) == nil && bytes.Equal(encoded, public) && end > start && end-start <= grantPublisherWindow, "key_binding_invalid")
+		need(alg == algorithm && s["algorithm"] == subjectAlgorithm && validationKey(f, keyID) == nil && bytes.Equal(encoded, public) && end > start && end-start <= grantPublisherWindow, "key_binding_invalid")
 		return true
 	}, "*", "key_binding_invalid")
 	service := obj(f["service_root"])
