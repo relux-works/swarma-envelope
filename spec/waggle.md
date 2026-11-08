@@ -1,6 +1,6 @@
 # Swarma Envelope: agent communication specification
 
-Status: **DRAFT v5.2**, 2026-09-27. Not normative. Track document: `spec/track.md`. v5.1 adds Amendment A1 (§19) with what board processes need: signed approvals, relaxations and human transitions on a board; signed external events from service principals; the hand-off result; user verification in board policy; delegation of board acts to orchestrator roles. The direction of A1 is accepted, and it is implemented with CM2. v5 splits the protocol into a communication layer and a coordination layer, and adds the conversation model and the provider interface, the protocol lab, delivery through the session-host module and the placement of the internet carrier; v4 of the same day added signer providers.
+Status: **DRAFT v5.3**, 2026-11-08. Not normative. Track document: `spec/track.md`. v5.3 proposes approval taps (§19.10), with unresolved acceptance semantics and no activation. v5.1 adds Amendment A1 (§19) with what board processes need: signed approvals, relaxations and human transitions on a board; signed external events from service principals; the hand-off result; user verification in board policy; delegation of board acts to orchestrator roles. The direction of A1 is accepted, and it is implemented with CM2. v5 splits the protocol into a communication layer and a coordination layer, and adds the conversation model and the provider interface, the protocol lab, delivery through the session-host module and the placement of the internet carrier; v4 of the same day added signer providers.
 
 Published as a draft for review; nothing here is implemented yet.
 
@@ -697,9 +697,57 @@ With CM2 (§17):
 - the signer role `result` in step 2 of §4.3;
 - the approve command renders board acts;
 - the board verifies `event.post` from `task-board event post` and from bridges;
+- the proposed reserved event name `approval.tap` and tap grant of §19.10 remain subject to its unresolved contract points; no interim approval path, bridge-budget substitution or unsigned revocation is authorized;
 - a hand-off across boards runs `handoff-offer`, `handoff-accept` and `handoff-result` over the CM2 carrier.
 
 Until then, signed human acts use only the forms of §1–§18, and a hand-off across boards is unavailable. A hand-off between processes on one board needs none of this.
+
+### 19.10 Approval taps from a chat bridge *(v5.3 proposal, 2026-11-08)*
+
+**Status: unresolved protocol proposal; not an approval path.** A person may want to answer a pending request with one tap in a chat app. The proposed combination of delegation (§19.8) and bridge events (§19.2–§19.3) below adds no signer role or trust root. It does not yet define a complete acceptance contract. Until the open points below are resolved in a reviewed specification, an `approval.tap` event cannot count as an approval, rejection or revocation. Transport authentication, an account login and an accepted event alone confer no authority.
+
+**Existing contracts remain in force.** The approver signature and complete act bindings of §19.1, policy and user verification of §19.5, and delegation ceilings, self-approval restrictions, atomic budget accounting and revocation effects of §19.7–§19.8 are unchanged. This proposal concerns the original `waggle-v1` board protocol. It neither extends nor aliases the platform records in [swarm-envelope-2.md](swarm-envelope-2.md) or the [signed owner-acts profile](signed-owner-acts-profile.md). In particular it creates no `operator-act/1` operation, does not register reserved operations, and cannot bypass current root authority, revocation, replay, assurance or inactive widening gates. A bridge event is not a signed owner act.
+
+- **Proposed event.** A bridge reports a tap as an `event.post` (§19.2) named `approval.tap`. The proposal reserves that name so a process configuration cannot redeclare it. Only a service principal (§19.3), admitted solely for `event.v1@waggle` and bound by the committed project file to signer group `approval-bridge` at the pinned revision, may sign it. The bridge verifies the provider's own authentication first. The body retains §19.2's board, element, source provider and provider event id; its proposed data carries:
+  - `request`: the pending request envelope's id and `sha256`, intended to bind the exact request; its digest preimage remains open (TAP1);
+  - `approver`: the `op:` principal to which the channel identity is bound;
+  - `channel`: `kind` (`matrix`, `telegram`, …), `user` (the provider's account id), and `device`. The proposed device forms are `{ "id", "key_fingerprint", "verified": true }` for a cryptographically verified sending device, or `{ "verified": false }`;
+  - `decision`: proposed values `approve`, `reject` and `revoke`; none authorizes an effect under this draft, and `revoke` does not replace `board.revoke`;
+  - `shown`: the bounded fields rendered to the person;
+  - `observed_at`, and `grant`, the envelope id of the grant the bridge believes applies. That hint is not authority: the verifier must independently establish the applicable grant, its grantor and current validity.
+
+  `expires_at` is required and short (minutes). The envelope id is a name-based UUID derived from the channel kind and provider event id, with §19.2's deterministic delivery and §4.3's `(project, from, id)` deduplication and conflicting-duplicate refusal. Request-level replay across distinct events or bridges remains open (TAP2).
+- **Rendering and act binding.** The bridge renders the request from the request envelope, never text laid out by the requester. The person still trusts the bridge's rendering; channel authentication does not attest a trusted local display. A request digest alone cannot replace §19.1's board, element, state-entry number, act/role, configuration digest, evaluated revision, approver, complete declared fields and `fields_digest`, or §19.7's freshness and distinct-principal quorum. The mapping of the event to a bound board approval and its self-approval check remains open (TAP2). A bridge signature never counts as an approver signature.
+- **Proposed channel assurance.** `device.verified = true` means the bridge cryptographically checked a cross-signed device of the person against the device fingerprint pinned in the grant; for Matrix this requires an encrypted room and the person's verified device. `device.verified = false` proves only use of the account's credentials. The grant proposes a minimum channel assurance; account-only taps are proposed only for scopes explicitly designated low-risk. Channel assurance cannot weaken the grant's signature, assurance, confirmation floor or user-verification requirements. The provider/account/device-to-operator binding and its lifecycle remain open (TAP3).
+- **Proposed tap grant.** A `board.delegate` act would name a bridge channel instead of an orchestrator session:
+  - `delegate: { "kind": "approval.tap", "bridge": "svc:…", "channel_user": "…", "device_fingerprint": "…" | null, "min_assurance": "device" | "account" }`;
+  - `acts`: approvals of explicitly listed request scopes, never a pattern;
+  - an expiry and a budget per period, subject to the pinned project's ceilings.
+
+  The grant remains the grantor's own act, signed with the grantor's approver key at user verification (§19.5) and never below the confirmation floor (§19.8). Its envelope expiry bounds delivery; the recorded grant's own expiry bounds use. No proposed tap grant covers a confirmation, a capability grant or a class the policy marks high-risk: those require the person's own approver signature over a locally rendered view. The channel-delegate schema and authorization chain differ from §19.8's orchestrator-session form and are not registered by this proposal (TAP3).
+- **Required verification boundaries.** A future complete contract must independently verify:
+  1. The event's signature, service-only namespace, pinned signer-group binding, board and element.
+  2. The grantor's authority, approver signature, policy assurance and user verification; a live, unrevoked recorded tap grant naming exactly this bridge and channel user, with the pinned device fingerprint when present.
+  3. The channel assurance and its protected binding to that grantor.
+  4. The exact request and its current act bindings, scope, conditions, project ceilings, freshness, self-approval rule and quorum identity.
+  5. The budget and atomic recording of the accepted act by the board kernel.
+  6. Expiry, ordering and both event-level and request-level replay protection.
+
+  These are requirements to resolve, not a completed verification algorithm. Passing the event pipeline alone cannot make a tap count.
+- **Budgets.** §19.8 remains controlling: the board kernel alone counts recorded delegated acts, and checking a budget and recording an act are one compare-and-set. Shared-machine budgets require the CM2 lease store (§12). A bridge may refuse to emit over-budget events as an additional filter; bridge counters and independent local verifier counters cannot replace the authoritative budget store or establish a shared limit. No pre-CM2 approval path is authorized here (TAP4).
+- **Revocation.** Existing `board.revoke` authority, signatures and policy requirements (§19.1, §19.5) and immediate effects (§19.8) remain in force: later acts are refused, unused delegated approvals stop counting, relaxation exceptions end with the stated in-flight-run boundary, and already consumed acts remain valid. The proposed unsigned/user-unverified `decision = revoke`, including revoking every grant of a channel user, conflicts with those requirements and is not admitted (TAP5). It is not a platform `revocation/1` snapshot; the platform's protected issuer, authorized publisher, root-role separation, cumulative revocation and currency rules remain controlling, including the `grant-revocation-1` and `grant-revocation-2` publisher profiles. A stolen channel's ability to cause denial of service is a security limitation, not authorization to revoke.
+- **Audit.** The proposal requires counted taps to be recorded where operators can monitor them. An audit post does not authorize the act. Exact audit audience and disclosure policy remain open (TAP6).
+
+**Unresolved contract points; no owner decision is implied:**
+
+| Point | Required resolution before taps can count |
+| --- | --- |
+| TAP1 — request bytes | Define exactly what `request.sha256` hashes, its encoding and comparison. §4.1 signs exact payload bytes without reserialization; this proposal's earlier notion of a “canonical envelope” supplies no canonicalization contract. Do not silently substitute platform CCJ-1 or a signature-wrapper digest. |
+| TAP2 — act mapping and replay | Define the event-to-board-act binding, complete rendered-field coverage, freshness, self-approval provenance, decision conflicts, request-level deduplication and quorum identity across events and bridges. A provider event id is not a one-use request authorization. |
+| TAP3 — delegate and identity binding | Define admission of a channel delegate, explicit provider/channel-kind binding (absent from the proposed grant shape), protected operator/account/device enrollment, replacement and revocation, and exact grant selection. A sender's `approver`, `verified` or `grant` assertion is insufficient. |
+| TAP4 — authoritative budgets | Reconcile any proposed pre-CM2 use with §19.8's atomic board-kernel accounting. Independent local or bridge counters are not a distributed budget protocol. |
+| TAP5 — revocation authority | Resolve the proposed tap-revocation feature against existing authorized, signed `board.revoke` and separately issuer-scoped platform revocations. No unsigned, blanket or cross-domain revocation is introduced. |
+| TAP6 — policy and disclosure | Define the explicit low-risk scope policy, request/display bounds, time/skew limits and audit audience without weakening existing exclusions or creating disclosure authority. |
 
 ## 20. Change log: v5.1 → v5.2
 
@@ -712,3 +760,7 @@ v5.2 aligns the command names with task-board's command-line shape of 2026-09-27
 | `task-board mail rejected` | `task-board mail list --rejected` | §4.3, §14 |
 | `task-board mail release <id>` for a quarantined message | `task-board mail approve <id>`, with `task-board mail reject <id>` to drop it | §7 |
 | (unnamed) | `task-board lease list`, `task-board lease show <scope>` | §12 |
+
+## 21. Change log: v5.2 → v5.3 proposal
+
+v5.3 proposes the `approval.tap` event and channel-delegate grant in §19.10, and records their dependency in §19.9. English and Russian §19.10 describe the same unresolved proposal. Existing signed board acts, authoritative budget accounting, revocation, platform records and signed owner-acts contracts retain their requirements. The proposal supplies no implementation, interim acceptance path or activation permission. The request digest, act mapping/replay, identity binding, budget reconciliation, revocation authority and disclosure policy remain open (TAP1–TAP6).
