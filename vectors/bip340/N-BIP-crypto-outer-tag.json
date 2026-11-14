@@ -1,0 +1,18 @@
+{
+  "id": "N-BIP-crypto-outer-tag",
+  "claim": "The original key, signature and exact SHA256/preimage/domain contract refuses outer-tag.",
+  "positive_control": "P-BIP-domain",
+  "mode": "domain",
+  "input": {
+    "key": "bip340:Ux_mBoE0UD0nIxMyJ8hnrI-myDxTfppEw8W9vcsf4zc",
+    "preimage": "c3dhcm1hLW1zZy8yCnsidGV4dCI6Inh4eHh4eHh4In0",
+    "sig": "rifmL78qMr70HWgCgCY_EzBqUrQ2-98E1t4LdN8Mz2DbGoB14QBmElnfwO_ecXDT0XjlDeWekex86t9yClG6jw"
+  },
+  "fixture": {
+    "expected_tag": "swarma-msg/2"
+  },
+  "expected": {
+    "code": "envelope_signature_invalid",
+    "plan": {}
+  }
+}

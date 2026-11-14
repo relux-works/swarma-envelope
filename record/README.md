@@ -2,7 +2,7 @@
 
 `github.com/relux-works/swarma-envelope/record` supplies bounded, duplicate-free parsing,
 registrar CCJ-1 canonicalization, content ids, signed-record preimages, strict
-Ed25519 and P-256 verification, exact registered-domain probes, and message
+Ed25519, P-256 and BIP-340 verification, exact registered-domain probes, and message
 signer admission. All crypto is from the Go standard library; public Edwards
 point/subgroup checks explicitly narrow standard Ed25519 verification.
 
@@ -38,3 +38,13 @@ entry or confer registry/commit-signer authority. Both tags remain refused by
 `freshness/1` registers exactly `swarma-registry freshness/1`; the message
 signer refuses it. Mathematical signature/domain verification supplies no
 registry role, checkpoint binding, snapshot currency or publication continuity.
+
+
+BIP-340 uses `bip340:` plus canonical unpadded base64url of exactly32 x-only
+secp256k1 bytes. ValidateKey checks x<p and lift_x; there is no encoded parity
+bit. VerifySignature checks original r<p, s<n before the pinned btcec/v2 v2.3.5
+parser and verifies SHA256(original preimage), with no low-S requirement.
+This API does mathematics only, including CheckDomain for registered tags;
+only verifier admits message-author and agent/swarma-msg subject roles.
+AdmitSigner preserves protected caller key/author/attestation equality for the
+new agent algorithm; it signs nothing and qualifies no enforcing key holder.

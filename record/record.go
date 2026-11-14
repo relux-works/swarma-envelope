@@ -260,7 +260,7 @@ func AdmitSigner(raw []byte, p IdentityPolicy) (SignerAdmission, error) {
 	}
 	if p.Check || p.MultiAgent {
 		alg, _, e := KeyBytes(p.CallerKey)
-		if e != nil || alg != "ed25519" || ValidateKey(p.CallerKey) != nil || !IsContentID(p.CallerAttestationID) {
+		if e != nil || (alg != "ed25519" && alg != "bip340") || ValidateKey(p.CallerKey) != nil || !IsContentID(p.CallerAttestationID) {
 			return fail("signer_identity_unavailable")
 		}
 		obj, ok := v.(map[string]any)

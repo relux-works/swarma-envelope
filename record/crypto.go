@@ -12,7 +12,7 @@ func KeyBytes(key string) (string, []byte, error) {
 	n := 32
 	if alg == "p256" {
 		n = 33
-	} else if alg != "ed25519" {
+	} else if alg != "ed25519" && alg != "bip340" {
 		ok = false
 	}
 	if !ok {
@@ -34,7 +34,7 @@ func ValidateKey(key string) error {
 	return nil
 }
 
-// VerifySignature preserves all strict checks and the stdlib equation.
+// VerifySignature checks the selected algorithm over the unchanged signing preimage.
 func VerifySignature(key string, sig, preimage []byte) error {
 	alg, pub, err := KeyBytes(key)
 	if err != nil {

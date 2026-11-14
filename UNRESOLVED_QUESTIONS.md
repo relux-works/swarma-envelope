@@ -21,7 +21,7 @@ activation decisions. The normative details are in
 | D13 — time | Use shared time-policy provider and stricter-only protected policy, with max(now,W) for expiry and min(now,W) for starts. No new clock source. | Pinned time-policy proposal must land and consumers must qualify continuity, watermark durability and provider activation. |
 | D14 — carrier | Completed bytes carried unchanged; no transport-specific authority. | Transport owner must publish actual Matrix event budget and authenticated bounded pointer form if needed. No pointer wire schema is invented here. |
 | D15 — size and retention | 65,536 bytes/envelope, 8,192/operator record, depth 16, chain 4; message signing preimage <=24,576 bytes and signed-record depth <=12. Consumed ids survive admissible replay/restore horizons. | Consumers must publish/qualify retention horizons and the complete native request budget. Time expiry alone cannot erase recovery evidence. |
-| D16 — key types and roles | Settled: agent keys Ed25519, operator device keys P-256 low-S. Agent author only; delegate has no v0 profile. Optional message approvers use P-256 device keys attested by the pinned operator root, never agent keys. | Review optional message-approver policy; it does not replace an operator act or automatically establish A3. |
+| D16 — key types and roles | Settled: ordinary agent keys Ed25519 or BIP-340 (dated additive profile), operator device keys P-256 low-S. Agent author only; delegate has no v0 profile. Optional message approvers use P-256 device keys attested by the pinned operator root, never agent keys. | Review optional message-approver policy; it does not replace an operator act or automatically establish A3. |
 | D17 — exact tag registry | Fourteen pairwise distinct published literal tags (including the D34 registry formats, D38 freshness and D42 /2 currency); generic witness placeholder assigns no tag. Exact first-LF comparison, ASCII 0x20–0x7e, length 1–96; prefix uniqueness is not required. | Signing service publishes its witness tag by a later reviewed registry change. No other tag is admitted to the message signer. |
 | D18 — message signer budget | Provider checks length, exact message tag and canonical CCJ-1 remainder (including codec bounds), with the permitted caller-identity narrowing in D22, then signs original bytes. Base64url + <=4096 bytes metadata leaves a total frame <=36,868 bytes with header. | Native owner must publish the actual request grammar and enforce metadata/depth budgets; no field names or Keymaker implementation are invented here. |
 | D19 — superseded by R3 | S0 now defines and verifies root-signed CCJ-1 attestation/1 and shared revocation/1. No caller attestation-valid flag or direct device pin. Missing/null remains unavailable; wrong types remain invalid. Root provenance wins in every grant position. | Issuer publication/custody, protected active-generation evidence, snapshot continuity and consumer integration remain external activation gates. |
@@ -254,3 +254,19 @@ on /1; legacy plan/audit/digest bytes remain stable. Persist version, pins,
 index, exact endpoints/history, watermarks and recovery sets atomically before
 receipt use. Both original Evidence identities survive that commit; the new
 persistent index does not replace the receipt's minting premise.
+
+
+## BIP-340 agent provider
+
+The format admits an agent's grant-named BIP-340 key for each sent message,
+through its key holder with a protected agent gate. This replaces human
+presence for agent keys only. Human authority keys retain per-signature presence
+for rare authority acts; human messaging uses the human's agent.
+
+Still unresolved as implementation/qualification work: which custody-neutral
+enforcing provider supplies authenticated caller key/current-attestation
+resolution and per-message use of that exact grant-named key, with enforceable
+revocation, recovery and failure behavior? No provider, signer callback, custody
+property or activation is delivered by this verifier extension. Consumers still
+check grants independently after authentication/provenance. Existing protected
+caller narrowing is retained and does not by itself qualify enforcement.

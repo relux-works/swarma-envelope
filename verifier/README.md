@@ -536,3 +536,18 @@ GOMAXPROCS=2 "$CURATOR_GO" build ./verifier ./owneracts ./record
 GOMAXPROCS=2 "$CURATOR_GO" vet ./verifier ./owneracts ./record
 "${CURATOR_GO%/go}/gofmt" -l verifier/owner_act_prepare*.go
 ```
+
+
+## BIP-340 agent profile
+
+Ordinary purpose-5 agent attestations admit BIP-340 only with the exact
+`bip340:` x-only key/public bytes, `BIP-340` algorithm, agent class,
+swarma-msg purpose and existing six-field protected current-generation binding.
+Message authors retain the exact verified author_attestation content id,
+subject/author equality, revocation, time and delivery/audience gates.
+A valid signature or grant cannot replace these premises. BIP-340 grants no
+approver/device/root/grant-issuer/service/publisher/registry/currency/owner-act
+signing profile. Refusals preserve existing ordered codes and empty plans.
+The separate Mac P-256 profile is unchanged. See the [new checker](../tools/bip340check/README.md)
+for focused tests and the fixed32 production capability bound. No enforcing
+per-message agent key holder is implemented or qualified by this pure library.

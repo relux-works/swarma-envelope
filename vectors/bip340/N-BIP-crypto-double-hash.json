@@ -1,0 +1,18 @@
+{
+  "id": "N-BIP-crypto-double-hash",
+  "claim": "The original key, signature and exact SHA256/preimage/domain contract refuses double-hash.",
+  "positive_control": "P-BIP-domain",
+  "mode": "domain",
+  "input": {
+    "key": "bip340:Ux_mBoE0UD0nIxMyJ8hnrI-myDxTfppEw8W9vcsf4zc",
+    "preimage": "c3dhcm1hLW1zZy8yCnsidGV4dCI6Inh4eHh4eHh4In0",
+    "sig": "88uzdbU97RA74MLrptdCvb6B7KMCvTB6eJGevWZi3yULPRpajNK9Ehj4xv6QPQUZh7_8D77bCgPDk_seEzESsg"
+  },
+  "fixture": {
+    "expected_tag": "swarma-msg/2"
+  },
+  "expected": {
+    "code": "envelope_signature_invalid",
+    "plan": {}
+  }
+}

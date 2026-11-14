@@ -140,6 +140,8 @@ func currencyWire(raw []byte, checkpoint bool) map[string]any {
 }
 func currencySignature(e map[string]any, kind, root, owner, code string) {
 	mapped(func() bool {
+		alg, _ := key(root)
+		need(alg != "bip340", code)
 		b := obj(e["body"])
 		ss := array(e["signatures"])
 		need(len(ss) == 1, code)

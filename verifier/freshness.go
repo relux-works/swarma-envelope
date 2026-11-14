@@ -34,6 +34,8 @@ func freshnessWire(raw []byte) map[string]any {
 }
 func freshnessSignature(e map[string]any, root, owner string) {
 	mapped(func() bool {
+		alg, _ := key(root)
+		need(alg != "bip340", "freshness_signature_invalid")
 		b := obj(e["body"])
 		sigs := array(e["signatures"])
 		need(len(sigs) == 1, "freshness_signature_invalid")

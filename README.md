@@ -1,6 +1,6 @@
 # Swarma Envelope
 
-A secure agent coordination and communication protocol: signed messages between agents. Swarma Envelope defines one message envelope, one verification pipeline and one delivery model for agent orchestrators that share a project. Orchestrators coordinate with each other, first on one machine, then across a few operators over the internet, later with other organizations. Orchestrators also send one-way commands (clarify, reprioritize, cancel, halt) to their own workers; workers can never instruct orchestrators. The original repository/offline proposal uses SSHSIG. The proposed platform slice uses CCJ-1 records with role-bound signatures, grants and operator acts. Agent authors use Ed25519 under the exact `swarma-msg/2` tag; operator device keys use P-256. Consumers select their protocol explicitly.
+A secure agent coordination and communication protocol: signed messages between agents. Swarma Envelope defines one message envelope, one verification pipeline and one delivery model for agent orchestrators that share a project. Orchestrators coordinate with each other, first on one machine, then across a few operators over the internet, later with other organizations. Orchestrators also send one-way commands (clarify, reprioritize, cancel, halt) to their own workers; workers can never instruct orchestrators. The original repository/offline proposal uses SSHSIG. The proposed platform slice uses CCJ-1 records with role-bound signatures, grants and operator acts. Ordinary agent authors use Ed25519 or BIP-340 under the exact `swarma-msg/2` tag; operator device keys use P-256. Consumers select their protocol explicitly.
 
 The Go module is `github.com/relux-works/swarma-envelope`. Historical SSHSIG
 proposal filenames, signed domain strings, configuration names and deterministic
@@ -12,7 +12,7 @@ through `.claude/skills/swarma-envelope` and `.codex/skills/swarma-envelope`.
 
 ## Status
 
-**Draft design with a pure Go verifier and offline conformance tooling.** The platform slice specifies `swarm-envelope/2`, general `grant/1`, `operator-act/1`, root-signed `attestation/1`, shared `revocation/1`, unsigned identity-journal entries, registry checkpoints and registry-signed `freshness/1` and explicit root-currency `freshness/2`. Its 2905 vectors (2706 negative, 199 positive) have a Go generator and independent Python checker. The tree retains 1217 named semantic vectors; 1688 mechanical sweep cases are represented by a checked SHA-256 manifest and materialized on demand. The public `record` and `verifier` packages implement the pure v0 verification pipelines; service-key delegation, journal/checkpoint verification, signed freshness, a protected complete-prefix root-snapshot index and opaque process-local receipt composition are offline library support; no registry service, witness protocol, consumer integration or activation is implemented. Broker v0 retains static R1 admission; Keymaker persistent revoke remains gated on verifier integration. Attested agent messages provide A1 provenance; widening is inactive because v0 has no qualified A3 provider.
+**Draft design with a pure Go verifier and offline conformance tooling.** The platform slice specifies `swarm-envelope/2`, general `grant/1`, `operator-act/1`, root-signed `attestation/1`, shared `revocation/1`, unsigned identity-journal entries, registry checkpoints and registry-signed `freshness/1` and explicit root-currency `freshness/2`. Its legacy 2905 vectors (2706 negative, 199 positive) have a Go generator and independent Python checker. The tree retains 1217 named semantic vectors; 1688 mechanical sweep cases are represented by a checked SHA-256 manifest and materialized on demand. The public `record` and `verifier` packages implement the pure v0 verification pipelines; service-key delegation, journal/checkpoint verification, signed freshness, a protected complete-prefix root-snapshot index and opaque process-local receipt composition are offline library support; no registry service, witness protocol, consumer integration or activation is implemented. Broker v0 retains static R1 admission; Keymaker persistent revoke remains gated on verifier integration. Attested agent messages provide A1 provenance; widening is inactive because v0 has no qualified A3 provider.
 
 The grant-domain revocation publisher supports owner-root-attested
 `grant-revocation-1` (P-256) and `grant-revocation-2` (Ed25519), with strict
@@ -190,6 +190,35 @@ request encoder, result decoder, native adapter or lifecycle is supplied.
 - **Two layers.** A communication layer moves signed messages between principals; a coordination layer built on it decides who works on what, with scope leases and quorum decisions.
 - **Scope leases decide, messages negotiate; providers are untrusted pipes.** Orchestrators lease parts of a project with a term and a token in a compare-and-set store. Providers sit behind one interface: carriers deliver the signed bytes (a local mailbox, then NATS JetStream for the internet, XMPP for federation later), consoles render messages for people, gateways (A2A) translate at the edge, and chats such as Slack or Telegram can be adapters because authority comes from signatures, never from the provider.
 
+## BIP-340 agent authors
+
+The dated additive `swarm-envelope/2` revision admits canonical
+`bip340:` + base64url32 x-only keys as ordinary message authors and
+agent/swarma-msg attestation subjects. It preserves the purpose-5 root-signed
+attestation, exact author/key/reference equality, protected current generation,
+time, revocation, audience and delivered-body binding. Other signing roles
+remain closed. Generic record crypto APIs provide math, never role authority.
+
+Production uses btcec/v2 **v2.3.5**, verify-only, over SHA-256 of the unchanged
+signing preimage. Original r<p and s<n are checked before its reducing parser;
+valid high-s BIP-340 signatures remain valid. No signing/key-holder callback or
+new authority format is added. Per-message use of an agent's grant-named key
+through an enforcing key holder is a later provider requirement, not a qualified
+implementation. Human authority presence remains a separate requirement.
+
+The separate **46-vector** corpus has a Go generator and independent Go
+protocol/hash/domain checker with a stdlib/math/big oracle. It leaves legacy
+Python tooling and corpus bytes unchanged. All **19 official** BIP-340 vectors
+pass the oracle, including arbitrary-length valid messages. The pinned
+production dependency supports only original32 messages: indices15–18 remain
+TRUE official vectors with explicit unsupported/observed-false capability
+observations, never passing production vectors or relabelled invalid cases.
+See [checker scope and commands](tools/bip340check/README.md),
+[the revision](spec/swarm-envelope-2.md#bip-340-revision-and-provider-boundary-2026-11-14)
+and [provider work](UNRESOLVED_QUESTIONS.md#bip-340-agent-provider).
+The older base `e38510c5` refuses `P-BIP-author` with `envelope_malformed` before
+profile admission and returns an empty plan.
+
 ## Tools
 
 Run from the repository root. Go 1.26.0 or newer is required; the validated
@@ -200,6 +229,10 @@ Python 3.14.4 and the already present cryptography 46.0.5 for P-256.
 | --- | --- | --- |
 | Go generator | `GOMAXPROCS=2 "$CURATOR_GO" run ./tools/vectors` | Writes named JSON, sweep manifest/digest and public keys under `vectors/` |
 | Go inventory check | `GOMAXPROCS=2 "$CURATOR_GO" run ./tools/vectors -check` | Regenerates all cases; compares named JSON and sweep manifest/digest without writing |
+| BIP-340 generator/check | `GOMAXPROCS=2 "$CURATOR_GO" run ./tools/vectors -bip340 -out .temp/bip340`; append `-check` to compare | Separate `.temp/bip340/bip340/` corpus; default output is `vectors/bip340/` |
+| Independent BIP-340 checker | `GOMAXPROCS=2 "$CURATOR_GO" run ./tools/bip340check` | Checks all official oracle results and committed new protocol vectors; stdout and exit status |
+| BIP-340 negative controls | `GOMAXPROCS=2 "$CURATOR_GO" run ./tools/bip340check -plant valid-refused`; repeat with `-plant invalid-accepted` | Each must exit 1 with applied-control and exact official mismatch diagnostics; caller-owned `.temp/` logs |
+| BIP-340 focused tests | `GOMAXPROCS=2 "$CURATOR_GO" test -p 1 ./record ./internal/cryptocheck ./verifier ./tools/bip340check ./tools/bip340check/oracle -run 'TestBIP340|TestOfficial|TestIndependentBIP340|TestOracleTransitive' -count=1 -v` | Public API contracts, original32 production/capability observations, protocol vectors and actual transitive oracle import-graph gate; caller-owned `.temp/` logs |
 | Independent Python checker | `python3 -B tools/vectorcheck/check.py` | Checks supplied cases (1217 named by default); nonzero failure or PENDING |
 | Library conformance | `CURATOR_GO="$CURATOR_GO" GOMAXPROCS=2 "$CURATOR_GO" test ./verifier -run '^TestConformance$' -count=1 -v` | Generates a temporary full corpus; checks committed manifest hashes and all 2905 exact code/plan results |
 | Owner-act tests | `GOMAXPROCS=2 "$CURATOR_GO" test ./owneracts -p 1 -count=1` | Argument/body grammar, mapping and package API inventory; stdout/stderr and exit status |

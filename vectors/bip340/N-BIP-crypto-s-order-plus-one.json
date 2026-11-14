@@ -1,0 +1,18 @@
+{
+  "id": "N-BIP-crypto-s-order-plus-one",
+  "claim": "The original key, signature and exact SHA256/preimage/domain contract refuses s-order-plus-one.",
+  "positive_control": "P-BIP-domain",
+  "mode": "domain",
+  "input": {
+    "key": "bip340:Ux_mBoE0UD0nIxMyJ8hnrI-myDxTfppEw8W9vcsf4zc",
+    "preimage": "c3dhcm1hLW1zZy8yCnsidGV4dCI6Inh4eHh4eHh4In0",
+    "sig": "nCEGRKHwoQPH2NxltWsel-ESNgj-ckbx8r8mbi00hmz____________________-uq7c5q9IoDu_0l6M0DZBQg"
+  },
+  "fixture": {
+    "expected_tag": "swarma-msg/2"
+  },
+  "expected": {
+    "code": "envelope_signature_invalid",
+    "plan": {}
+  }
+}

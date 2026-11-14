@@ -88,6 +88,23 @@ jobs:
       # Missing P-256 support returns PENDING/exit 2, which fails this step.
       - name: Independent full-corpus check
         run: '"$RUNNER_TEMP/checker-venv/bin/python" -B tools/vectorcheck/check.py --vectors "$RUNNER_TEMP/envelope-vectors"'
+      - name: Check separate BIP-340 corpus
+        run: |
+          go run ./tools/vectors -bip340 -check
+          go run ./tools/bip340check
+      - name: Verify BIP-340 oracle verdict controls
+        run: |
+          for plant in valid-refused invalid-accepted; do
+            control_log="$RUNNER_TEMP/bip340-$plant.log"
+            status=0
+            go run ./tools/bip340check -plant "$plant" > "$control_log" 2>&1 || status=$?
+            test "$status" -eq 1
+            grep -F "control applied: $plant" "$control_log"
+            case "$plant" in
+              valid-refused) grep -F 'official verdict mismatch: index=0 expected=true observed=false' "$control_log" ;;
+              invalid-accepted) grep -F 'official verdict mismatch: index=5 expected=false observed=true' "$control_log" ;;
+            esac
+          done
       - name: Test
         run: |
           go_root="$(go env GOROOT)"

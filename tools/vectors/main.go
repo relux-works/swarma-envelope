@@ -18,6 +18,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/btcsuite/btcd/btcec/v2"
+	"github.com/btcsuite/btcd/btcec/v2/schnorr"
 	"github.com/relux-works/swarma-registrar/ccj"
 )
 
@@ -27,6 +29,7 @@ type Key struct {
 	Seed []byte
 	Ed   ed25519.PrivateKey
 	EC   *ecdsa.PrivateKey
+	K1   *btcec.PrivateKey
 }
 type Vector struct {
 	ID       string `json:"id"`
@@ -88,6 +91,12 @@ func sigPre(b M, role, key, t string) []byte {
 	return append([]byte(domain(t)+"\n"), canonical(M{"version": "swarm-envelope/2", "body": b, "key": key, "role": role})...)
 }
 func sign(k Key, p []byte) []byte {
+	if k.K1 != nil {
+		h := sha256.Sum256(p)
+		s, e := schnorr.Sign(k.K1, h[:])
+		must(e)
+		return s.Serialize()
+	}
 	if k.Ed != nil {
 		return ed25519.Sign(k.Ed, p)
 	}
@@ -308,7 +317,12 @@ func main() {
 	out := flag.String("out", "vectors", "fixture root")
 	check := flag.Bool("check", false, "regenerate and compare managed bytes and sweep manifest without writing")
 	sweeps := flag.Bool("sweeps", false, "also materialize generated sweep JSON for independent checkers")
+	bip := flag.Bool("bip340", false, "generate/check only the separately checked BIP-340 corpus")
 	flag.Parse()
+	if *bip && *sweeps {
+		fmt.Fprintln(os.Stderr, "bip340 and sweeps are separate corpora")
+		os.Exit(2)
+	}
 	for i := 0; i < 6; i++ {
 		seed := sha256.Sum256([]byte(fmt.Sprintf("waggle public test seed %d", i)))
 		private := ed25519.NewKeyFromSeed(seed[:])
@@ -324,6 +338,10 @@ func main() {
 	registrySeed := sha256.Sum256([]byte("waggle public test registry revocation seed"))
 	registryPrivate := ed25519.NewKeyFromSeed(registrySeed[:])
 	keys = append(keys, Key{ID: "ed25519:" + b64(registryPrivate.Public().(ed25519.PublicKey)), Seed: registrySeed[:], Ed: registryPrivate})
+	if *bip {
+		bip340Vectors(*out, *check)
+		return
+	}
 	// Each negative states its specific claim and names a valid neighboring control.
 	neg("E01", "Duplicate decoded member names refuse before hashing.", "PE1", "envelope_malformed", "envelope", func(v *Vector) {
 		raw := unb64(v.Input["envelope"].(string))

@@ -277,3 +277,17 @@ The supplied protected version selects /1 or /2 without negotiation. Both origin
 Evidence identities are modeled across receipt mint/use, and omitted-root coverage
 runs its own-age check in the same call. Protocol and capacity details are in
 [the platform specification](../../spec/swarm-envelope-2.md).
+
+
+## Separate BIP-340 corpus
+
+`GOMAXPROCS=2 "$CURATOR_GO" run ./tools/vectors -bip340` writes only
+`vectors/bip340/`; `-bip340 -check` compares exactly that inventory, rejects
+unexpected JSON and writes nothing. `-out .temp/bip340` uses caller-owned scratch.
+`-bip340` and `-sweeps` are mutually exclusive; no ordinary invocation adds the
+new profile to the legacy corpus. All BIP-340 fixture signing is PUBLIC TEST-ONLY
+and stays in this tool. The production library verifies only.
+
+Use the [independent Go path](../bip340check/README.md) for all 46 new vectors.
+The unchanged Python checker still owns only its legacy corpus; do not feed
+it the new profile or label this new corpus Python-independent.
