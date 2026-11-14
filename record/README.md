@@ -3,8 +3,10 @@
 `github.com/relux-works/swarma-envelope/record` supplies bounded, duplicate-free parsing,
 registrar CCJ-1 canonicalization, content ids, signed-record preimages, strict
 Ed25519, P-256 and BIP-340 verification, exact registered-domain probes, and message
-signer admission. All crypto is from the Go standard library; public Edwards
-point/subgroup checks explicitly narrow standard Ed25519 verification.
+signer admission. Legacy Ed25519 and P-256 signature equations use the Go standard
+library; strict public Edwards point/subgroup and canonical-encoding checks remain
+local. BIP-340 uses the pinned btcec/v2 v2.3.5 and transitive decred dependency
+path [documented by the BIP-340 checker](../tools/bip340check/README.md).
 
 `AdmitSigner` enforces length, exact domain, canonical payload/depth, then the
 optional or mandatory three-path `IdentityPolicy`. `MultiAgent` always enables
