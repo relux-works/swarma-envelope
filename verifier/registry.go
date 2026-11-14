@@ -64,6 +64,8 @@ func journalPolicy(f facts) (root, owner string) {
 func checkpointSignature(e map[string]any, root, owner string) {
 	b := obj(e["body"])
 	mapped(func() bool {
+		alg, _ := key(root)
+		need(alg != "bip340", "checkpoint_invalid")
 		sigs := array(e["signatures"])
 		need(len(sigs) == 1, "checkpoint_invalid")
 		s := obj(sigs[0])

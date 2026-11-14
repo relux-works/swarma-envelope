@@ -1,0 +1,2 @@
+# Preserve the immutable upstream CSV bytes, including its original CRLF.
+tools/bip340check/testdata/official/test-vectors.csv -text whitespace=cr-at-eol

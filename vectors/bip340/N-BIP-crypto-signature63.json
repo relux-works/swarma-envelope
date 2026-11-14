@@ -1,0 +1,18 @@
+{
+  "id": "N-BIP-crypto-signature63",
+  "claim": "The original key, signature and exact SHA256/preimage/domain contract refuses signature63.",
+  "positive_control": "P-BIP-domain",
+  "mode": "domain",
+  "input": {
+    "key": "bip340:Ux_mBoE0UD0nIxMyJ8hnrI-myDxTfppEw8W9vcsf4zc",
+    "preimage": "c3dhcm1hLW1zZy8yCnsidGV4dCI6Inh4eHh4eHh4In0",
+    "sig": "nCEGRKHwoQPH2NxltWsel-ESNgj-ckbx8r8mbi00hmy8j7IlelZBP-D0PMyVpfGFcPNZnAKF8gTEikTGV4cx"
+  },
+  "fixture": {
+    "expected_tag": "swarma-msg/2"
+  },
+  "expected": {
+    "code": "envelope_signature_invalid",
+    "plan": {}
+  }
+}

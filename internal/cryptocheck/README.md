@@ -12,3 +12,13 @@ Every signature still checks its encoding, R membership, scalar bound and
 standard-library equation. A cached point result says only that the exact point
 is canonical, on curve, nonidentity and prime order. It grants no authorization
 and says nothing about signatures, policy, currentness, revocation or time.
+
+
+BIP-340 dispatch verifies SHA256 of the unchanged full preimage with pinned
+btcec/v2 v2.3.5, verify-only. Its parser reduces s, so original received r<p
+and s<n are enforced first; no low-S rule is imported from P-256. x-only key
+admission uses the dependency's even-y lift and exact32 bytes. This path uses
+no scope cache; a cached Edwards point cannot establish secp256k1 membership.
+TestBIP340OfficialFixed32AndCapability checks all official original32 operands
+and explicitly reports the four official valid arbitrary-message capability
+limits. TestBIP340OriginalScalarBounds separately checks the parser boundary.

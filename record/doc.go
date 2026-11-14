@@ -1,5 +1,5 @@
 // Package record implements platform slice v0 byte encoding, domain separation,
-// strict Ed25519/P-256 signature verification and message-provider admission.
+// strict Ed25519/P-256/BIP-340 signature verification and message-provider admission.
 // Canonicalization and duplicate-free parsing use the pinned registrar CCJ-1.
 // Generic signature validity confers no profile, identity, grant or effect
 // authority; use package verifier for receiver and authorization pipelines.

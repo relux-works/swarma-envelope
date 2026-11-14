@@ -1,6 +1,9 @@
 # Platform signed records, slice v0
 
 Status: proposed normative contract; no production verifier or consumer activation.
+
+Revision 2026-11-14: additive BIP-340 agent-author profile (§§2.3–2.6).
+The signed version remains `swarm-envelope/2`; no tags or authority formats change.
 MUST, MUST NOT, SHOULD and MAY are requirement words. All byte counts refer to
 UTF-8 bytes, not characters. Refusal codes in §6 are stable within this draft.
 
@@ -72,7 +75,7 @@ are reserved and MUST refuse. A role never confers authority by itself. Required
 roles and admitted keys come from the caller's protected policy. Grants require
 exactly one `author` signature by `issuer`; operator acts exactly one `approver`
 from a device attested by the pinned operator root. A message requires `author` by its `author`
-Ed25519 agent key; optional `approver` signatures MUST use root-attested P-256
+Ed25519 or BIP-340 agent key; optional `approver` signatures MUST use root-attested P-256
 operator device keys. Extra signatures require caller policy and MUST all verify. Device trust comes
 from the operator root and signed attestation, not a second device-key pin list.
 The accepted algorithm/role/type matrix in §2.4 is exhaustive. Recognizing a
@@ -196,6 +199,29 @@ curves/algorithms and algorithm inference MUST refuse. No SSHSIG or FIDO wrapper
 is admitted. User presence is a signer-provider enrollment requirement, not an
 invented ECDSA flag. Unsupported presence evidence MUST fail closed.
 
+`bip340:` key ids contain exactly 32 x-only secp256k1 public bytes,
+encoded with the same canonical unpadded base64url rule. Require x < p and
+BIP-340 `lift_x` success; `lift_x` chooses even y. There is no public-key
+parity bit: the same valid x from an odd-y full point remains valid. Every
+33/65-byte or other wrong-length encoding refuses. Signatures are 64-byte
+big-endian r || s over **SHA-256(the unchanged complete signing_preimage)**.
+Before any reducing parser, require the ORIGINAL received r < p and s < n.
+Apply BIP-340 verification, including its internal `BIP0340/challenge` tagged
+hash, finite R, even R.y and R.x = r. BIP-340 has **no low-S rule**: valid
+n/2 < s < n MUST remain accepted. This is neither secp256k1 ECDSA nor DER.
+Raw-preimage signing, double hashing and an alternative outer tagged hash
+are different constructions and MUST NOT verify as this envelope profile.
+
+The pinned implementation is btcec/v2 v2.3.5, used for verification only.
+It accepts fixed32 messages; the envelope always supplies the required
+SHA-256 digest. Public BIP-340 itself admits arbitrary message lengths.
+Official valid variable-length vectors MUST retain their original expected
+results; the production dependency's unsupported domain is not invalid
+BIP-340. An independent test-only stdlib/math/big oracle checks the entire
+pinned official corpus. Production qualification covers the official
+original32 subset and the independently checked envelope corpus, with explicit
+capability observations for the four official variable-length vectors.
+
 ### 2.4 Exact domain registry and key profiles
 
 A tag is 1–96 bytes, each in ASCII 0x20–0x7e inclusive. LF (0x0a), CR (0x0d),
@@ -241,15 +267,23 @@ The accepted signature profiles are exhaustive:
 
 | Expected type | Signature role | Key class / algorithm | Required provenance |
 | --- | --- | --- | --- |
-| message/1 | author | Agent / Ed25519 | Verified root-signed attestation/1 and current generation binding (§2.6); key equals body.author and exact verified attestation id equals body.author_attestation |
+| message/1 | author | Agent / Ed25519 or BIP-340 | Verified root-signed attestation/1 and current generation binding (§2.6); key equals body.author and exact verified attestation id equals body.author_attestation |
 | message/1 | approver, optional or caller-required | Operator device / P-256 low-S | Pinned operator root, verified operator-device attestation, current revocation and caller policy |
 | grant/1 | author, exactly one | Grant authority / Ed25519 or P-256 low-S | Pinned owner root, parent-authorized operator device, or parent-authorized service key with §2.6 provenance; agent keys are subjects/leaves only |
 | operator-act/1 | approver, exactly one | Operator device / P-256 low-S | Pinned operator root, verified operator-device attestation and §4 act checks |
 
-An operator **device** key MUST be P-256; an agent key MUST be Ed25519. A pinned
+An operator **device** key MUST be P-256; an ordinary purpose-5 agent key MUST be Ed25519 or BIP-340. The separate
+Mac agent P-256 addendum remains unchanged. A pinned
 grant root is a separate authority key and need not be an operator device.
-All other combinations MUST refuse `signature_profile_invalid`: in particular
-P-256 agent authors, Ed25519 operator acts and agent approvers/delegates. The
+All other envelope signing combinations MUST refuse `signature_profile_invalid`
+at E6 after earlier admission gates: in particular
+P-256 agent authors outside the Mac addendum, Ed25519 operator acts and agent
+approvers/delegates. BIP-340 is admitted ONLY as a `message/1` author and
+`agent` / `swarma-msg` attestation subject. It MUST NOT become an approver,
+device, root, grant author/service, revocation publisher, registry/journal/
+freshness signer or owner-act signer. Ordered existing pipeline errors apply;
+malformed wire keys may refuse before profile admission. Raw `record` crypto
+APIs check mathematics/domain separation and do not admit any of these roles. The
 `delegate` role is reserved without an admitted v0 profile. An optional message
 approver is a signature on content, not a replacement operator act or an A3
 claim. Grant authority still requires the complete chain; key class is no grant.
@@ -281,7 +315,9 @@ The signer-provider interface is:
 SignMessage(full_preimage_bytes) -> {key_id, raw_signature_64_bytes} | refusal
 ```
 
-The provider's key resolved for each caller is Ed25519. It MUST check, in order:
+The provider's key resolved for each caller is the caller's attested Ed25519
+or BIP-340 agent key. The provider chooses the algorithm from that protected
+resolution, never from request-controlled selectors. It MUST check, in order:
 
 1. Full preimage length <=24,576 bytes, before allocation/signing.
 2. A first LF exists; bytes before it satisfy the tag alphabet/length in §2.4.
@@ -292,7 +328,7 @@ The provider's key resolved for each caller is Ed25519. It MUST check, in order:
 
 A provider MAY additionally enforce caller identity. This check is REQUIRED
 for a provider that holds keys for several agents; it cannot be disabled by a
-caller option. After steps 1–4 it resolves the attested Ed25519 key id for the
+caller option. After steps 1–4 it resolves the attested Ed25519 or BIP-340 key id for the
 calling OS identity and its active generation, using the signing service's
 existing identity/attestation mechanism and §2.6's key-id derivation. It also
 resolves the exact content id of that caller's current, fully verified attestation. This is
@@ -330,8 +366,9 @@ both contracts. PI1–PI5, I01–I21 and I-attestation-* exercise the additional
 It MUST sign the original complete bytes, without changing whitespace, adding a
 newline, reconstructing an envelope or deciding action, role, type, audience,
 grants or operator authority. Codec parsing and the conditional identity paths
-above are the only record inspection. The signature is ordinary Ed25519, not a signature on
-the content id or a second hash. The key id MUST be derived from the bound public
+above are the only record inspection. Ed25519 signs the original preimage directly; BIP-340 signs exactly its
+SHA-256 digest under §2.3, preserving the original domain and CCJ bytes.
+Neither signs the content id or an alternative outer hash. The key id MUST be derived from the bound public
 key by §2.3 and returned with the raw signature. Refusal releases no signature.
 Existing caller/kernel identity checks remain the signing service's boundary;
 the rules here add no caller-controlled key selector or native method grammar.
@@ -444,7 +481,7 @@ An attestation body has exactly these required members:
 | Member | Constraint |
 | --- | --- |
 | `type`, `issuer` | Exactly `attestation/1`, pinned issuing root key id. |
-| `subject` | Exactly `{algorithm,key_id,public_bytes}`; algorithm is `Ed25519` or `P-256`; canonical unpadded base64url raw public bytes. `key_id` MUST equal `ed25519:` + encoding of the 32 bytes, or `p256:` + encoding of the 33 compressed SEC1 bytes. Strict §2.3 point checks apply. |
+| `subject` | Exactly `{algorithm,key_id,public_bytes}`; algorithm is `Ed25519`, `P-256` or `BIP-340`; canonical unpadded base64url raw public bytes. `key_id` MUST equal `ed25519:` + encoding of the 32 bytes, or `p256:` + encoding of the 33 compressed SEC1 bytes, or `bip340:` + encoding of the 32 x-only bytes. BIP-340 is ONLY an agent/swarma-msg subject, with the same purpose-5 root and ordinary six-field agent binding. Strict §2.3 point checks apply. |
 | `key_class`, `purpose` | Agent: exactly `agent`, `swarma-msg`. Operator device: both exactly `operator-device`. Service: `service`, `grant-service`. |
 | `roles`, `actions` | Sorted unique closed lists. Agent: `["author"]`, `["message.sign"]`. Operator device: `["act","approver"]`, `["act.sign","grant.sign","message.approve"]`. Service: `["author"]`, `["grant.sign"]`. These limit the identity/signing profile; they grant no concrete action/target authority. |
 | `iat`, `exp` | Exact timestamps; start-inclusive/end-exclusive under min/max time. Positive interval. Agent and service windows MUST be <=86,400 seconds, checked by both issuer and verifier. Device expiry is required, bounded further by protected policy. |
@@ -1408,7 +1445,7 @@ no grant is admitted to that implementation by this document.
 | Area | Broker §§6–8 proposal | This slice / required adapter treatment |
 | --- | --- | --- |
 | Canonicalization, id | CCJ-1, domain + LF + body, sha256 id | Same byte algorithm; new domain `swarma-waggle grant/1` produces new ids. |
-| Container/signature | `{body,id,sig}`; issuer Ed25519 over id preimage | Adds version, signatures array and signed record binding role/key/version/body (§2.2); re-sign, never relabel. Adds P-256 low-S for authority keys; agent keys remain Ed25519. |
+| Container/signature | `{body,id,sig}`; issuer Ed25519 over id preimage | Adds version, signatures array and signed record binding role/key/version/body (§2.2); re-sign, never relabel. Adds P-256 low-S for authority keys; ordinary agent keys admit Ed25519 or the additive BIP-340 profile. |
 | Common fields | type in body; no aud/nonce/iat/exp | Adds all four; iat/exp equal grant interval. Adapter MUST supply explicit bounded values. |
 | Subject | key or generation-bound `agent:` leaf | Keys only; agent keys need root-signed attestation/1 and current generation (§2.6). No silent UID/generation conversion. Generation binding in broker records still needs a separately versioned consumer adapter. |
 | Actions | `credential.lease`, `agent.spawn` | Adds `message.deliver`; broker adapter MUST refuse it. |
@@ -2170,3 +2207,28 @@ integration obligations; offline vectors qualify only the pure admission plan.
 An unavailable witness means every admission requiring current freshness
 refuses. This fail-closed operational consequence applies to both the normal
 and re-anchor paths, including during witness outages.
+
+## BIP-340 revision and provider boundary (2026-11-14)
+
+This additive revision changes only ordinary agent key math/profile admission;
+existing Ed25519, P-256 and Mac profiles, tags, limits, canonical construction,
+refusal order and legacy vectors remain unchanged. The purpose-5 root-signed
+attestation, exact subject/author key, exact author_attestation content id,
+protected current generation, time, revocation and audience/delivered-body
+binding are all still mandatory. A grant alone never supplies provenance and
+mathematical verification never supplies grant authority.
+
+An enforcing agent provider must use the agent's grant-named key through its
+key holder for **each sent message**. The protected agent gate replaces human
+presence for an agent key; human authority keys retain per-signature presence
+for rare authority acts. Human messaging uses that human's agent. This format
+is custody-neutral: it neither chooses a key-holder service nor implements or
+qualifies an enforcing provider. Protected caller key/attestation identity
+narrowing remains required for multi-agent providers. Deployment, custody,
+per-message enforcement and consumer grant checks require their own evidence.
+
+Older verifier compatibility is fail-closed, with an observed rather than
+assumed code: base `e38510c503d266d36a275a5976f933e10fae4060` returns
+`envelope_malformed` and an empty plan for the new `P-BIP-author` fixture,
+because its wire-key grammar rejects the prefix before E6. This witness does
+not assert that every older implementation returns that exact code.

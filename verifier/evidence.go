@@ -12,6 +12,10 @@ func distinct(f facts) {
 	seen := map[string]bool{}
 	for _, p := range pins {
 		if s, ok := p.(string); ok {
+			// Recognizing public BIP-340 math never admits a protected root role.
+			if alg, _, err := record.KeyBytes(s); err == nil {
+				need(alg != "bip340", "key_binding_invalid")
+			}
 			need(!seen[s], "key_binding_invalid")
 			seen[s] = true
 		}
@@ -42,7 +46,8 @@ func signed(f facts, v any, kind string, root any) map[string]any {
 	need(ok && len(sigs) == 1, "key_binding_invalid")
 	sig := evidenceExact(sigs[0], "role key sig")
 	mapped(func() bool {
-		key(root)
+		alg, _ := key(root)
+		need(alg != "bip340", "key_binding_invalid")
 		key(b["issuer"])
 		key(sig["key"])
 		hashID(e["id"])
@@ -268,7 +273,7 @@ func attestation(keyID, reference string, device, revocations, message bool, f f
 			need(equal(binding[k], c[k]), "key_binding_invalid")
 		}
 	} else {
-		need(alg == "ed25519" && s["algorithm"] == "Ed25519" && b["key_class"] == "agent" && b["purpose"] == "swarma-msg" && equal(b["roles"], []any{"author"}) && equal(b["actions"], []any{"message.sign"}), "key_binding_invalid")
+		need((alg == "ed25519" && s["algorithm"] == "Ed25519" || alg == "bip340" && s["algorithm"] == "BIP-340") && b["key_class"] == "agent" && b["purpose"] == "swarma-msg" && equal(b["roles"], []any{"author"}) && equal(b["actions"], []any{"message.sign"}), "key_binding_invalid")
 		active := evidence(f["active_generations"], "")
 		v, ok := active[keyID]
 		need(ok, "key_binding_unavailable")
@@ -426,7 +431,7 @@ func fullMXID(v any) bool {
 func grantRoot(f facts) string {
 	v := f["root"]
 	need(v != nil, "key_binding_unavailable")
-	mapped(func() bool { key(v); return true }, "*", "key_binding_invalid")
+	mapped(func() bool { alg, _ := key(v); need(alg != "bip340", "key_binding_invalid"); return true }, "*", "key_binding_invalid")
 	return str(v)
 }
 

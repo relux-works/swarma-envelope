@@ -61,7 +61,7 @@ func envelope(raw []byte, kind string, f facts) map[string]any {
 			need(ok && includes(known, k) && s["key"] == b["author"], "signer_unknown")
 		}
 		alg, _ := key(k)
-		allowed := kind == "message/1" && (r == "author" && (alg == "ed25519" || alg == "p256" && macAuthor(b, f)) || r == "approver" && alg == "p256") || kind == "operator-act/1" && r == "approver" && alg == "p256" || kind == "grant/1" && r == "author" && (alg == "ed25519" || alg == "p256")
+		allowed := kind == "message/1" && (r == "author" && (alg == "ed25519" || alg == "bip340" || alg == "p256" && macAuthor(b, f)) || r == "approver" && alg == "p256") || kind == "operator-act/1" && r == "approver" && alg == "p256" || kind == "grant/1" && r == "author" && (alg == "ed25519" || alg == "p256")
 		service := obj(f["service_root"])
 		need(service == nil || service["key"] != k, "signature_profile_invalid")
 		need(allowed && !excludedSigner(k, kind, f), "signature_profile_invalid")

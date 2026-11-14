@@ -1,0 +1,18 @@
+{
+  "id": "N-BIP-crypto-ed-under-bip",
+  "claim": "The original key, signature and exact SHA256/preimage/domain contract refuses ed-under-bip.",
+  "positive_control": "P-BIP-domain",
+  "mode": "domain",
+  "input": {
+    "key": "bip340:Ux_mBoE0UD0nIxMyJ8hnrI-myDxTfppEw8W9vcsf4zc",
+    "preimage": "c3dhcm1hLW1zZy8yCnsidGV4dCI6Inh4eHh4eHh4In0",
+    "sig": "RoMMktQgnvEK2O6Lo43qFnAsx7NCQniHuV32VrmK_Jke_8EPtkfHoK3EBDdLLpGPkN23o3hooP1rWRsHf5oHBg"
+  },
+  "fixture": {
+    "expected_tag": "swarma-msg/2"
+  },
+  "expected": {
+    "code": "envelope_signature_invalid",
+    "plan": {}
+  }
+}

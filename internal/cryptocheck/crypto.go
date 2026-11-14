@@ -8,6 +8,9 @@ import (
 	"crypto/elliptic"
 	"crypto/sha256"
 	"math/big"
+
+	"github.com/btcsuite/btcd/btcec/v2"
+	"github.com/btcsuite/btcd/btcec/v2/schnorr"
 )
 
 // Scope belongs to exactly one synchronous verifier operation. Only successful
@@ -43,11 +46,18 @@ func ValidateKey(alg string, b []byte, scope *Scope) string {
 		if !scope.point(b) {
 			return "envelope_signature_invalid"
 		}
-	} else {
+	} else if alg == "bip340" {
+		if _, err := schnorr.ParsePubKey(b); err != nil {
+			return "envelope_signature_invalid"
+		}
+	} else if alg == "p256" {
 		x, y := elliptic.UnmarshalCompressed(elliptic.P256(), b)
 		if x == nil || y == nil {
 			return "envelope_signature_invalid"
 		}
+	}
+	if alg != "ed25519" && alg != "p256" && alg != "bip340" {
+		return "envelope_signature_invalid"
 	}
 	return ""
 
@@ -61,6 +71,13 @@ func VerifySignature(alg string, pub, sig, preimage []byte, scope *Scope) string
 			return "envelope_signature_invalid"
 		}
 		return ""
+	}
+	if alg == "bip340" {
+		h := sha256.Sum256(preimage)
+		return verifyBIP340(pub, sig, h[:])
+	}
+	if alg != "p256" {
+		return "envelope_signature_invalid"
 	}
 	x, y := elliptic.UnmarshalCompressed(elliptic.P256(), pub)
 	if x == nil || y == nil {
@@ -81,6 +98,40 @@ func VerifySignature(alg string, pub, sig, preimage []byte, scope *Scope) string
 	return ""
 
 }
+
+// verifyBIP340 accepts only a fixed32 message, never an envelope preimage.
+func verifyBIP340(pub, sig, message []byte) string {
+	if len(sig) != 64 || len(message) != 32 {
+		return "envelope_signature_invalid"
+	}
+	// The pinned parser reduces s modulo n. Admit the ORIGINAL received r/s
+	// before parsing; BIP-340 deliberately has no P-256 low-S restriction.
+	if !bip340ScalarBounds(sig) {
+		return "envelope_signature_invalid"
+	}
+	key, err := schnorr.ParsePubKey(pub)
+	if err != nil {
+		return "envelope_signature_invalid"
+	}
+	signature, err := schnorr.ParseSignature(sig)
+	if err != nil {
+		return "envelope_signature_invalid"
+	}
+	if !signature.Verify(message, key) {
+		return "envelope_signature_invalid"
+	}
+	return ""
+}
+
+// A strict original-byte admission predicate, before a reducing parser.
+func bip340ScalarBounds(sig []byte) bool {
+	if len(sig) != 64 {
+		return false
+	}
+	params := btcec.S256().Params()
+	return new(big.Int).SetBytes(sig[:32]).Cmp(params.P) < 0 && new(big.Int).SetBytes(sig[32:]).Cmp(params.N) < 0
+}
+
 func little(b []byte) *big.Int {
 	r := make([]byte, len(b))
 	for i := range b {
